@@ -12,7 +12,7 @@
   },
   "include": [
     "lib/ai/resolve-location.ts",
+    "lib/ai/openai-location-contract.ts",
     "lib/ai/resolve-location.test.ts"
   ]
 }
-
