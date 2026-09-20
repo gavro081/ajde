@@ -8,14 +8,14 @@ The most distinctive workflow turns an informal Macedonian, mixed-script, or Alb
 into a structured **draft**. The driver reviews and edits every extracted field before anything can
 be saved or published.
 
-> This repository is under active hackathon development. Identity/profile, ride creation, and the
-> AI-import slice are implemented; discovery, booking, and production authorization are incomplete.
+> This repository is under active hackathon development. The complete Tier 1 journey—from student
+> sign-in through discovery, booking approval, and confirmed contact exchange—is implemented.
 
 ## Feature status
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Database schema and seed catalog | Implemented | Core tables, seat-count triggers, 10 cities, Skopje pickup points, and common car models |
+| Database schema and seed catalog | Implemented | Core tables, seat-count triggers, 10 cities, pickup points, 50 car models, 25 demo profiles, and 50 future rides |
 | Manual ride creation | Implemented | Route, pickup points, time, seats, car, price, notes, tags, and gender preference |
 | Car catalog and manual cars | Implemented | Catalog selection prefills fuel/consumption; overrides create a driver-owned snapshot |
 | Fuel-price and CO2 estimate | Implemented | Petrol/diesel arithmetic using server-configured fuel prices; suggestion remains editable |
@@ -23,7 +23,8 @@ be saved or published.
 | Authentication and onboarding | Implemented | Student-domain magic links, guarded local bypass, callback, profile completion, photo upload, and server-side route protection |
 | Public profiles | Implemented | Deliberately limited projection excludes phone and social contact fields |
 | Location normalization | Implemented | Deterministic name/alias matching first, structured model fallback on misses, and canonical-ID validation |
-| Feed, ride detail, and bookings | Planned | No browse, request, approve/decline, or passenger dashboard UI yet |
+| Feed and ride detail | Implemented | Authenticated route/date/seat filters, ride cards, seat fullness, driver/car context, and responsive detail pages |
+| Booking lifecycle | Implemented | Request, approve, decline, cancel, concurrency-safe seat holding, driver dashboard, passenger dashboard, and post-approval contact reveal |
 | Natural-language search and sharing | Planned | Search, match explanations, and public trip links are not implemented |
 | Production authorization | Planned | Row-level security policies are intentionally deferred and must be added before deployment |
 
@@ -71,7 +72,6 @@ More detail:
 
 - [Database model](ride-share-app/supabase/DATABASE_MODELS.md)
 - [Parser fixture evaluation](ride-share-app/fixtures/posts/README.md)
-- [Release-readiness audit](docs/release-readiness-audit.md)
 
 ## Local setup
 
@@ -189,8 +189,9 @@ npx tsc --noEmit
 npx next build --webpack
 ```
 
-The current suite contains 48 focused tests covering location resolution, ride-draft validation,
-form parsing, car selection, price/CO2 calculations, canonical parser guards, and fixture behavior.
+The current suite contains 54 focused tests covering location resolution, ride-draft validation,
+form parsing, car selection, price/CO2 calculations, feed filters, booking eligibility, canonical
+parser guards, and fixture behavior.
 Run only the 13 location-resolver tests with `npm run test:locations`.
 
 The live parser evaluator makes real OpenAI requests:
@@ -205,19 +206,16 @@ on five curated fixtures; that is a regression signal, not a production-accuracy
 
 ## Current implemented flow
 
-The implemented slice is:
+The implemented Tier 1 flow is:
 
 1. Sign in with an allowed student-domain address and complete the required profile onboarding.
-2. Open `/rides/import` and paste a Viber, Facebook, or other group post.
-3. The server loads canonical cities/pickup points and asks OpenAI for schema-constrained output.
-4. Review classification, route IDs, departure, seats, price, confidence, and warnings.
-5. Continue to `/rides/new?import=<id>`.
-6. Correct or complete the draft, choose a car, review the cost estimate, and explicitly save or
-   publish the ride.
-
-The larger judge-demo flow then calls for browsing/searching, requesting a seat, driver approval,
-contact reveal, and a public share link. Those later stages are planned but are not implemented in
-the current repository.
+2. Browse `/rides`, filter by route, date, and required seats, then open a ride detail page.
+3. Request one or more available seats. The passenger sees a pending request in `/dashboard/trips`.
+4. The driver accepts or declines from `/dashboard/driver`; accepted seats are held atomically.
+5. Accepted drivers and passengers can see each other's contact details. A passenger cancellation
+   releases the seats and reopens a full ride automatically.
+6. Drivers can create a ride manually, or paste a Viber/Facebook post into `/rides/import`, review
+   the structured draft, choose a car, check the estimate, and explicitly publish it.
 
 ## How AI is used
 
@@ -260,22 +258,25 @@ Implemented protections:
 - Storage policies restrict profile-photo writes to the authenticated user's UUID folder.
 - Public profile queries select only name, photo, university, bio, and gender—not contact fields.
 - Ride creation and post parsing check the Supabase session on the server.
+- Every booking mutation rechecks authentication, ownership, current state, departure time, and
+  capacity; the database trigger is the final concurrency guard against overbooking.
+- Applicants and public feed users never receive contact fields. Contacts are queried and shown
+  only for accepted bookings to the participating driver and passenger.
 - Imported records and saved cars are checked against the authenticated user's ID.
 - Form input is validated in the UI contract and again in the Server Action.
 - Duplicate submissions are detected through a submission UUID.
 - Imported model output always goes through human review.
 - Public Supabase keys are separated from server-only secrets.
 
-The product plan also calls for driver approval, private contact reveal after acceptance, enforced
-same-gender ride filtering, trip-share links, reports, and a record of confirmed passengers. Some
-supporting columns already exist, but the end-to-end enforcement and UI for these promises are not
-complete and should not yet be presented as production safety guarantees.
+The product plan's later tiers still call for a feed-level same-gender filter, trip-share links,
+reports, comments, and chat. Supporting columns exist for several of these, but they are outside
+the completed Tier 1 scope.
 
 ## Known issues and limitations
 
 - Row-level security policies are absent. Do not deploy the current database as a production system.
-- Feed, filters, ride details, bookings, dashboards, comments, chat, ratings, and trip sharing are
-  not implemented.
+- Natural-language search, comments, chat, ratings, public trip sharing, and feed-level
+  same-gender filtering are not implemented because they belong to later tiers.
 - The local auth bypass requires a server admin key; it is guarded from production but should remain
   disabled during normal testing.
 - Parser accuracy has only been measured on five curated fixtures and model output can vary.
@@ -292,14 +293,12 @@ complete and should not yet be presented as production safety guarantees.
 ```text
 .
 ├── PLAN.md                         product scope, schedule, and rubric mapping
-├── 20-09-gavro-part-2.md          current documentation/release-readiness track
-├── archived-plans/                completed implementation plans
-├── docs/                           audit and release documentation
 └── ride-share-app/
     ├── app/                        Next.js routes, Server Actions, and Route Handlers
     ├── fixtures/posts/             anonymized parser fixtures and evaluation notes
     ├── lib/ai/                     structured post parser and canonical location resolution
     ├── lib/auth/                   domain policy and session/profile-completion guards
+    ├── lib/bookings/               booking input and eligibility validation
     ├── lib/profiles/               deliberately limited public-profile query
     ├── lib/rides/                  ride contracts, form validation, car and estimate logic
     ├── lib/supabase/               browser/server clients and generated database types
