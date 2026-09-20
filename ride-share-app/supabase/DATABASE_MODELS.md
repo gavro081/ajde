@@ -61,6 +61,8 @@ Canonical pickup/drop-off landmarks within a `city_id`, with Macedonian and Engl
 key `(id, city_id)` lets rides enforce that a selected pickup point belongs to the selected city.
 The initial seed contains Skopje landmarks only: Mavrovka, Skopje City Mall, Porta Vlae,
 Avtokomanda, Ramstore Mall, Transport Centre, and East Gate Mall.
+Transport Centre aliases also cover the reusable “главна станица” / “main station” phrasing
+verified during location-resolver tuning.
 
 ### `car_models`
 
