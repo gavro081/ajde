@@ -47,11 +47,11 @@ date, or price values are blocked before/at persistence.
 
 ### 3. Car picker and editable consumption (~30 min)
 
-- [ ] Query the seeded `car_models` catalog with make/model search.
-- [ ] Selecting a model prefills fuel type and `consumption_l_100km`.
-- [ ] Allow the driver to override consumption and save a `cars` snapshot without mutating the
+- [x] Query the seeded `car_models` catalog with make/model search.
+- [x] Selecting a model prefills fuel type and `consumption_l_100km`.
+- [x] Allow the driver to override consumption and save a `cars` snapshot without mutating the
       catalog row.
-- [ ] Allow a manual car entry if the exact model is absent.
+- [x] Allow a manual car entry if the exact model is absent.
 
 Acceptance check: selecting a catalog car prefills the form, an override survives save, and the
 catalog data remains unchanged.

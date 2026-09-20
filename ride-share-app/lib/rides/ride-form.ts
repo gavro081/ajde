@@ -18,7 +18,7 @@ function nullableNumber(value: FormDataEntryValue | null) {
   return Number(normalized);
 }
 
-export function readRideDraftFromFormData(formData: FormData) {
+export function readRideDraftFromFormData(formData: FormData, carIdOverride?: string) {
   return {
     source: formData.get("source"),
     importId: nullableString(formData.get("importId")),
@@ -34,8 +34,17 @@ export function readRideDraftFromFormData(formData: FormData) {
     },
     departureAt: nullableString(formData.get("departureAt")),
     seatsTotal: nullableNumber(formData.get("seatsTotal")),
-    carId: nullableString(formData.get("carId")),
-    car: null,
+    carId: carIdOverride ?? nullableString(formData.get("carId")),
+    car: {
+      carModelId: nullableNumber(formData.get("carModelId")),
+      make: nullableString(formData.get("carMake")),
+      model: nullableString(formData.get("carModel")),
+      fuelType: nullableString(formData.get("fuelType")),
+      consumptionL100Km: nullableNumber(formData.get("consumptionL100Km")),
+      color: nullableString(formData.get("carColor")),
+      plateLast3: nullableString(formData.get("plateLast3")),
+      seatsTotal: nullableNumber(formData.get("carSeatsTotal")),
+    },
     pricePerSeatMkd: nullableNumber(formData.get("pricePerSeatMkd")),
     notes: nullableString(formData.get("notes")),
     tags: formData.getAll("tags"),
@@ -46,7 +55,11 @@ export function readRideDraftFromFormData(formData: FormData) {
   };
 }
 
-export function validateRideSubmission(formData: FormData, now = new Date()) {
+export function validateRideSubmission(
+  formData: FormData,
+  now = new Date(),
+  carIdOverride?: string,
+) {
   const metadata = z
     .object({
       intent: rideSubmissionIntentSchema,
@@ -58,7 +71,7 @@ export function validateRideSubmission(formData: FormData, now = new Date()) {
     });
 
   const draft = createPublishableRideDraftSchema({ now }).safeParse(
-    readRideDraftFromFormData(formData),
+    readRideDraftFromFormData(formData, carIdOverride),
   );
 
   return { draft, metadata };
