@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { parseRidePost, RideParserError } from "@/lib/ai/parse-ride-post";
-import { anonymousRideTestingEnabled } from "@/lib/rides/anonymous-test-mode";
 import { createClient } from "@/lib/supabase/server";
 
 const requestSchema = z.object({
@@ -15,7 +14,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !anonymousRideTestingEnabled()) {
+  if (!user) {
     return Response.json({ error: "Sign in before importing a ride." }, { status: 401 });
   }
 
@@ -91,7 +90,7 @@ export async function POST(request: Request) {
       source_hint: input.data.sourceHint,
       parsed_json: parsed,
       confidence: parsed.draft.confidence,
-      created_by: user?.id ?? null,
+      created_by: user.id,
     })
     .select("id")
     .single();
