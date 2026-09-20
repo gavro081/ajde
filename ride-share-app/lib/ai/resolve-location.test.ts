@@ -40,6 +40,13 @@ const candidates: LocationCandidate[] = [
     nameEn: 'Avtokomanda',
     aliases: ['автокоманда', 'avtokomanda', 'autokomanda'],
   },
+  {
+    kind: 'pickup_point',
+    id: 14,
+    nameMk: 'Транспортен центар',
+    nameEn: 'Transport Centre',
+    aliases: ['автобуска', 'железничка', 'главна станица', 'main station'],
+  },
 ]
 
 for (const [input, expectedId] of [
@@ -48,6 +55,7 @@ for (const [input, expectedId] of [
   ['кај Мавровка', 11],
   ['од Рамстор', 12],
   ['на Автокоманда', 13],
+  ['кај главна станица', 14],
 ] as const) {
   test(`resolves ${input} deterministically`, async () => {
     const result = await resolveLocation(input, candidates)
@@ -102,7 +110,7 @@ test('builds a strict structured-output request from only canonical candidates',
   assert.equal(request.store, false)
   assert.equal(request.text.format.type, 'json_schema')
   assert.equal(request.text.format.strict, true)
-  assert.deepEqual(input.candidates.map((candidate: { id: number }) => candidate.id), [6, 11, 12, 13])
+  assert.deepEqual(input.candidates.map((candidate: { id: number }) => candidate.id), [6, 11, 12, 13, 14])
 })
 
 test('parses a valid Responses API structured result', () => {

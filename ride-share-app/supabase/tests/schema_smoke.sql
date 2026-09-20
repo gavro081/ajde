@@ -47,6 +47,17 @@ begin
       seeded_pickup_count,
       pickup_outside_skopje_count;
   end if;
+
+  if not exists (
+    select 1
+    from public.pickup_points pp
+    join public.cities c on c.id = pp.city_id
+    where c.name_mk = 'Скопје'
+      and pp.name_mk = 'Транспортен центар'
+      and 'главна станица' = any(pp.aliases)
+  ) then
+    raise exception 'Expected the tuned Transport Centre station alias';
+  end if;
 end;
 $$;
 
