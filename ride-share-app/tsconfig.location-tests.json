@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "incremental": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": ".test-dist",
+    "rootDir": "lib/ai",
+    "target": "ES2022"
+  },
+  "include": [
+    "lib/ai/resolve-location.ts",
+    "lib/ai/resolve-location.test.ts"
+  ]
+}
+
