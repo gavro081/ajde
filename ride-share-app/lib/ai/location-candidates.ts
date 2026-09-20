@@ -2,6 +2,7 @@ import 'server-only'
 
 import { createClient } from '@/lib/supabase/server'
 
+import { createOpenAILocationFallback } from './openai-location-fallback'
 import {
   resolveLocation,
   type LocationCandidate,
@@ -48,6 +49,9 @@ export async function resolveCanonicalLocation(
   modelFallback?: LocationModelFallback,
 ): Promise<LocationResolution> {
   const candidates = await loadLocationCandidates()
-  return resolveLocation(raw, candidates, modelFallback)
+  return resolveLocation(
+    raw,
+    candidates,
+    modelFallback ?? createOpenAILocationFallback(),
+  )
 }
-

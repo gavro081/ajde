@@ -2,6 +2,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  buildLocationResponseRequest,
+  parseLocationResponse,
+} from './openai-location-contract'
+import {
   normalizeLocation,
   resolveLocation,
   type LocationCandidate,
@@ -90,3 +94,39 @@ test('rejects a model choice that is not in the candidate vocabulary', async () 
   assert.equal(result.resolution, 'unresolved')
 })
 
+test('builds a strict structured-output request from only canonical candidates', () => {
+  const request = buildLocationResponseRequest('кај железничка', candidates, 'test-model')
+  const input = JSON.parse(request.input)
+
+  assert.equal(request.model, 'test-model')
+  assert.equal(request.store, false)
+  assert.equal(request.text.format.type, 'json_schema')
+  assert.equal(request.text.format.strict, true)
+  assert.deepEqual(input.candidates.map((candidate: { id: number }) => candidate.id), [6, 11, 12, 13])
+})
+
+test('parses a valid Responses API structured result', () => {
+  const choice = parseLocationResponse({
+    output: [{
+      type: 'message',
+      content: [{
+        type: 'output_text',
+        text: JSON.stringify({
+          matched: true,
+          kind: 'city',
+          candidate_id: 6,
+          confidence: 0.84,
+        }),
+      }],
+    }],
+  })
+
+  assert.deepEqual(choice, { kind: 'city', candidateId: 6, confidence: 0.84 })
+})
+
+test('treats refusals and malformed model payloads as unresolved', () => {
+  assert.equal(parseLocationResponse({ output: [] }), null)
+  assert.equal(parseLocationResponse({
+    output: [{ content: [{ type: 'output_text', text: '{not json}' }] }],
+  }), null)
+})
