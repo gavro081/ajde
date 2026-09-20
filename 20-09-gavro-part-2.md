@@ -34,22 +34,22 @@ script, file, or configuration requirement in the repository.
 
 ## Phase 2 — final README content (~60 min)
 
-- [ ] Explain the product in one sentence and identify the primary student/commuter use case.
-- [ ] Add a concise feature-status section that distinguishes complete, partial, and planned work.
-- [ ] Add reproducible local setup instructions from clone through first successful page load.
-- [ ] Add an architecture diagram showing Next.js, Supabase Auth/Postgres/Storage, the OpenAI parser,
+- [x] Explain the product in one sentence and identify the primary student/commuter use case.
+- [x] Add a concise feature-status section that distinguishes complete, partial, and planned work.
+- [x] Add reproducible local setup instructions from clone through first successful page load.
+- [x] Add an architecture diagram showing Next.js, Supabase Auth/Postgres/Storage, the OpenAI parser,
       and the review-before-publish boundary.
-- [ ] Document the main demo flow: import a post, review the structured result, complete the ride,
+- [x] Document the main demo flow: import a post, review the structured result, complete the ride,
       browse/search, request a seat, approve it, and expose contacts only after acceptance.
-- [ ] Add an honest AI-usage section. Explain structured extraction, mixed-language handling,
+- [x] Add an honest AI-usage section. Explain structured extraction, mixed-language handling,
       confidence/warnings, deterministic validation, fixture evaluation, and the location-resolver
       boundary without describing arithmetic pricing as AI.
-- [ ] Document calculator assumptions: configured fuel prices, petrol/diesel CO2 factors, unsupported
+- [x] Document calculator assumptions: configured fuel prices, petrol/diesel CO2 factors, unsupported
       fuel types, and driver-editable suggestions.
-- [ ] Add the safety/privacy story from `PLAN.md`, matching only behavior that is actually enforced.
-- [ ] Add a known-issues section containing real limitations and unfinished integrations. Do not hide
+- [x] Add the safety/privacy story from `PLAN.md`, matching only behavior that is actually enforced.
+- [x] Add a known-issues section containing real limitations and unfinished integrations. Do not hide
       parser uncertainty, small evaluation sample size, missing policies, or incomplete routes.
-- [ ] Link the parser fixture evaluation and database model documentation instead of duplicating
+- [x] Link the parser fixture evaluation and database model documentation instead of duplicating
       details that can drift.
 
 Acceptance check: a reviewer can understand what the app does, why AI is useful, how data moves
