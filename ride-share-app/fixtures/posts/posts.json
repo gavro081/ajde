@@ -1,0 +1,27 @@
+[
+  {
+    "name": "mixed script offer with landmark",
+    "text": "Imam 3 slobodni mesta Skopje-Битола utre vo 18h, 500 den po covek. Trgnuvam kaj Mavrovka.",
+    "expected": { "classification": "offer", "originCityId": 1, "destinationCityId": 3, "seats": 3, "price": 500 }
+  },
+  {
+    "name": "ride request rather than offer",
+    "text": "Барам превоз од Скопје до Охрид во петок после 6, ми треба едно место.",
+    "expected": { "classification": "request", "originCityId": 1, "destinationCityId": 8, "seats": null, "price": null }
+  },
+  {
+    "name": "latin spelling and negotiable price",
+    "text": "Imam 2 slobodni mesta od Stip do Skopje ovoj vikend, cena dogovor.",
+    "expected": { "classification": "offer", "originCityId": 6, "destinationCityId": 1, "seats": 2, "price": null }
+  },
+  {
+    "name": "Albanian offer",
+    "text": "Kam 2 vende të lira nga Shkup për Tetovë të premten, 400 den për person.",
+    "expected": { "classification": "offer", "originCityId": 1, "destinationCityId": 5, "seats": 2, "price": 400 }
+  },
+  {
+    "name": "whole car price from another landmark",
+    "text": "Нудам 3 слободни места Скопје-Прилеп утре, 1200 ден за цела кола, тргнувам на Автокоманда.",
+    "expected": { "classification": "offer", "originCityId": 1, "destinationCityId": 4, "seats": 3, "price": null }
+  }
+]

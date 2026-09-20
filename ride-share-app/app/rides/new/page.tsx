@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { redirect } from "next/navigation";
 
+import { parsedRidePostSchema } from "@/lib/ai/parse-ride-post";
 import type { RideDraft } from "@/lib/rides/ride-draft";
 import { fuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { createClient } from "@/lib/supabase/server";
@@ -9,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { RideForm } from "./ride-form";
 
 type NewRidePageProps = {
-  searchParams: Promise<{ fixture?: string }>;
+  searchParams: Promise<{ fixture?: string; import?: string }>;
 };
 
 function emptyDraft(): RideDraft {
@@ -101,10 +102,23 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
     throw new Error("Unable to load the ride form catalogs.");
   }
 
-  const { fixture } = await searchParams;
+  const { fixture, import: importId } = await searchParams;
   const usingDevelopmentFixture =
     process.env.NODE_ENV !== "production" && fixture === "imported";
-  const initialDraft = usingDevelopmentFixture ? developmentImportFixture() : emptyDraft();
+  let initialDraft = usingDevelopmentFixture ? developmentImportFixture() : emptyDraft();
+
+  if (importId) {
+    const { data: imported } = await supabase
+      .from("imports")
+      .select("id, parsed_json")
+      .eq("id", importId)
+      .eq("created_by", user.id)
+      .maybeSingle();
+    const parsed = parsedRidePostSchema.safeParse(imported?.parsed_json);
+    if (imported && parsed.success) {
+      initialDraft = { ...parsed.data.draft, importId: imported.id };
+    }
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950 sm:px-6">
@@ -131,7 +145,7 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
             pickupPoints={pickupPoints}
             fuelPrices={fuelPriceConfig()}
             submissionId={randomUUID()}
-            usingDevelopmentFixture={usingDevelopmentFixture}
+            isImportedDraft={initialDraft.source === "imported"}
           />
         </div>
       </div>

@@ -70,16 +70,16 @@ override of the suggested price.
 
 ### 5. Parser shell, import UI, and fixtures (~45–60 min)
 
-- [ ] Own `lib/ai/parse-ride-post.ts`, `app/api/parse/**`, and `/rides/import`.
-- [ ] Define the structured-output schema using the shared ride-draft contract. Include an explicit
+- [x] Own `lib/ai/parse-ride-post.ts`, `app/api/parse/**`, and `/rides/import`.
+- [x] Define the structured-output schema using the shared ride-draft contract. Include an explicit
       offer-versus-request classification, nullable unknown fields, per-field warnings, and overall
       confidence.
-- [ ] Build `/rides/import`: paste raw text, show parsing/loading/error states, review the result,
+- [x] Build `/rides/import`: paste raw text, show parsing/loading/error states, review the result,
       then continue into the prefilled `/rides/new` form. Never auto-publish model output.
-- [ ] Create `fixtures/posts/` with representative, anonymized Macedonian/Latin-mixed and Albanian
+- [x] Create `fixtures/posts/` with representative, anonymized Macedonian/Latin-mixed and Albanian
       samples. Include landmarks, implicit dates, offer/request wording, and price-per-person,
       price-per-car, and `договор` cases.
-- [ ] Make fixtures/tests runnable with a stubbed parser before the provider is connected.
+- [x] Make fixtures/tests runnable with a stubbed parser before the provider is connected.
 
 Acceptance check: the entire import-review-prefill UI works with a deterministic stub, while
 production code clearly reports that parsing is unavailable rather than pretending it succeeded.
