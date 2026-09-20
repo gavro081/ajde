@@ -9,7 +9,7 @@ const optionalPlate = z.preprocess(
   (value) => (typeof value === "string" && value.trim() ? value.trim().toUpperCase() : null),
   z
     .string()
-    .regex(/^[\p{L}\p{N}]{3}$/u, "Use the final 3 letters or numbers from the plate")
+    .regex(/^[A-Za-z0-9]{3}$/, "Use the final 3 letters or numbers from the plate")
     .nullable(),
 );
 

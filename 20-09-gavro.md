@@ -88,15 +88,15 @@ production code clearly reports that parsing is unavailable rather than pretendi
 
 ### 6. `parseRidePost` with structured output (~40 min)
 
-- [ ] Add the server-only OpenAI client and implement the schema-constrained call.
-- [ ] Keep all provider code out of client components and never log the API key or raw secrets.
+- [x] Add the server-only OpenAI client and implement the schema-constrained call.
+- [x] Keep all provider code out of client components and never log the API key or raw secrets.
 - [ ] Resolve parsed city/landmark text through track A's `resolveLocation` rather than trusting IDs
       produced by the model.
-- [ ] Interpret relative dates using an explicit current timestamp and the `Europe/Skopje` timezone;
+- [x] Interpret relative dates using an explicit current timestamp and the `Europe/Skopje` timezone;
       preserve uncertainty as a warning for user review.
-- [ ] Store the raw text and structured result in `imports`, then prefill `/rides/new`; the user must
+- [x] Store the raw text and structured result in `imports`, then prefill `/rides/new`; the user must
       confirm/edit before saving a ride.
-- [ ] Return useful errors for missing key, provider failure, schema refusal, and low confidence.
+- [x] Return useful errors for missing key, provider failure, schema refusal, and low confidence.
 
 Acceptance check: pasting a real offer produces schema-valid JSON with canonical route IDs and a
 reviewable form; a request-looking-for-a-ride is classified and is not silently published as an
@@ -104,14 +104,14 @@ offer.
 
 ### 7. Parser tuning round 1 (~2 h)
 
-- [ ] Run every fixture and record expected versus actual structured fields.
-- [ ] Tune prompt/schema/examples based on observed failures, not one-off string hacks.
-- [ ] Verify mixed Cyrillic/Latin, landmarks, implicit dates, offer vs request, all price modes, and
+- [x] Run every fixture and record expected versus actual structured fields.
+- [x] Tune prompt/schema/examples based on observed failures, not one-off string hacks.
+- [x] Verify mixed Cyrillic/Latin, landmarks, implicit dates, offer vs request, all price modes, and
       Albanian input.
-- [ ] Add every discovered regression to the fixture suite before fixing it.
-- [ ] Report a small accuracy table by field (route, time, seats, price, classification), plus known
+- [x] Add every discovered regression to the fixture suite before fixing it.
+- [x] Report a small accuracy table by field (route, time, seats, price, classification), plus known
       failures; do not hide uncertain output.
-- [ ] Run lint, type-check/build, and relevant tests; commit this track separately.
+- [x] Run lint, type-check/build, and relevant tests; commit this track separately.
 
 ## File ownership / collision avoidance
 

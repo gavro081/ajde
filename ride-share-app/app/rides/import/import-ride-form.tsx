@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
-import { parsedRidePostSchema, type ParsedRidePost } from "@/lib/ai/parse-ride-post";
+import { parsedRidePostSchema, type ParsedRidePost } from "@/lib/ai/parsed-ride-post";
 
 type ParseResponse = {
   importId: string;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { stubParseRidePost } from "@/lib/ai/parse-ride-post";
+import { parseRidePost, RideParserError } from "@/lib/ai/parse-ride-post";
 import { createClient } from "@/lib/supabase/server";
 
 const requestSchema = z.object({
@@ -33,14 +33,56 @@ export async function POST(request: Request) {
     );
   }
 
-  if (process.env.NODE_ENV === "production") {
-    return Response.json(
-      { error: "Ride-post parsing is not configured yet. Try manual ride creation." },
-      { status: 503 },
-    );
+  const [{ data: cities, error: citiesError }, { data: pickupPoints, error: pickupError }] =
+    await Promise.all([
+      supabase.from("cities").select("id, name_mk, name_en, aliases"),
+      supabase.from("pickup_points").select("id, city_id, name_mk, name_en, aliases"),
+    ]);
+
+  if (citiesError || pickupError) {
+    return Response.json({ error: "Location options could not be loaded." }, { status: 500 });
   }
 
-  const parsed = stubParseRidePost(input.data.text);
+  let parsed;
+  try {
+    parsed = await parseRidePost(input.data.text, {
+      cities: cities.map((city) => ({
+        id: city.id,
+        nameMk: city.name_mk,
+        nameEn: city.name_en,
+        aliases: city.aliases,
+      })),
+      pickupPoints: pickupPoints.map((point) => ({
+        id: point.id,
+        cityId: point.city_id,
+        nameMk: point.name_mk,
+        nameEn: point.name_en,
+        aliases: point.aliases,
+      })),
+      now: new Date(),
+      timezone: "Europe/Skopje",
+    });
+  } catch (error) {
+    if (error instanceof RideParserError) {
+      const status = error.code === "missing_key" ? 503 : error.code === "refusal" ? 422 : 502;
+      const message =
+        error.code === "missing_key"
+          ? "Ride-post parsing is not configured. Add the server API key."
+          : error.code === "refusal"
+            ? "The model could not parse this post. Try a clearer post or enter the ride manually."
+            : "The parsing service could not complete this request. Try again.";
+      return Response.json({ error: message, code: error.code }, { status });
+    }
+    return Response.json({ error: "The parser failed unexpectedly." }, { status: 500 });
+  }
+
+  if ((parsed.draft.confidence ?? 0) < 0.45) {
+    parsed.draft.warnings.push({
+      field: null,
+      code: "low_confidence",
+      message: "The parser has low confidence in this result; review every field carefully.",
+    });
+  }
   const { data: imported, error } = await supabase
     .from("imports")
     .insert({

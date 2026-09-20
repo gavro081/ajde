@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { redirect } from "next/navigation";
 
-import { parsedRidePostSchema } from "@/lib/ai/parse-ride-post";
+import { parsedRidePostSchema } from "@/lib/ai/parsed-ride-post";
 import type { RideDraft } from "@/lib/rides/ride-draft";
 import { fuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { createClient } from "@/lib/supabase/server";

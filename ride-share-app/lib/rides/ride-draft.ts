@@ -57,7 +57,7 @@ export const rideDraftCarSchema = z.object({
   plateLast3: z
     .string()
     .trim()
-    .regex(/^[\p{L}\p{N}]{3}$/u, "Plate suffix must contain exactly 3 letters or digits")
+    .regex(/^[A-Za-z0-9]{3}$/, "Plate suffix must contain exactly 3 letters or digits")
     .nullable(),
   seatsTotal: z.number().int().min(1).max(8).nullable(),
 });
