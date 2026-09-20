@@ -293,6 +293,7 @@ the completed Tier 1 scope.
 ```text
 .
 ├── PLAN.md                         product scope, schedule, and rubric mapping
+├── archived-plans/                completed implementation plans and handoff notes
 └── ride-share-app/
     ├── app/                        Next.js routes, Server Actions, and Route Handlers
     ├── fixtures/posts/             anonymized parser fixtures and evaluation notes
