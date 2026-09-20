@@ -34,12 +34,12 @@ shape that forces ad-hoc mapping later.
 
 ### 2. Manual create-ride flow (~40 min)
 
-- [ ] Build `/rides/new` with origin/destination city, pickup points filtered by city, date/time,
+- [x] Build `/rides/new` with origin/destination city, pickup points filtered by city, date/time,
       seats, car, price, notes, tags, and gender preference.
-- [ ] Persist a valid native ride with the signed-in user as `driver_id`.
-- [ ] Make draft versus publish behavior explicit; do not silently publish an incomplete ride.
-- [ ] Handle database validation errors and duplicate submissions cleanly.
-- [ ] Support a prefilled imported draft through the shared draft contract. Until parsing is live,
+- [x] Persist a valid native ride with the signed-in user as `driver_id`.
+- [x] Make draft versus publish behavior explicit; do not silently publish an incomplete ride.
+- [x] Handle database validation errors and duplicate submissions cleanly.
+- [x] Support a prefilled imported draft through the shared draft contract. Until parsing is live,
       test this using a hard-coded fixture in development/test code only.
 
 Acceptance check: a signed-in user can manually create a valid ride and invalid route, capacity,
