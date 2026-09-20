@@ -159,6 +159,31 @@ export async function createRide(
     };
   }
 
+  if (draft.source === "imported") {
+    if (!draft.importId) {
+      return {
+        status: "error",
+        message: "This imported draft is incomplete. Parse the post again.",
+        fieldErrors: { importId: ["The import reference is missing."] },
+      };
+    }
+
+    const { data: ownedImport, error: importError } = await supabase
+      .from("imports")
+      .select("id")
+      .eq("id", draft.importId)
+      .eq("created_by", user.id)
+      .maybeSingle();
+
+    if (importError || !ownedImport) {
+      return {
+        status: "error",
+        message: "This imported draft is unavailable. Parse the post again.",
+        fieldErrors: { importId: ["The import does not belong to your account."] },
+      };
+    }
+  }
+
   const resolvedCar = await resolveCar(supabase, user.id, carSelection.data);
   if (resolvedCar.error || !resolvedCar.carId) {
     return {

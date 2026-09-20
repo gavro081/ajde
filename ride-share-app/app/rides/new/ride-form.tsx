@@ -40,7 +40,7 @@ type RideFormProps = {
   pickupPoints: PickupPoint[];
   initialDraft: RideDraft;
   submissionId: string;
-  usingDevelopmentFixture: boolean;
+  isImportedDraft: boolean;
 };
 
 const initialState: CreateRideFormState = {
@@ -78,7 +78,7 @@ export function RideForm({
   pickupPoints,
   initialDraft,
   submissionId,
-  usingDevelopmentFixture,
+  isImportedDraft,
 }: RideFormProps) {
   const [state, formAction, pending] = useActionState(createRide, initialState);
   const [originCityId, setOriginCityId] = useState(initialDraft.origin.cityId?.toString() ?? "");
@@ -165,19 +165,17 @@ export function RideForm({
     if (!Number.isNaN(parsedDeparture.getTime())) departureAt = parsedDeparture.toISOString();
   }
 
-  const source = usingDevelopmentFixture ? initialDraft.source : "native";
-
   return (
     <form action={formAction} className="space-y-8">
-      <input type="hidden" name="source" value={source} />
+      <input type="hidden" name="source" value={initialDraft.source} />
       <input type="hidden" name="importId" value={initialDraft.importId ?? ""} />
       <input type="hidden" name="submissionId" value={submissionId} />
       <input type="hidden" name="departureAt" value={departureAt} />
 
-      {usingDevelopmentFixture ? (
+      {isImportedDraft ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-          Development-only imported draft loaded. It can be reviewed, but cannot be saved until a
-          real import record exists.
+          Imported details are only a starting point. Confirm every field before saving or
+          publishing this ride.
         </div>
       ) : null}
 
