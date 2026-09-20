@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 
 import type { RideDraft } from "@/lib/rides/ride-draft";
+import { fuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { createClient } from "@/lib/supabase/server";
 
 import { RideForm } from "./ride-form";
@@ -18,6 +19,7 @@ function emptyDraft(): RideDraft {
     origin: { cityId: null, pickupPointId: null, rawText: null },
     destination: { cityId: null, pickupPointId: null, rawText: null },
     departureAt: null,
+    distanceKm: null,
     seatsTotal: null,
     carId: null,
     car: null,
@@ -41,6 +43,7 @@ function developmentImportFixture(): RideDraft {
     origin: { cityId: 1, pickupPointId: 1, rawText: "кај Мавровка" },
     destination: { cityId: 3, pickupPointId: null, rawText: "Битола" },
     departureAt: tomorrow.toISOString(),
+    distanceKm: 170,
     seatsTotal: 3,
     pricePerSeatMkd: 500,
     notes: "Development fixture: Skopje to Bitola after 18:00.",
@@ -82,7 +85,7 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
         .order("name_en"),
       supabase
         .from("cars")
-        .select("id, make, model, color, plate_last3")
+        .select("id, make, model, fuel_type, consumption_l_100km, color, plate_last3")
         .eq("owner_id", user.id)
         .order("created_at"),
       supabase
@@ -126,6 +129,7 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
             cities={cities}
             initialDraft={initialDraft}
             pickupPoints={pickupPoints}
+            fuelPrices={fuelPriceConfig()}
             submissionId={randomUUID()}
             usingDevelopmentFixture={usingDevelopmentFixture}
           />

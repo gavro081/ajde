@@ -206,7 +206,7 @@ export async function createRide(
       seats_available: draft.seatsTotal,
       price_per_seat_mkd: draft.pricePerSeatMkd,
       notes: draft.notes,
-      details: { submission_id: submissionId },
+      details: { distance_km: draft.distanceKm, submission_id: submissionId },
       tags: draft.tags,
       gender_preference: draft.genderPreference,
       status: intent === "publish" ? "published" : "draft",

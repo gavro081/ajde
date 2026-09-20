@@ -16,6 +16,7 @@ function validDraft(overrides: Partial<RideDraft> = {}): RideDraft {
     origin: { cityId: 1, pickupPointId: 1, rawText: null },
     destination: { cityId: 3, pickupPointId: null, rawText: null },
     departureAt: "2026-09-21T08:00:00+02:00",
+    distanceKm: 170,
     seatsTotal: 3,
     carId: CAR_ID,
     car: null,

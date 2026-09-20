@@ -4,12 +4,23 @@ import { useActionState, useMemo, useState } from "react";
 
 import type { Tables } from "@/lib/supabase/database.types";
 import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
+import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
+import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
 
 import { createRide, type CreateRideFormState } from "./actions";
 
 type City = Pick<Tables<"cities">, "id" | "name_en" | "name_mk">;
 type PickupPoint = Pick<Tables<"pickup_points">, "id" | "city_id" | "name_en" | "name_mk">;
-type Car = Pick<Tables<"cars">, "id" | "make" | "model" | "color" | "plate_last3">;
+type Car = Pick<
+  Tables<"cars">,
+  | "id"
+  | "make"
+  | "model"
+  | "fuel_type"
+  | "consumption_l_100km"
+  | "color"
+  | "plate_last3"
+>;
 type CarModel = Pick<
   Tables<"car_models">,
   | "id"
@@ -25,6 +36,7 @@ type RideFormProps = {
   cars: Car[];
   carModels: CarModel[];
   cities: City[];
+  fuelPrices: FuelPriceConfig;
   pickupPoints: PickupPoint[];
   initialDraft: RideDraft;
   submissionId: string;
@@ -62,6 +74,7 @@ export function RideForm({
   cars,
   carModels,
   cities,
+  fuelPrices,
   pickupPoints,
   initialDraft,
   submissionId,
@@ -80,6 +93,11 @@ export function RideForm({
   );
   const [departureLocal, setDepartureLocal] = useState(
     dateTimeLocalValue(initialDraft.departureAt),
+  );
+  const [distanceKm, setDistanceKm] = useState(initialDraft.distanceKm?.toString() ?? "");
+  const [seatsTotal, setSeatsTotal] = useState(initialDraft.seatsTotal?.toString() ?? "");
+  const [pricePerSeatMkd, setPricePerSeatMkd] = useState(
+    initialDraft.pricePerSeatMkd?.toString() ?? "",
   );
   const [carMode, setCarMode] = useState<"existing" | "catalog" | "manual">(
     initialDraft.carId && cars.some((car) => car.id === initialDraft.carId)
@@ -101,6 +119,10 @@ export function RideForm({
     initialDraft.car?.consumptionL100Km?.toString() ??
       initialCatalogModel?.consumption_l_100km.toString() ??
       "",
+  );
+  const [existingCarId, setExistingCarId] = useState(initialDraft.carId ?? "");
+  const [manualFuelType, setManualFuelType] = useState<string>(
+    initialDraft.car?.fuelType ?? "petrol",
   );
 
   const originPickupPoints = useMemo(
@@ -125,6 +147,17 @@ export function RideForm({
   const selectedCatalogModel = carModels.find(
     (model) => model.id.toString() === catalogModelId,
   );
+  const selectedExistingCar = cars.find((car) => car.id === existingCarId);
+  const estimateFuelType =
+    carMode === "existing"
+      ? selectedExistingCar?.fuel_type
+      : carMode === "catalog"
+        ? selectedCatalogModel?.fuel_type
+        : manualFuelType;
+  const estimateConsumption =
+    carMode === "existing"
+      ? selectedExistingCar?.consumption_l_100km.toString() ?? ""
+      : consumption;
 
   let departureAt = "";
   if (departureLocal) {
@@ -246,12 +279,13 @@ export function RideForm({
           Available seats
           <input
             className={inputClass}
-            defaultValue={initialDraft.seatsTotal ?? ""}
             max={8}
             min={1}
             name="seatsTotal"
+            onChange={(event) => setSeatsTotal(event.target.value)}
             required
             type="number"
+            value={seatsTotal}
           />
           <FieldError errors={state.fieldErrors.seatsTotal} />
         </label>
@@ -260,12 +294,13 @@ export function RideForm({
           Price per seat (MKD)
           <input
             className={inputClass}
-            defaultValue={initialDraft.pricePerSeatMkd ?? ""}
             min={0}
             name="pricePerSeatMkd"
+            onChange={(event) => setPricePerSeatMkd(event.target.value)}
             required
             step={1}
             type="number"
+            value={pricePerSeatMkd}
           />
           <FieldError errors={state.fieldErrors.pricePerSeatMkd} />
         </label>
@@ -318,9 +353,10 @@ export function RideForm({
             Your saved cars
             <select
               className={inputClass}
-              defaultValue={initialDraft.carId ?? ""}
               name="carId"
+              onChange={(event) => setExistingCarId(event.target.value)}
               required
+              value={existingCarId}
             >
               <option value="">Choose a car</option>
               {cars.map((car) => (
@@ -409,9 +445,10 @@ export function RideForm({
               Fuel
               <select
                 className={inputClass}
-                defaultValue={initialDraft.car?.fuelType ?? "petrol"}
                 name="fuelType"
+                onChange={(event) => setManualFuelType(event.target.value)}
                 required
+                value={manualFuelType}
               >
                 <option value="petrol">Petrol</option>
                 <option value="diesel">Diesel</option>
@@ -430,6 +467,16 @@ export function RideForm({
         ) : null}
         <FieldError errors={state.fieldErrors.carId} />
       </fieldset>
+
+      <RideEstimatePanel
+        consumption={estimateConsumption}
+        distanceKm={distanceKm}
+        fuelPrices={fuelPrices}
+        fuelType={estimateFuelType}
+        onDistanceChange={setDistanceKm}
+        onUseSuggestion={(price) => setPricePerSeatMkd(price.toString())}
+        seats={seatsTotal}
+      />
 
       <fieldset>
         <legend className="font-medium text-slate-800">Ride preferences</legend>
@@ -513,6 +560,120 @@ export function RideForm({
         </button>
       </div>
     </form>
+  );
+}
+
+type RideEstimatePanelProps = {
+  consumption: string;
+  distanceKm: string;
+  fuelPrices: FuelPriceConfig;
+  fuelType: string | undefined;
+  onDistanceChange: (value: string) => void;
+  onUseSuggestion: (price: number) => void;
+  seats: string;
+};
+
+function RideEstimatePanel({
+  consumption,
+  distanceKm,
+  fuelPrices,
+  fuelType,
+  onDistanceChange,
+  onUseSuggestion,
+  seats,
+}: RideEstimatePanelProps) {
+  const supportedFuel = fuelType === "petrol" || fuelType === "diesel" ? fuelType : null;
+  const fuelPrice = supportedFuel ? fuelPrices[supportedFuel] : null;
+  const numericInput = {
+    distanceKm: Number(distanceKm),
+    consumptionL100Km: Number(consumption),
+    fuelPriceMkdL: fuelPrice ?? 0,
+    seats: Number(seats),
+  };
+  let estimate: ReturnType<typeof calculateRideEstimate> | null = null;
+
+  if (
+    supportedFuel &&
+    fuelPrice &&
+    Object.values(numericInput).every((value) => Number.isFinite(value) && value > 0)
+  ) {
+    try {
+      estimate = calculateRideEstimate({ ...numericInput, fuelType: supportedFuel });
+    } catch {
+      estimate = null;
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5">
+      <h2 className="font-semibold text-emerald-950">Fair-price and CO₂ estimate</h2>
+      <p className="mt-1 text-sm text-emerald-900/75">
+        Fuel cost is split across the offered passenger seats. The price remains editable.
+      </p>
+      <label className="mt-4 block max-w-xs font-medium text-slate-800">
+        Estimated route distance (km)
+        <input
+          className={inputClass}
+          min="0.1"
+          name="distanceKm"
+          onChange={(event) => onDistanceChange(event.target.value)}
+          step="0.1"
+          type="number"
+          value={distanceKm}
+        />
+      </label>
+
+      {!supportedFuel && fuelType ? (
+        <p className="mt-4 text-sm text-amber-800">
+          Automatic CO₂ estimates are currently available only for petrol and diesel cars; no
+          emissions factor is assumed for {fuelType}.
+        </p>
+      ) : null}
+      {supportedFuel && !fuelPrice ? (
+        <p className="mt-4 text-sm text-amber-800">
+          Add the verified {supportedFuel} pump price to the server environment to enable the
+          estimate.
+        </p>
+      ) : null}
+
+      {estimate && supportedFuel && fuelPrice ? (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <EstimateValue label="Fuel used" value={`${estimate.fuelLitres.toFixed(1)} L`} />
+          <EstimateValue
+            label="Fuel cost"
+            value={`${Math.round(estimate.totalFuelCostMkd)} MKD`}
+          />
+          <EstimateValue label="Suggested seat" value={`${estimate.pricePerSeatMkd} MKD`} />
+          <EstimateValue
+            label="Potential CO₂ saved"
+            value={`${estimate.potentialCo2SavedKg.toFixed(1)} kg`}
+          />
+          <div className="sm:col-span-2 lg:col-span-4">
+            <button
+              className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+              onClick={() => onUseSuggestion(estimate.pricePerSeatMkd)}
+              type="button"
+            >
+              Use {estimate.pricePerSeatMkd} MKD suggestion
+            </button>
+            <p className="mt-2 text-xs text-emerald-900/70">
+              Assumes {fuelPrice} MKD/L and {supportedFuel === "petrol" ? "2.31" : "2.68"} kg CO₂
+              per litre. Potential savings assume every offered seat replaces one separate car on
+              the same route.
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function EstimateValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-white p-3 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-bold text-slate-950">{value}</p>
+    </div>
   );
 }
 
