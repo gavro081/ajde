@@ -5,6 +5,7 @@ import fixtures from "../../fixtures/posts/posts.json";
 import {
   parseRidePost,
   removeDepartureWithoutTime,
+  resolveParsedLocations,
   stubParseRidePost,
   validateCanonicalLocations,
 } from "./parse-ride-post";
@@ -47,6 +48,91 @@ describe("validateCanonicalLocations", () => {
     expect(validated.draft.warnings).toEqual(
       expect.arrayContaining([expect.objectContaining({ code: "needs_review" })]),
     );
+  });
+});
+
+describe("resolveParsedLocations", () => {
+  it("replaces model IDs with deterministic canonical matches from raw place text", async () => {
+    const parsed = stubParseRidePost(fixtures[0].text);
+    parsed.draft.origin = { cityId: 999, pickupPointId: 999, rawText: "кај Мавровка" };
+    parsed.draft.destination = { cityId: 1, pickupPointId: null, rawText: "Битола" };
+
+    const resolved = await resolveParsedLocations(parsed, {
+      cities: [
+        { id: 1, nameMk: "Скопје", nameEn: "Skopje", aliases: ["skopje"] },
+        { id: 3, nameMk: "Битола", nameEn: "Bitola", aliases: ["bitola"] },
+      ],
+      pickupPoints: [
+        {
+          id: 1,
+          cityId: 1,
+          nameMk: "Мавровка",
+          nameEn: "Mavrovka",
+          aliases: ["кај мавровка"],
+        },
+      ],
+    });
+
+    expect(resolved.draft.origin).toMatchObject({ cityId: 1, pickupPointId: 1 });
+    expect(resolved.draft.destination).toMatchObject({ cityId: 3, pickupPointId: null });
+  });
+
+  it("clears model IDs when raw place text cannot be resolved", async () => {
+    const parsed = stubParseRidePost(fixtures[0].text);
+    parsed.draft.origin = { cityId: 1, pickupPointId: null, rawText: "Непознато место" };
+
+    const resolved = await resolveParsedLocations(parsed, {
+      cities: [{ id: 1, nameMk: "Скопје", nameEn: "Skopje", aliases: [] }],
+      pickupPoints: [],
+    });
+
+    expect(resolved.draft.origin).toMatchObject({ cityId: null, pickupPointId: null });
+    expect(resolved.draft.warnings).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "origin" })]),
+    );
+  });
+
+  it("resolves one unambiguous canonical place embedded in surrounding raw text", async () => {
+    const parsed = stubParseRidePost(fixtures[0].text);
+    parsed.draft.destination = {
+      cityId: 999,
+      pickupPointId: null,
+      rawText: "до Битола утре",
+    };
+
+    const resolved = await resolveParsedLocations(parsed, {
+      cities: [
+        { id: 1, nameMk: "Скопје", nameEn: "Skopje", aliases: [] },
+        { id: 3, nameMk: "Битола", nameEn: "Bitola", aliases: [] },
+      ],
+      pickupPoints: [],
+    });
+
+    expect(resolved.draft.destination.cityId).toBe(3);
+  });
+
+  it("prefers an embedded pickup when all embedded places belong to the same city", async () => {
+    const parsed = stubParseRidePost(fixtures[0].text);
+    parsed.draft.origin = {
+      cityId: 999,
+      pickupPointId: 999,
+      rawText: "Skopje kaj Mavrovka",
+    };
+
+    const resolved = await resolveParsedLocations(parsed, {
+      cities: [{ id: 1, nameMk: "Скопје", nameEn: "Skopje", aliases: [] }],
+      pickupPoints: [
+        {
+          id: 1,
+          cityId: 1,
+          nameMk: "Мавровка",
+          nameEn: "Mavrovka",
+          aliases: [],
+        },
+      ],
+    });
+
+    expect(resolved.draft.origin).toMatchObject({ cityId: 1, pickupPointId: 1 });
   });
 });
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { createOpenAILocationFallback } from "@/lib/ai/openai-location-fallback";
 import { parseRidePost, RideParserError } from "@/lib/ai/parse-ride-post";
 import { createClient } from "@/lib/supabase/server";
 
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
         nameEn: point.name_en,
         aliases: point.aliases,
       })),
+      locationFallback: createOpenAILocationFallback(),
       now: new Date(),
       timezone: "Europe/Skopje",
     });

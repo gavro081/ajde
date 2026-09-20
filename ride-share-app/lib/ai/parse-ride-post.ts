@@ -2,6 +2,12 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 
 import { parsedRidePostSchema, type ParsedRidePost } from "./parsed-ride-post";
+import {
+  normalizeLocation,
+  resolveLocation,
+  type LocationCandidate,
+  type LocationModelFallback,
+} from "./resolve-location";
 import type { ImportedRideDraft } from "../rides/ride-draft";
 
 export type ParserCity = {
@@ -22,6 +28,7 @@ export type ParserPickupPoint = {
 export type ParseRidePostContext = {
   cities: ParserCity[];
   pickupPoints: ParserPickupPoint[];
+  locationFallback?: LocationModelFallback;
   now?: Date;
   timezone?: string;
 };
@@ -58,8 +65,9 @@ both a date (explicit or relative) and a time. Never use 00:00 as a placeholder 
 For threshold wording such as "after 6", use 18:00 as the earliest boundary and add an ambiguity
 warning.
 
-Only choose city and pickup IDs from the candidate list in the user message. Preserve the original
-place wording in rawText. Set source to imported, importId and carId to null. Do not invent vehicle
+Only choose city and pickup IDs from the candidate list in the user message. Preserve only the
+source words that name each place in rawText; exclude dates, times, route separators, and surrounding
+sentences. Set source to imported, importId and carId to null. Do not invent vehicle
 details, distance, gender preference, tags, or exact times that are not present. Confidence and
 fieldConfidence must reflect actual certainty, not optimism.`;
 }
@@ -123,6 +131,117 @@ export function validateCanonicalLocations(
   return parsedRidePostSchema.parse({ ...parsed, draft });
 }
 
+export async function resolveParsedLocations(
+  parsed: ParsedRidePost,
+  context: Pick<ParseRidePostContext, "cities" | "pickupPoints">,
+  modelFallback?: LocationModelFallback,
+): Promise<ParsedRidePost> {
+  const candidates: LocationCandidate[] = [
+    ...context.cities.map((city) => ({
+      kind: "city" as const,
+      id: city.id,
+      nameMk: city.nameMk,
+      nameEn: city.nameEn,
+      aliases: city.aliases,
+    })),
+    ...context.pickupPoints.map((point) => ({
+      kind: "pickup_point" as const,
+      id: point.id,
+      nameMk: point.nameMk,
+      nameEn: point.nameEn,
+      aliases: point.aliases,
+    })),
+  ];
+  const pickupById = new Map(context.pickupPoints.map((point) => [point.id, point]));
+  const draft = structuredClone(parsed.draft);
+
+  for (const [field, location] of [
+    ["origin", draft.origin],
+    ["destination", draft.destination],
+  ] as const) {
+    const rawText = location.rawText?.trim();
+    const resolution = rawText
+      ? await resolveLocationFromRawText(
+          rawText,
+          candidates,
+          pickupById,
+          modelFallback,
+        )
+      : null;
+
+    if (!resolution || resolution.resolution === "unresolved") {
+      location.cityId = null;
+      location.pickupPointId = null;
+      draft.warnings.push({
+        field,
+        code: "needs_review",
+        message: `The ${field} place could not be resolved; choose it manually.`,
+      });
+      continue;
+    }
+
+    if (resolution.kind === "city") {
+      location.cityId = resolution.id;
+      location.pickupPointId = null;
+      continue;
+    }
+
+    const pickup = pickupById.get(resolution.id);
+    if (!pickup) {
+      location.cityId = null;
+      location.pickupPointId = null;
+      draft.warnings.push({
+        field,
+        code: "needs_review",
+        message: `The ${field} pickup could not be linked to a city; choose it manually.`,
+      });
+      continue;
+    }
+
+    location.cityId = pickup.cityId;
+    location.pickupPointId = pickup.id;
+  }
+
+  return parsedRidePostSchema.parse({ ...parsed, draft });
+}
+
+async function resolveLocationFromRawText(
+  rawText: string,
+  candidates: LocationCandidate[],
+  pickupById: Map<number, ParserPickupPoint>,
+  modelFallback?: LocationModelFallback,
+) {
+  const exact = await resolveLocation(rawText, candidates);
+  if (exact.resolution !== "unresolved") return exact;
+
+  const normalizedRaw = normalizeLocation(rawText);
+  const embedded = candidates.filter((candidate) =>
+    [candidate.nameMk, candidate.nameEn, ...candidate.aliases].some((value) => {
+      const normalizedValue = normalizeLocation(value);
+      return (
+        normalizedValue.length > 1 &&
+        (` ${normalizedRaw} `.includes(` ${normalizedValue} `) ||
+          normalizedRaw === normalizedValue)
+      );
+    }),
+  );
+
+  if (embedded.length === 1) {
+    return resolveLocation(embedded[0].nameMk, candidates);
+  }
+
+  const embeddedPickups = embedded.filter((candidate) => candidate.kind === "pickup_point");
+  const embeddedCities = embedded.filter((candidate) => candidate.kind === "city");
+  if (embeddedPickups.length === 1) {
+    const pickup = pickupById.get(embeddedPickups[0].id);
+    if (pickup && embeddedCities.every((city) => city.id === pickup.cityId)) {
+      return resolveLocation(embeddedPickups[0].nameMk, candidates);
+    }
+  }
+
+  return modelFallback ? resolveLocation(rawText, candidates, modelFallback) : exact;
+}
+
 export function removeDepartureWithoutTime(
   text: string,
   parsed: ParsedRidePost,
@@ -181,10 +300,13 @@ export async function parseRidePost(
       throw new RideParserError("The model returned an invalid ride draft.", "invalid_output");
     }
 
-    return removeDepartureWithoutTime(
-      text,
-      validateCanonicalLocations(parsed.data, context),
+    const resolved = await resolveParsedLocations(
+      parsed.data,
+      context,
+      context.locationFallback,
     );
+
+    return removeDepartureWithoutTime(text, validateCanonicalLocations(resolved, context));
   } catch (error) {
     if (error instanceof RideParserError) throw error;
     throw new RideParserError(

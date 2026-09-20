@@ -76,7 +76,7 @@ async function main() {
       classification: checks.classification ? "✓" : `✗ ${parsed.classification}`,
       route: checks.route
         ? "✓"
-        : `✗ ${parsed.draft.origin.cityId ?? "?"}→${parsed.draft.destination.cityId ?? "?"}`,
+        : `✗ ${parsed.draft.origin.cityId ?? "?"}→${parsed.draft.destination.cityId ?? "?"} (${parsed.draft.origin.rawText ?? "?"} | ${parsed.draft.destination.rawText ?? "?"})`,
       seats: checks.seats ? "✓" : `✗ ${parsed.draft.seatsTotal ?? "?"}`,
       price: checks.price ? "✓" : `✗ ${parsed.draft.pricePerSeatMkd ?? "?"}`,
       departure: checks.departure ? "✓" : `✗ ${parsed.draft.departureAt ?? "review"}`,
