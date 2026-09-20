@@ -1,73 +1,76 @@
-'use client'
+'use client';
 
-import { useRouter } from 'next/navigation'
-import { FormEvent, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation';
+import { FormEvent, useEffect, useState } from 'react';
 
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client';
 
-import { saveProfile, type ProfileInput } from './actions'
+import { saveProfile, type ProfileInput } from './actions';
 
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024
-const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 export function OnboardingForm({ userId }: { userId: string }) {
-  const router = useRouter()
-  const [photo, setPhoto] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
+  const router = useRouter();
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-    }
-  }, [previewUrl])
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   function choosePhoto(file: File | null) {
-    setError(null)
+    setError(null);
     if (!file) {
-      setPhoto(null)
-      setPreviewUrl(null)
-      return
+      setPhoto(null);
+      setPreviewUrl(null);
+      return;
     }
     if (!ALLOWED_PHOTO_TYPES.has(file.type)) {
-      setError('Choose a JPEG, PNG, or WebP image.')
-      setPhoto(null)
-      setPreviewUrl(null)
-      return
+      setError('Choose a JPEG, PNG, or WebP image.');
+      setPhoto(null);
+      setPreviewUrl(null);
+      return;
     }
     if (file.size > MAX_PHOTO_BYTES) {
-      setError('The profile photo must be 5 MB or smaller.')
-      setPhoto(null)
-      setPreviewUrl(null)
-      return
+      setError('The profile photo must be 5 MB or smaller.');
+      setPhoto(null);
+      setPreviewUrl(null);
+      return;
     }
-    setPhoto(file)
-    setPreviewUrl(URL.createObjectURL(file))
+    setPhoto(file);
+    setPreviewUrl(URL.createObjectURL(file));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError(null)
+    event.preventDefault();
+    setError(null);
 
     if (!photo) {
-      setError('Add a profile photo to continue.')
-      return
+      setError('Add a profile photo to continue.');
+      return;
     }
 
-    setSaving(true)
-    const form = new FormData(event.currentTarget)
-    const extension = photo.name.split('.').pop()?.toLocaleLowerCase('en-US') || 'jpg'
-    const storagePath = `${userId}/${crypto.randomUUID()}.${extension}`
-    const supabase = createClient()
+    setSaving(true);
+    const form = new FormData(event.currentTarget);
+    const extension =
+      photo.name.split('.').pop()?.toLocaleLowerCase('en-US') || 'jpg';
+    const storagePath = `${userId}/${crypto.randomUUID()}.${extension}`;
+    const supabase = createClient();
     const { error: uploadError } = await supabase.storage
       .from('profile-photos')
-      .upload(storagePath, photo, { contentType: photo.type, upsert: false })
+      .upload(storagePath, photo, { contentType: photo.type, upsert: false });
 
     if (uploadError) {
-      setError('The photo could not be uploaded. Check the file and try again.')
-      setSaving(false)
-      return
+      setError(
+        'The photo could not be uploaded. Check the file and try again.',
+      );
+      setSaving(false);
+      return;
     }
 
     const result = await saveProfile({
@@ -76,17 +79,17 @@ export function OnboardingForm({ userId }: { userId: string }) {
       bio: String(form.get('bio') ?? ''),
       gender: String(form.get('gender') ?? '') as ProfileInput['gender'],
       storagePath,
-    })
+    });
 
     if (!result.ok) {
-      await supabase.storage.from('profile-photos').remove([storagePath])
-      setError(result.message)
-      setSaving(false)
-      return
+      await supabase.storage.from('profile-photos').remove([storagePath]);
+      setError(result.message);
+      setSaving(false);
+      return;
     }
 
-    router.replace('/rides')
-    router.refresh()
+    router.replace('/rides');
+    router.refresh();
   }
 
   return (
@@ -96,13 +99,20 @@ export function OnboardingForm({ userId }: { userId: string }) {
           {previewUrl ? (
             // The object URL is local-only and exists solely for the pre-upload preview.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={previewUrl} alt="Selected profile preview" className="size-full object-cover" />
+            <img
+              src={previewUrl}
+              alt="Selected profile preview"
+              className="size-full object-cover"
+            />
           ) : (
             'Your photo'
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <label htmlFor="photo" className="block text-sm font-semibold text-slate-800">
+          <label
+            htmlFor="photo"
+            className="block text-sm font-semibold text-slate-800"
+          >
             Profile photo <span className="text-rose-600">*</span>
           </label>
           <input
@@ -114,15 +124,34 @@ export function OnboardingForm({ userId }: { userId: string }) {
             onChange={(event) => choosePhoto(event.target.files?.[0] ?? null)}
             className="mt-2 block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-emerald-100 file:px-4 file:py-2 file:font-semibold file:text-emerald-900"
           />
-          <p className="mt-2 text-xs text-slate-500">JPEG, PNG, or WebP. Maximum 5 MB.</p>
+          <p className="mt-2 text-xs text-slate-500">
+            JPEG, PNG, or WebP. Maximum 5 MB.
+          </p>
         </div>
       </div>
 
-      <Field label="Full name" name="fullName" minLength={2} maxLength={100} required />
-      <Field label="University" name="university" minLength={2} maxLength={160} required />
+      <Field
+        label="Full name"
+        name="fullName"
+        minLength={2}
+        maxLength={100}
+        required
+      />
+      <Field
+        label="University"
+        name="university"
+        minLength={2}
+        maxLength={160}
+        required
+      />
 
       <div className="space-y-2">
-        <label htmlFor="bio" className="block text-sm font-semibold text-slate-800">Bio</label>
+        <label
+          htmlFor="bio"
+          className="block text-sm font-semibold text-slate-800"
+        >
+          Bio
+        </label>
         <textarea
           id="bio"
           name="bio"
@@ -134,22 +163,31 @@ export function OnboardingForm({ userId }: { userId: string }) {
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="gender" className="block text-sm font-semibold text-slate-800">Gender</label>
+        <label
+          htmlFor="gender"
+          className="block text-sm font-semibold text-slate-800"
+        >
+          Gender
+        </label>
         <select
           id="gender"
           name="gender"
           defaultValue=""
           className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         >
-          <option value="">Prefer not to add this</option>
           <option value="woman">Woman</option>
           <option value="man">Man</option>
-          <option value="non_binary">Non-binary</option>
-          <option value="prefer_not_to_say">Prefer not to say</option>
         </select>
       </div>
 
-      {error ? <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p> : null}
+      {error ? (
+        <p
+          role="alert"
+          className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-800"
+        >
+          {error}
+        </p>
+      ) : null}
 
       <button
         type="submit"
@@ -159,21 +197,24 @@ export function OnboardingForm({ userId }: { userId: string }) {
         {saving ? 'Creating profile…' : 'Complete profile'}
       </button>
     </form>
-  )
+  );
 }
 
 type FieldProps = {
-  label: string
-  name: string
-  minLength: number
-  maxLength: number
-  required?: boolean
-}
+  label: string;
+  name: string;
+  minLength: number;
+  maxLength: number;
+  required?: boolean;
+};
 
 function Field({ label, name, minLength, maxLength, required }: FieldProps) {
   return (
     <div className="space-y-2">
-      <label htmlFor={name} className="block text-sm font-semibold text-slate-800">
+      <label
+        htmlFor={name}
+        className="block text-sm font-semibold text-slate-800"
+      >
         {label} {required ? <span className="text-rose-600">*</span> : null}
       </label>
       <input
@@ -186,5 +227,5 @@ function Field({ label, name, minLength, maxLength, required }: FieldProps) {
         className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
       />
     </div>
-  )
+  );
 }
