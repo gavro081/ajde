@@ -1,18 +1,17 @@
 # Tuesday morning — release documentation and fresh-clone readiness
 
-This track takes the Tuesday documentation and clone-verification work from `PLAN.md`. It is a good
-follow-up for Gavro because the ride creation, pricing, and AI import flow is already implemented and
-can be documented independently of Dimi's authentication, onboarding, profile, and location-resolver
-work.
+This track takes the Tuesday documentation and clone-verification work from `PLAN.md`. It began as an
+independent follow-up to Gavro's ride creation, pricing, and AI import flow. Dimi's authentication,
+onboarding, profile, Storage, and location-resolver work has since landed and is reflected in the
+README and release audit.
 
 ## Why this task is independent
 
 - It documents behavior already present on `main`: `/rides/new`, `/rides/import`, `/api/parse`, the
   shared ride-draft contract, car selection, price/CO2 estimates, and parser fixtures.
-- It does not change `app/login/**`, `app/onboarding/**`, `app/profile/**`, auth guards, Storage, or
-  `lib/ai/resolve-location.ts`.
-- Dimi's finished features can be added to the final route and architecture inventory later without
-  blocking the first documentation pass.
+- The documentation track did not rewrite Dimi's auth/profile implementation.
+- Integration work connected `parseRidePost` to the resolver's exported contract and unified the two
+  test runners without changing the resolver's matching behavior.
 - Ratings are intentionally not selected because they depend on completed identity/profile and ride
   participation flows. A full end-to-end bug bash also needs the two tracks integrated first.
 
@@ -73,7 +72,7 @@ configuration, start the application, and run its verification commands using th
 
 ## Phase 4 — final release checks (~20 min)
 
-- [ ] Reconcile the README feature list and route inventory with Dimi's merged work without changing
+- [x] Reconcile the README feature list and route inventory with Dimi's merged work without changing
       files owned by that track.
 - [ ] Confirm the known-issues list still reflects the final integrated state.
 - [ ] Confirm Git contains no `.env.local`, API keys, database credentials, generated build output,

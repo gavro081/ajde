@@ -25,3 +25,10 @@ Verified deterministic cases:
 Unknown input must remain unresolved unless the fallback returns an ID and kind that exist in the
 supplied candidate vocabulary. Never persist a model-proposed label or ID directly.
 
+## Ride-post parser integration
+
+`parseRidePost` now calls `resolveParsedLocations` with the candidates already loaded by
+`/api/parse`. It resolves the model-preserved `rawText` for origin and destination through this
+contract, derives a pickup point's city from canonical data, and clears model-proposed IDs when the
+raw place remains unresolved. The API route supplies `createOpenAILocationFallback()` so exact names
+and aliases make no additional model call while genuine misses may use the structured fallback.

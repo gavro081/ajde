@@ -27,6 +27,7 @@ whole-car prices.
 This is a small curated regression set, not a claim of production accuracy. Model output may vary
 between runs. Date-only posts intentionally leave departure empty for manual review instead of
 inventing a time, and threshold times such as “after 6” use the earliest boundary with a warning.
-Locations are restricted to supplied city and pickup candidates, but deterministic fuzzy resolution
-through Track A's `resolveLocation` remains pending until that module lands. Vehicle, distance, and
-other fields remain empty unless the source post states them clearly.
+Locations are restricted to supplied city and pickup candidates, then resolved from the preserved raw
+place text through Track A's deterministic alias matcher before a structured model fallback. The
+integrated live run retained 5/5 route accuracy. Vehicle, distance, and other fields remain empty
+unless the source post states them clearly.

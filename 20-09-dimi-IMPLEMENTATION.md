@@ -1,8 +1,8 @@
 # Track A implementation guide
 
-This document explains how the tasks in [`20-09-dimi.md`](20-09-dimi.md) were implemented, where each solution lives, and how the pieces fit together. The work is still split across feature branches and has not been merged into `main`.
+This document explains how the tasks in [`20-09-dimi.md`](20-09-dimi.md) were implemented, where each solution lives, and how the pieces fit together. Track A has now been merged and integrated with Gavro's ride creation and post-import work.
 
-## Branch and commit map
+## Historical branch and commit map
 
 The identity/profile branches are cumulative: each branch starts from the previous one. The location branches form a separate cumulative stack. The shared `ce58928` commit removes the network-dependent Google font so local and CI builds do not need to download a font during `next build`.
 
@@ -18,7 +18,7 @@ The identity/profile branches are cumulative: each branch starts from the previo
 | OpenAI model fallback | `feat/location-model-fallback` | `9eb9521 feat(location): add structured model fallback` |
 | Location tuning and handoff | `feat/location-tuning` | `519578e feat(location): tune station aliases and document handoff` |
 
-The intended merge order is:
+The completed merge order was:
 
 1. `feat/auth-access`
 2. `feat/profile-onboarding`
@@ -139,8 +139,7 @@ Branch: `feat/location-resolver`
 | `ride-share-app/lib/ai/resolve-location.ts` | Pure normalization/matching logic, stable result types, and typed model-fallback seam. |
 | `ride-share-app/lib/ai/location-candidates.ts` | Loads canonical cities and pickup points from Supabase and maps database columns into resolver candidates. |
 | `ride-share-app/lib/ai/resolve-location.test.ts` | Deterministic matching, normalization, unresolved, and fallback-seam tests. |
-| `ride-share-app/tsconfig.location-tests.json` | Compiles the isolated TypeScript test target. |
-| `ride-share-app/package.json` | Adds `npm run test:locations`. |
+| `ride-share-app/package.json` | Adds the focused Vitest command `npm run test:locations`. |
 | `ride-share-app/.gitignore` | Ignores the generated `.test-dist` test output. |
 
 ### How it works
@@ -227,13 +226,14 @@ Verified deterministic examples are:
 
 The final location suite contains 13 deterministic/mocked tests. The tests never call OpenAI. A separate manual live check was also performed after the API key became available and returned a valid canonical Transport Centre choice.
 
-The task requested running the resolver over real-post fixtures supplied by Track B. No Track B fixture file was present in this branch when the work was completed, so the implementation was tuned and handed off using the representative cases above. The resolver is ready to run against Track B's fixture set when that work is available.
+After integration, Track B's parser fixtures and shared candidate context are available. `parseRidePost` now resolves each model-preserved raw origin/destination string through `resolveParsedLocations`, using deterministic aliases before the structured fallback and clearing unresolved model IDs. Regression tests cover both successful canonical replacement and unresolved-ID removal.
 
 ## Verification performed
 
 Each feature unit was built before its commit. Because the host environment could not start Turbopack workers, verification used the Webpack build path (`next build --webpack`) with the repository's bundled Node runtime. Lint also passed for each unit.
 
-For the location stack, `npm run test:locations` passed all 13 tests on `feat/location-tuning`. These cover:
+For the integrated location stack, `npm run test:locations` passed all 13 Vitest tests. The complete
+suite contains 48 tests. Location coverage includes:
 
 - the six documented deterministic inputs;
 - casing, whitespace, Cyrillic/Latin, and diacritic normalization;
@@ -244,7 +244,9 @@ For the location stack, `npm run test:locations` passed all 13 tests on `feat/lo
 - parsing of a valid structured result; and
 - safe handling of missing or malformed model responses.
 
-The identity flows require the active Supabase project to have the Storage migration applied. They were manually exercised through the local development bypass; the public profile and Storage/database results should also be checked in the Supabase dashboard before merging.
+The identity flows require the active Supabase project to have the Storage migration applied. During
+integration, the configured project already contained the photo bucket and policies; the missing
+Transport Centre alias migration was applied and the rollback-safe database smoke test passed.
 
 ## Configuration summary
 
@@ -262,4 +264,6 @@ No secret values are committed. The combined feature set uses these settings:
 
 ## Scope boundary
 
-This track intentionally does not implement `/rides`, `/rides/new`, `/rides/import`, the ride-post parser, or booking/contact authorization. Those areas belong to Track B or later work. Therefore, reaching `/rides` after successful onboarding can currently produce a 404 on these branches; that does not indicate that the auth or onboarding redirect failed.
+Track A intentionally did not implement `/rides/new`, `/rides/import`, or the ride-post parser on its
+feature branches. Those Track B routes are now merged. Booking/contact authorization remains later
+work, and the `/rides` feed route is still not implemented.

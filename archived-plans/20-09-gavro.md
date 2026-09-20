@@ -90,7 +90,7 @@ production code clearly reports that parsing is unavailable rather than pretendi
 
 - [x] Add the server-only OpenAI client and implement the schema-constrained call.
 - [x] Keep all provider code out of client components and never log the API key or raw secrets.
-- [ ] Resolve parsed city/landmark text through track A's `resolveLocation` rather than trusting IDs
+- [x] Resolve parsed city/landmark text through track A's `resolveLocation` rather than trusting IDs
       produced by the model.
 - [x] Interpret relative dates using an explicit current timestamp and the `Europe/Skopje` timezone;
       preserve uncertainty as a warning for user review.

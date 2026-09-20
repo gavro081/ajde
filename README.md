@@ -8,8 +8,8 @@ The most distinctive workflow turns an informal Macedonian, mixed-script, or Alb
 into a structured **draft**. The driver reviews and edits every extracted field before anything can
 be saved or published.
 
-> This repository is under active hackathon development. The ride-creation and AI-import slice is
-> implemented; identity, discovery, booking, and production authorization work is still incomplete.
+> This repository is under active hackathon development. Identity/profile, ride creation, and the
+> AI-import slice are implemented; discovery, booking, and production authorization are incomplete.
 
 ## Feature status
 
@@ -20,8 +20,9 @@ be saved or published.
 | Car catalog and manual cars | Implemented | Catalog selection prefills fuel/consumption; overrides create a driver-owned snapshot |
 | Fuel-price and CO2 estimate | Implemented | Petrol/diesel arithmetic using server-configured fuel prices; suggestion remains editable |
 | Group-post import and review | Implemented | Structured OpenAI parsing, warnings/confidence, saved import, and editable ride prefill |
-| Authentication infrastructure | Partial | Supabase SSR clients and protected ride routes exist; login/callback/onboarding UI is pending |
-| Location normalization | Partial | Model-selected IDs are constrained and validated; the hybrid `resolveLocation` integration is pending |
+| Authentication and onboarding | Implemented | Student-domain magic links, guarded local bypass, callback, profile completion, photo upload, and server-side route protection |
+| Public profiles | Implemented | Deliberately limited projection excludes phone and social contact fields |
+| Location normalization | Implemented | Deterministic name/alias matching first, structured model fallback on misses, and canonical-ID validation |
 | Feed, ride detail, and bookings | Planned | No browse, request, approve/decline, or passenger dashboard UI yet |
 | Natural-language search and sharing | Planned | Search, match explanations, and public trip links are not implemented |
 | Production authorization | Planned | Row-level security policies are intentionally deferred and must be added before deployment |
@@ -34,13 +35,13 @@ flowchart LR
   Next[Next.js App Router]
   Auth[Supabase Auth]
   DB[(Supabase Postgres)]
-  Storage[Supabase Storage\nplanned profile photos]
+  Storage[Supabase Storage\nprofile photos]
   OpenAI[OpenAI Responses API]
 
   Browser --> Next
   Next --> Auth
   Next --> DB
-  Next -. pending profile flow .-> Storage
+  Next --> Storage
   Next -->|server-only /api/parse| OpenAI
   OpenAI -->|schema-constrained draft| Next
   Next -->|raw post + parsed result| DB
@@ -108,11 +109,15 @@ Fill in `.env.local` without committing it:
 | `NEXT_PUBLIC_SUPABASE_URL` | Application startup and Supabase pages | Browser-visible project URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase access | Browser-visible public key; legacy projects may use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead |
 | `DATABASE_URL` | Migrations and schema smoke test | Use the session-pooler PostgreSQL URL on port 5432 |
-| `OPENAI_API_KEY` | `/api/parse` and parser evaluation | Server-only; never prefix it with `NEXT_PUBLIC_` |
-| `OPENAI_MODEL` | Optional parser override | Defaults to `gpt-5.4-mini` |
+| `STUDENT_EMAIL_DOMAINS` | Student access policy | Server-only comma-separated exact domains |
+| `OPENAI_API_KEY` | `/api/parse`, location fallback, and parser evaluation | Server-only; never prefix it with `NEXT_PUBLIC_` |
+| `OPENAI_MODEL` | Optional ride-post parser override | Defaults to `gpt-5.4-mini` |
+| `OPENAI_LOCATION_MODEL` | Optional location-fallback override | Defaults to `gpt-5-mini` |
 | `FUEL_PRICE_PETROL_MKD_L` | Petrol cost estimate | Optional at startup; verify the current MKD/L value before a demo |
 | `FUEL_PRICE_DIESEL_MKD_L` | Diesel cost estimate | Optional at startup; verify the current MKD/L value before a demo |
-| `SUPABASE_SERVICE_ROLE_KEY` | Reserved for future admin/seed tooling | Present in the sample but not read by current code |
+| `DEV_AUTH_BYPASS` | Local sign-in without sending email | Optional; honored only when exactly `true` outside production |
+| `SUPABASE_SECRET_KEY` | Local development bypass | Preferred server-only admin key when the bypass is enabled |
+| `SUPABASE_SERVICE_ROLE_KEY` | Local development bypass | Legacy alternative to `SUPABASE_SECRET_KEY` |
 
 `.env.local` is ignored by Git. Only the blank `.env.example` contract is tracked.
 
@@ -147,12 +152,13 @@ In Supabase:
 
 1. Copy the project URL and publishable/anon key into `.env.local`.
 2. Copy the session-pooler database connection string into `DATABASE_URL`.
-3. Enable and configure email authentication before using the forthcoming magic-link flow.
-4. Add local and deployed auth redirect URLs after the auth callback route lands.
-5. Create the profile-photo Storage bucket and policies after the onboarding implementation lands.
+3. Enable email authentication for the magic-link flow.
+4. Allow the local and deployed `/auth/callback` URLs in Supabase Auth redirect configuration.
+5. Apply all migrations: the profile-photo bucket and its ownership policies are created by
+   `20260920130000_add_profile_photo_storage.sql`.
 
-Email-domain rules, the auth callback, onboarding, and Storage policies are not present on this
-branch yet. They cannot be completed by environment values alone.
+The app checks `STUDENT_EMAIL_DOMAINS` before sending a link and again after callback/session
+creation. Exact domain matching is used; suffix matches are not accepted.
 
 ### 5. Run
 
@@ -164,8 +170,13 @@ Open [http://localhost:3000](http://localhost:3000). To check Supabase wiring wh
 `http://localhost:3000/api/health/supabase`; a response containing `"ok": true` and `"user": null`
 is a successful anonymous connectivity check.
 
-`/rides/new`, `/rides/import`, and `/api/parse` require a valid session. Until the login flow is
-merged, signed-out visits redirect to the currently missing `/login` route.
+`/rides/new`, `/rides/import`, and `/api/parse` require a valid session. New users are sent through
+`/onboarding` until their name, university, and profile photo are complete.
+
+If hosted email is rate-limited during local development, set `DEV_AUTH_BYPASS=true` and configure
+`SUPABASE_SECRET_KEY` (or the legacy service-role key). The separate bypass button appears only
+outside production, still requires an allowed student-domain address, and creates an ordinary
+cookie-backed Supabase session.
 
 ## Verification commands
 
@@ -178,8 +189,9 @@ npx tsc --noEmit
 npx next build --webpack
 ```
 
-The current suite contains 31 focused tests covering ride-draft validation, form parsing, car
-selection, price/CO2 calculations, canonical parser guards, and fixture behavior.
+The current suite contains 48 focused tests covering location resolution, ride-draft validation,
+form parsing, car selection, price/CO2 calculations, canonical parser guards, and fixture behavior.
+Run only the 13 location-resolver tests with `npm run test:locations`.
 
 The live parser evaluator makes real OpenAI requests:
 
@@ -193,13 +205,14 @@ on five curated fixtures; that is a regression signal, not a production-accuracy
 
 ## Current implemented flow
 
-Once authentication is available, the implemented slice is:
+The implemented slice is:
 
-1. Open `/rides/import` and paste a Viber, Facebook, or other group post.
-2. The server loads canonical cities/pickup points and asks OpenAI for schema-constrained output.
-3. Review classification, route IDs, departure, seats, price, confidence, and warnings.
-4. Continue to `/rides/new?import=<id>`.
-5. Correct or complete the draft, choose a car, review the cost estimate, and explicitly save or
+1. Sign in with an allowed student-domain address and complete the required profile onboarding.
+2. Open `/rides/import` and paste a Viber, Facebook, or other group post.
+3. The server loads canonical cities/pickup points and asks OpenAI for schema-constrained output.
+4. Review classification, route IDs, departure, seats, price, confidence, and warnings.
+5. Continue to `/rides/new?import=<id>`.
+6. Correct or complete the draft, choose a car, review the cost estimate, and explicitly save or
    publish the ride.
 
 The larger judge-demo flow then calls for browsing/searching, requesting a seat, driver approval,
@@ -219,13 +232,13 @@ The parser receives:
 - Instructions to preserve uncertainty as warnings and leave unknown fields null
 - The same partial ride-draft contract the review form consumes
 
-After the model responds, ordinary code validates the schema, rejects unknown or city-mismatched
-IDs, clears invented departure times when the post supplied no time, and adds low-confidence review
-warnings. The raw post and structured result are stored together for the review step.
-
-The pending `resolveLocation` integration will add deterministic alias/fuzzy matching before a model
-fallback. Until that lands, candidate restriction prevents invented IDs but does not guarantee that
-the model chose the semantically correct candidate.
+After the model responds, ordinary code resolves the preserved raw origin/destination wording
+through the canonical location resolver instead of trusting model-supplied IDs. Canonical names and
+aliases match deterministically; only genuine misses may use the separate structured model fallback.
+Pickup matches derive their city from the database vocabulary, fabricated IDs are rejected, and an
+unresolved place clears model IDs and forces manual review. Additional guards clear invented
+departure times and flag low-confidence output. The raw post and structured result are stored
+together for the review step.
 
 The fair-price and CO2 calculator is intentionally **not AI**. It uses transparent arithmetic:
 
@@ -241,6 +254,11 @@ always override the suggested price.
 
 Implemented protections:
 
+- Magic-link requests and sessions are restricted to exact configured student domains.
+- Protected routes are checked in the Next.js proxy before rendering.
+- Onboarding requires a real name, university, and JPEG/PNG/WebP profile photo up to 5 MiB.
+- Storage policies restrict profile-photo writes to the authenticated user's UUID folder.
+- Public profile queries select only name, photo, university, bio, and gender—not contact fields.
 - Ride creation and post parsing check the Supabase session on the server.
 - Imported records and saved cars are checked against the authenticated user's ID.
 - Form input is validated in the UI contract and again in the Server Action.
@@ -248,19 +266,18 @@ Implemented protections:
 - Imported model output always goes through human review.
 - Public Supabase keys are separated from server-only secrets.
 
-The product plan also calls for student-domain verification, required real-name/photo profiles,
-driver approval, private contact reveal after acceptance, same-gender ride preferences, trip-share
-links, reports, and a record of confirmed passengers. Some supporting columns already exist, but the
-end-to-end enforcement and UI for these promises are not complete and should not yet be presented as
-production safety guarantees.
+The product plan also calls for driver approval, private contact reveal after acceptance, enforced
+same-gender ride filtering, trip-share links, reports, and a record of confirmed passengers. Some
+supporting columns already exist, but the end-to-end enforcement and UI for these promises are not
+complete and should not yet be presented as production safety guarantees.
 
 ## Known issues and limitations
 
-- Login, auth callback, onboarding, public profiles, and profile-photo upload are not yet merged.
 - Row-level security policies are absent. Do not deploy the current database as a production system.
-- The deterministic/model-fallback `resolveLocation` module is not yet connected to post parsing.
 - Feed, filters, ride details, bookings, dashboards, comments, chat, ratings, and trip sharing are
   not implemented.
+- The local auth bypass requires a server admin key; it is guarded from production but should remain
+  disabled during normal testing.
 - Parser accuracy has only been measured on five curated fixtures and model output can vary.
 - Date-only posts deliberately leave departure empty for manual review; “after 6” uses 18:00 as an
   earliest boundary and adds a warning.
@@ -281,7 +298,9 @@ production safety guarantees.
 └── ride-share-app/
     ├── app/                        Next.js routes, Server Actions, and Route Handlers
     ├── fixtures/posts/             anonymized parser fixtures and evaluation notes
-    ├── lib/ai/                     structured post parser and client-safe schema
+    ├── lib/ai/                     structured post parser and canonical location resolution
+    ├── lib/auth/                   domain policy and session/profile-completion guards
+    ├── lib/profiles/               deliberately limited public-profile query
     ├── lib/rides/                  ride contracts, form validation, car and estimate logic
     ├── lib/supabase/               browser/server clients and generated database types
     ├── scripts/                    live parser evaluator
