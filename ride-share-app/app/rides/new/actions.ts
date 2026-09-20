@@ -2,6 +2,7 @@
 
 import type { PostgrestError } from "@supabase/supabase-js";
 
+import { anonymousRideTestingEnabled } from "@/lib/rides/anonymous-test-mode";
 import { readCarSelection, type CarSelection } from "@/lib/rides/car-selection";
 import { createClient } from "@/lib/supabase/server";
 import { issuesByPath, validateRideSubmission } from "@/lib/rides/ride-form";
@@ -103,7 +104,7 @@ export async function createRide(
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user && !anonymousRideTestingEnabled()) {
     return {
       status: "error",
       message: "Your session has expired. Sign in and try again.",
@@ -134,6 +135,24 @@ export async function createRide(
 
   const draft = validation.draft.data;
   const { intent, submissionId } = validation.metadata.data;
+
+  if (!user) {
+    const carCapacity =
+      carSelection.data.mode === "existing" ? null : carSelection.data.seatsTotal;
+    if (carCapacity !== null && draft.seatsTotal > carCapacity) {
+      return {
+        status: "error",
+        message: "The ride offers more seats than the selected car has.",
+        fieldErrors: { seatsTotal: ["Reduce the available seats or choose a larger car."] },
+      };
+    }
+
+    return {
+      status: "success",
+      message: `Anonymous test passed for ${intent === "publish" ? "publishing" : "saving"}. Nothing was saved.`,
+      fieldErrors: {},
+    };
+  }
 
   const { data: existingRide, error: duplicateLookupError } = await supabase
     .from("rides")

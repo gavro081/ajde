@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 
 import { parsedRidePostSchema } from "@/lib/ai/parsed-ride-post";
+import { anonymousRideTestingEnabled } from "@/lib/rides/anonymous-test-mode";
 import type { RideDraft } from "@/lib/rides/ride-draft";
 import { fuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { createClient } from "@/lib/supabase/server";
@@ -71,7 +72,16 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login?next=/rides/new");
+  const anonymousTestMode = !user && anonymousRideTestingEnabled();
+  if (!user && !anonymousTestMode) redirect("/login?next=/rides/new");
+
+  const carsPromise = user
+    ? supabase
+        .from("cars")
+        .select("id, make, model, fuel_type, consumption_l_100km, color, plate_last3")
+        .eq("owner_id", user.id)
+        .order("created_at")
+    : Promise.resolve({ data: [], error: null });
 
   const [
     { data: cities, error: citiesError },
@@ -84,11 +94,7 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
         .from("pickup_points")
         .select("id, city_id, name_en, name_mk")
         .order("name_en"),
-      supabase
-        .from("cars")
-        .select("id, make, model, fuel_type, consumption_l_100km, color, plate_last3")
-        .eq("owner_id", user.id)
-        .order("created_at"),
+      carsPromise,
       supabase
         .from("car_models")
         .select(
@@ -108,12 +114,14 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
   let initialDraft = usingDevelopmentFixture ? developmentImportFixture() : emptyDraft();
 
   if (importId) {
-    const { data: imported } = await supabase
+    let importQuery = supabase
       .from("imports")
       .select("id, parsed_json")
-      .eq("id", importId)
-      .eq("created_by", user.id)
-      .maybeSingle();
+      .eq("id", importId);
+    importQuery = user
+      ? importQuery.eq("created_by", user.id)
+      : importQuery.is("created_by", null);
+    const { data: imported } = await importQuery.maybeSingle();
     const parsed = parsedRidePostSchema.safeParse(imported?.parsed_json);
     if (imported && parsed.success) {
       initialDraft = { ...parsed.data.draft, importId: imported.id };
@@ -134,6 +142,12 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
             Add the trip details now. You can save a private draft or publish it to the student
             feed.
           </p>
+          {anonymousTestMode ? (
+            <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+              Temporary anonymous test mode is active. The form will be fully validated, but the
+              ride and car will not be written to the database.
+            </p>
+          ) : null}
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
