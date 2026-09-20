@@ -6,6 +6,39 @@ begin;
 
 do $$
 declare
+  photo_bucket storage.buckets%rowtype;
+  photo_policy_count integer;
+begin
+  select * into photo_bucket
+  from storage.buckets
+  where id = 'profile-photos';
+
+  if not found
+    or not photo_bucket.public
+    or photo_bucket.file_size_limit <> 5242880
+    or photo_bucket.allowed_mime_types <> array['image/jpeg', 'image/png', 'image/webp'] then
+    raise exception 'Profile photo bucket is missing or misconfigured';
+  end if;
+
+  select count(*) into photo_policy_count
+  from pg_policies
+  where schemaname = 'storage'
+    and tablename = 'objects'
+    and policyname in (
+      'Profile photos are publicly readable',
+      'Users upload their own profile photos',
+      'Users update their own profile photos',
+      'Users delete their own profile photos'
+    );
+
+  if photo_policy_count <> 4 then
+    raise exception 'Expected 4 profile-photo policies, got %', photo_policy_count;
+  end if;
+end;
+$$;
+
+do $$
+declare
   seeded_city_count integer;
   seeded_pickup_count integer;
   pickup_outside_skopje_count integer;

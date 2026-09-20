@@ -16,6 +16,15 @@ The executable source of truth remains `supabase/migrations/`; generated applica
   catalog entry. This preserves the actual vehicle details and permits manual entries.
 - Row-level security is not defined yet. Add its policies here when they are introduced.
 
+## Storage
+
+### `profile-photos`
+
+Public bucket for profile avatars. Objects are limited to JPEG, PNG, or WebP files of at most 5 MB.
+Authenticated users may insert, update, and delete objects only inside a top-level folder matching
+their own Auth user UUID (`<auth.uid()>/<filename>`). Public reads are intentional because profile
+photos are part of the public identity shown on ride and profile pages.
+
 ## Enums
 
 | Enum | Values | Used by |
