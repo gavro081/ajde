@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.test-dist/
 /out/
 
 # production
