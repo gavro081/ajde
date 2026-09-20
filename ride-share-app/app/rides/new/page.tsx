@@ -69,8 +69,12 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
 
   if (!user) redirect("/login?next=/rides/new");
 
-  const [{ data: cities, error: citiesError }, { data: pickupPoints, error: pickupError }, carsResult] =
-    await Promise.all([
+  const [
+    { data: cities, error: citiesError },
+    { data: pickupPoints, error: pickupError },
+    carsResult,
+    carModelsResult,
+  ] = await Promise.all([
       supabase.from("cities").select("id, name_en, name_mk").order("name_en"),
       supabase
         .from("pickup_points")
@@ -81,9 +85,16 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
         .select("id, make, model, color, plate_last3")
         .eq("owner_id", user.id)
         .order("created_at"),
+      supabase
+        .from("car_models")
+        .select(
+          "id, make, model, engine_size_l, fuel_type, consumption_l_100km, release_year",
+        )
+        .order("make")
+        .order("model"),
     ]);
 
-  if (citiesError || pickupError || carsResult.error) {
+  if (citiesError || pickupError || carsResult.error || carModelsResult.error) {
     throw new Error("Unable to load the ride form catalogs.");
   }
 
@@ -110,6 +121,7 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <RideForm
+            carModels={carModelsResult.data}
             cars={carsResult.data}
             cities={cities}
             initialDraft={initialDraft}

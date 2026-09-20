@@ -10,9 +10,20 @@ import { createRide, type CreateRideFormState } from "./actions";
 type City = Pick<Tables<"cities">, "id" | "name_en" | "name_mk">;
 type PickupPoint = Pick<Tables<"pickup_points">, "id" | "city_id" | "name_en" | "name_mk">;
 type Car = Pick<Tables<"cars">, "id" | "make" | "model" | "color" | "plate_last3">;
+type CarModel = Pick<
+  Tables<"car_models">,
+  | "id"
+  | "make"
+  | "model"
+  | "engine_size_l"
+  | "fuel_type"
+  | "consumption_l_100km"
+  | "release_year"
+>;
 
 type RideFormProps = {
   cars: Car[];
+  carModels: CarModel[];
   cities: City[];
   pickupPoints: PickupPoint[];
   initialDraft: RideDraft;
@@ -49,6 +60,7 @@ function FieldError({ errors }: { errors?: string[] }) {
 
 export function RideForm({
   cars,
+  carModels,
   cities,
   pickupPoints,
   initialDraft,
@@ -69,6 +81,27 @@ export function RideForm({
   const [departureLocal, setDepartureLocal] = useState(
     dateTimeLocalValue(initialDraft.departureAt),
   );
+  const [carMode, setCarMode] = useState<"existing" | "catalog" | "manual">(
+    initialDraft.carId && cars.some((car) => car.id === initialDraft.carId)
+      ? "existing"
+      : initialDraft.car?.carModelId
+        ? "catalog"
+        : cars.length > 0
+          ? "existing"
+          : "catalog",
+  );
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [catalogModelId, setCatalogModelId] = useState(
+    initialDraft.car?.carModelId?.toString() ?? "",
+  );
+  const initialCatalogModel = carModels.find(
+    (model) => model.id === initialDraft.car?.carModelId,
+  );
+  const [consumption, setConsumption] = useState(
+    initialDraft.car?.consumptionL100Km?.toString() ??
+      initialCatalogModel?.consumption_l_100km.toString() ??
+      "",
+  );
 
   const originPickupPoints = useMemo(
     () => pickupPoints.filter((point) => point.city_id.toString() === originCityId),
@@ -77,6 +110,20 @@ export function RideForm({
   const destinationPickupPoints = useMemo(
     () => pickupPoints.filter((point) => point.city_id.toString() === destinationCityId),
     [destinationCityId, pickupPoints],
+  );
+  const filteredCarModels = useMemo(() => {
+    const query = catalogQuery.trim().toLocaleLowerCase();
+    if (!query) return carModels;
+    return carModels.filter(
+      (model) =>
+        model.id.toString() === catalogModelId ||
+        `${model.make} ${model.model} ${model.engine_size_l}`
+          .toLocaleLowerCase()
+          .includes(query),
+    );
+  }, [carModels, catalogModelId, catalogQuery]);
+  const selectedCatalogModel = carModels.find(
+    (model) => model.id.toString() === catalogModelId,
   );
 
   let departureAt = "";
@@ -210,31 +257,6 @@ export function RideForm({
         </label>
 
         <label className="font-medium text-slate-800">
-          Car
-          <select
-            className={inputClass}
-            defaultValue={initialDraft.carId ?? ""}
-            name="carId"
-            required
-          >
-            <option value="">Choose one of your cars</option>
-            {cars.map((car) => (
-              <option key={car.id} value={car.id}>
-                {car.make} {car.model}
-                {car.color ? ` · ${car.color}` : ""}
-                {car.plate_last3 ? ` · •••${car.plate_last3}` : ""}
-              </option>
-            ))}
-          </select>
-          {cars.length === 0 ? (
-            <p className="mt-1 text-sm text-amber-700">
-              You need a saved car before publishing. Car creation is the next plan step.
-            </p>
-          ) : null}
-          <FieldError errors={state.fieldErrors.carId} />
-        </label>
-
-        <label className="font-medium text-slate-800">
           Price per seat (MKD)
           <input
             className={inputClass}
@@ -248,6 +270,166 @@ export function RideForm({
           <FieldError errors={state.fieldErrors.pricePerSeatMkd} />
         </label>
       </section>
+
+      <fieldset className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+        <legend className="px-2 font-semibold text-slate-900">Car</legend>
+        <div className="flex flex-wrap gap-2">
+          {cars.length > 0 ? (
+            <button
+              className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                carMode === "existing"
+                  ? "bg-emerald-700 text-white"
+                  : "bg-slate-100 text-slate-700"
+              }`}
+              onClick={() => setCarMode("existing")}
+              type="button"
+            >
+              Saved car
+            </button>
+          ) : null}
+          <button
+            className={`rounded-full px-4 py-2 text-sm font-semibold ${
+              carMode === "catalog"
+                ? "bg-emerald-700 text-white"
+                : "bg-slate-100 text-slate-700"
+            }`}
+            onClick={() => setCarMode("catalog")}
+            type="button"
+          >
+            Find model
+          </button>
+          <button
+            className={`rounded-full px-4 py-2 text-sm font-semibold ${
+              carMode === "manual"
+                ? "bg-emerald-700 text-white"
+                : "bg-slate-100 text-slate-700"
+            }`}
+            onClick={() => setCarMode("manual")}
+            type="button"
+          >
+            Enter manually
+          </button>
+        </div>
+
+        <input name="carMode" type="hidden" value={carMode} />
+
+        {carMode === "existing" ? (
+          <label className="mt-5 block font-medium text-slate-800">
+            Your saved cars
+            <select
+              className={inputClass}
+              defaultValue={initialDraft.carId ?? ""}
+              name="carId"
+              required
+            >
+              <option value="">Choose a car</option>
+              {cars.map((car) => (
+                <option key={car.id} value={car.id}>
+                  {car.make} {car.model}
+                  {car.color ? ` · ${car.color}` : ""}
+                  {car.plate_last3 ? ` · •••${car.plate_last3}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        {carMode === "catalog" ? (
+          <div className="mt-5 grid gap-5 md:grid-cols-2">
+            <label className="font-medium text-slate-800 md:col-span-2">
+              Search models
+              <input
+                className={inputClass}
+                onChange={(event) => setCatalogQuery(event.target.value)}
+                placeholder="Golf, Astra, Clio…"
+                type="search"
+                value={catalogQuery}
+              />
+            </label>
+            <label className="font-medium text-slate-800 md:col-span-2">
+              Model
+              <select
+                className={inputClass}
+                name="carModelId"
+                onChange={(event) => {
+                  const nextId = event.target.value;
+                  setCatalogModelId(nextId);
+                  const model = carModels.find((item) => item.id.toString() === nextId);
+                  setConsumption(model?.consumption_l_100km.toString() ?? "");
+                }}
+                required
+                value={catalogModelId}
+              >
+                <option value="">Choose a model</option>
+                {filteredCarModels.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.make} {model.model} · {model.engine_size_l}L {model.fuel_type}
+                    {model.release_year ? ` · ${model.release_year}` : ""}
+                  </option>
+                ))}
+              </select>
+              {selectedCatalogModel ? (
+                <p className="mt-2 text-sm text-slate-600">
+                  Catalog estimate: {selectedCatalogModel.consumption_l_100km} L/100 km. Change it
+                  below if you know your car&apos;s real consumption.
+                </p>
+              ) : null}
+            </label>
+            <NewCarFields
+              consumption={consumption}
+              initialDraft={initialDraft}
+              onConsumptionChange={setConsumption}
+            />
+          </div>
+        ) : null}
+
+        {carMode === "manual" ? (
+          <div className="mt-5 grid gap-5 md:grid-cols-2">
+            <label className="font-medium text-slate-800">
+              Make
+              <input
+                className={inputClass}
+                defaultValue={initialDraft.car?.make ?? ""}
+                maxLength={80}
+                name="carMake"
+                required
+              />
+            </label>
+            <label className="font-medium text-slate-800">
+              Model
+              <input
+                className={inputClass}
+                defaultValue={initialDraft.car?.model ?? ""}
+                maxLength={120}
+                name="carModel"
+                required
+              />
+            </label>
+            <label className="font-medium text-slate-800">
+              Fuel
+              <select
+                className={inputClass}
+                defaultValue={initialDraft.car?.fuelType ?? "petrol"}
+                name="fuelType"
+                required
+              >
+                <option value="petrol">Petrol</option>
+                <option value="diesel">Diesel</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="electric">Electric</option>
+                <option value="lpg">LPG</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <NewCarFields
+              consumption={consumption}
+              initialDraft={initialDraft}
+              onConsumptionChange={setConsumption}
+            />
+          </div>
+        ) : null}
+        <FieldError errors={state.fieldErrors.carId} />
+      </fieldset>
 
       <fieldset>
         <legend className="font-medium text-slate-800">Ride preferences</legend>
@@ -331,5 +513,65 @@ export function RideForm({
         </button>
       </div>
     </form>
+  );
+}
+
+type NewCarFieldsProps = {
+  consumption: string;
+  initialDraft: RideDraft;
+  onConsumptionChange: (value: string) => void;
+};
+
+function NewCarFields({
+  consumption,
+  initialDraft,
+  onConsumptionChange,
+}: NewCarFieldsProps) {
+  return (
+    <>
+      <label className="font-medium text-slate-800">
+        Consumption (L/100 km)
+        <input
+          className={inputClass}
+          min="0.1"
+          name="consumptionL100Km"
+          onChange={(event) => onConsumptionChange(event.target.value)}
+          required
+          step="0.1"
+          type="number"
+          value={consumption}
+        />
+      </label>
+      <label className="font-medium text-slate-800">
+        Total passenger seats
+        <input
+          className={inputClass}
+          defaultValue={initialDraft.car?.seatsTotal ?? 4}
+          max={8}
+          min={1}
+          name="carSeatsTotal"
+          required
+          type="number"
+        />
+      </label>
+      <label className="font-medium text-slate-800">
+        Color (optional)
+        <input
+          className={inputClass}
+          defaultValue={initialDraft.car?.color ?? ""}
+          name="carColor"
+        />
+      </label>
+      <label className="font-medium text-slate-800">
+        Last 3 plate characters (optional)
+        <input
+          className={inputClass}
+          defaultValue={initialDraft.car?.plateLast3 ?? ""}
+          maxLength={3}
+          name="plateLast3"
+          placeholder="123"
+        />
+      </label>
+    </>
   );
 }
