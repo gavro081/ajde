@@ -15,6 +15,8 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
   const next = safeNextPath(typeof params.next === 'string' ? params.next : null)
   const status = typeof params.status === 'string' ? params.status : ''
   const user = await getCurrentUser()
+  const devBypassEnabled =
+    process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_BYPASS === 'true'
 
   if (user) {
     const profile = await getProfileCompletion(user.id)
@@ -38,7 +40,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
             {messages[status]}
           </p>
         ) : null}
-        <LoginForm next={next} />
+        <LoginForm next={next} devBypassEnabled={devBypassEnabled} />
       </section>
     </main>
   )
