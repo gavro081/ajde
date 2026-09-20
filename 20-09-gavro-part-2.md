@@ -18,15 +18,15 @@ work.
 
 ## Phase 1 — audit the repository as it actually runs (~30 min)
 
-- [ ] Read the current README and compare every setup claim with the repository.
-- [ ] Record the supported Node/npm versions and the exact install, development, test, lint,
+- [x] Read the current README and compare every setup claim with the repository.
+- [x] Record the supported Node/npm versions and the exact install, development, test, lint,
       type-check, and production-build commands.
-- [ ] Inventory required and optional environment variables from `.env.example`; clearly separate
+- [x] Inventory required and optional environment variables from `.env.example`; clearly separate
       browser-safe values from server-only secrets.
-- [ ] Verify the Supabase migration/seed order and document how a new developer applies it.
-- [ ] Confirm which demo paths need authentication and which external dashboard configuration cannot
+- [x] Verify the Supabase migration/seed order and document how a new developer applies it.
+- [x] Confirm which demo paths need authentication and which external dashboard configuration cannot
       be automated from the repository.
-- [ ] Do not copy real API keys, database passwords, project references, or local `.env.local`
+- [x] Do not copy real API keys, database passwords, project references, or local `.env.local`
       values into documentation or command output.
 
 Acceptance check: every command and environment variable in the draft instructions maps to a real
