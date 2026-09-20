@@ -20,13 +20,13 @@ Work through this entire phase while the key is unavailable.
 
 ### 1. Shared ride-draft contract and validation (~25 min)
 
-- [ ] Define one schema/type for a create-ride draft and use it for both manual entry and later AI
+- [x] Define one schema/type for a create-ride draft and use it for both manual entry and later AI
       output. Include canonical city/pickup IDs, departure time, seats, car details, price, notes,
       tags, confidence/warnings for imported fields, and the source/import reference.
-- [ ] Separate partial imported drafts from the stricter final form: AI output may be incomplete,
+- [x] Separate partial imported drafts from the stricter final form: AI output may be incomplete,
       but a published ride may not be.
-- [ ] Keep validation server-side as well as in the form.
-- [ ] Add focused tests for required fields, origin != destination, future departure, seats 1–8,
+- [x] Keep validation server-side as well as in the form.
+- [x] Add focused tests for required fields, origin != destination, future departure, seats 1–8,
       and nonnegative price.
 
 This contract is the boundary between `parseRidePost` and `/rides/new`; avoid a second parser-only
@@ -133,4 +133,3 @@ checkpoint lands.
 1. Manual create form + car picker + calculator (fully usable without OpenAI).
 2. Shared parser contract + fixtures + stubbed import-review UI.
 3. Live structured parser + tuning changes after the key arrives.
-
