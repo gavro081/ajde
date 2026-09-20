@@ -84,7 +84,8 @@ profiles        id→auth.users, full_name, photo_url, university, phone,
                 instagram, facebook, bio, gender, verified_at
 cities          id, name_mk, name_en, aliases[], lat, lng
 pickup_points   id, city_id, name_mk, name_en, aliases[], lat, lng
-car_models      id, make, model, fuel_type, consumption_l_100km        (seed table)
+car_models      id, make, model, engine_size_l, fuel_type, consumption_l_100km,
+                co2_emissions_g_km?, release_year?                      (seed table)
 cars            id, owner_id, car_model_id?, make, model, fuel_type,
                 consumption_l_100km, color, plate_last3, seats_total
 rides           id, driver_id?, car_id?, origin_city_id, origin_pickup_id,

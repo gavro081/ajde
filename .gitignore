@@ -1,0 +1,5 @@
+# Local reference datasets
+co2.csv
+
+# Supabase CLI state
+ride-share-app/supabase/.temp/
