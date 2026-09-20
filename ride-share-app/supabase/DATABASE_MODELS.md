@@ -45,6 +45,7 @@ key to `auth.users.id`. Required identity fields are `full_name`, `photo_url`, a
 Optional contact/profile fields are `phone`, `instagram`, `facebook`, `bio`, and `gender`;
 `verified_at` records verification. It also has `created_at` and trigger-maintained `updated_at`.
 Names must be 2–100 trimmed characters, university names 2–160, and bios at most 500 characters.
+The Tier 1 demo seed creates 25 clearly synthetic, verified student profiles with deterministic IDs.
 
 ### `cities`
 
@@ -115,6 +116,8 @@ timestamps. Origin and destination cities must differ.
 A native ride requires a driver. An imported ride requires an import record. Driver deletion is
 restricted; car and claimant deletion set their references null; import deletion is restricted.
 Pickup-point composite foreign keys guarantee that each point belongs to its corresponding city.
+The Tier 1 demo seed adds 50 deterministic, future published rides distributed across the city
+catalog. Their `details.demo_seed` flag distinguishes them from user-created records.
 
 ### `bookings`
 

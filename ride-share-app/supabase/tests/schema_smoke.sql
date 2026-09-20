@@ -6,6 +6,26 @@ begin;
 
 do $$
 declare
+  demo_profile_count integer;
+  demo_ride_count integer;
+begin
+  select count(*) into demo_profile_count
+  from public.profiles
+  where id::text like '20000000-0000-4000-8000-%';
+
+  select count(*) into demo_ride_count
+  from public.rides
+  where details @> '{"demo_seed": true}'::jsonb;
+
+  if demo_profile_count <> 25 or demo_ride_count <> 50 then
+    raise exception 'Expected 25 demo profiles and 50 demo rides, got % and %',
+      demo_profile_count, demo_ride_count;
+  end if;
+end;
+$$;
+
+do $$
+declare
   photo_bucket storage.buckets%rowtype;
   photo_policy_count integer;
 begin
