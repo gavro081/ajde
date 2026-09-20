@@ -8,7 +8,8 @@
     "eval:parser": "tsx scripts/evaluate-parser.ts",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run --exclude '.test-dist/**'",
+    "test:locations": "vitest run lib/ai/resolve-location.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

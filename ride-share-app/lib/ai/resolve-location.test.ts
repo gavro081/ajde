@@ -1,0 +1,143 @@
+import { expect, it } from 'vitest'
+
+import {
+  buildLocationResponseRequest,
+  parseLocationResponse,
+} from './openai-location-contract'
+import {
+  normalizeLocation,
+  resolveLocation,
+  type LocationCandidate,
+} from './resolve-location'
+
+const candidates: LocationCandidate[] = [
+  {
+    kind: 'city',
+    id: 6,
+    nameMk: 'Штип',
+    nameEn: 'Shtip',
+    aliases: ['штип', 'shtip', 'stip', 'štip'],
+  },
+  {
+    kind: 'pickup_point',
+    id: 11,
+    nameMk: 'Мавровка',
+    nameEn: 'Mavrovka',
+    aliases: ['мавровка', 'mavrovka', 'кај мавровка'],
+  },
+  {
+    kind: 'pickup_point',
+    id: 12,
+    nameMk: 'Рамстор Мол',
+    nameEn: 'Ramstore Mall',
+    aliases: ['рамстор', 'ramstore', 'ramstor'],
+  },
+  {
+    kind: 'pickup_point',
+    id: 13,
+    nameMk: 'Автокоманда',
+    nameEn: 'Avtokomanda',
+    aliases: ['автокоманда', 'avtokomanda', 'autokomanda'],
+  },
+  {
+    kind: 'pickup_point',
+    id: 14,
+    nameMk: 'Транспортен центар',
+    nameEn: 'Transport Centre',
+    aliases: ['автобуска', 'железничка', 'главна станица', 'main station'],
+  },
+]
+
+for (const [input, expectedId] of [
+  ['Штип', 6],
+  ['Stip', 6],
+  ['кај Мавровка', 11],
+  ['од Рамстор', 12],
+  ['на Автокоманда', 13],
+  ['кај главна станица', 14],
+] as const) {
+  it(`resolves ${input} deterministically`, async () => {
+    const result = await resolveLocation(input, candidates)
+    expect(result.id).toBe(expectedId)
+    expect(result.resolution).toBe('alias')
+    expect(result.confidence).toBeGreaterThanOrEqual(0.98)
+  })
+}
+
+it('normalizes case, whitespace, script, and diacritics', () => {
+  expect(normalizeLocation('  ŠTIP  ')).toBe('stip')
+  expect(normalizeLocation('КаЈ   Мавровка')).toBe('mavrovka')
+})
+
+it('returns unresolved for an unknown place without guessing', async () => {
+  const result = await resolveLocation('Непозната автобуска', candidates)
+  expect(result).toEqual({
+    kind: null,
+    id: null,
+    displayName: 'Непозната автобуска',
+    confidence: 0,
+    resolution: 'unresolved',
+  })
+})
+
+it('does not call the model fallback for a known alias', async () => {
+  let calls = 0
+  const result = await resolveLocation('Stip', candidates, async () => {
+    calls += 1
+    return null
+  })
+
+  expect(result.id).toBe(6)
+  expect(calls).toBe(0)
+})
+
+it('rejects a model choice that is not in the candidate vocabulary', async () => {
+  const result = await resolveLocation('somewhere else', candidates, async () => ({
+    kind: 'city',
+    candidateId: 9999,
+    confidence: 0.9,
+  }))
+
+  expect(result.resolution).toBe('unresolved')
+})
+
+it('builds a strict structured-output request from only canonical candidates', () => {
+  const request = buildLocationResponseRequest('кај железничка', candidates, 'test-model')
+  const input = JSON.parse(request.input)
+
+  expect(request.model).toBe('test-model')
+  expect(request.store).toBe(false)
+  expect(request.text.format.type).toBe('json_schema')
+  expect(request.text.format.strict).toBe(true)
+  expect(input.candidates.map((candidate: { id: number }) => candidate.id)).toEqual([
+    6, 11, 12, 13, 14,
+  ])
+})
+
+it('parses a valid Responses API structured result', () => {
+  const choice = parseLocationResponse({
+    output: [{
+      type: 'message',
+      content: [{
+        type: 'output_text',
+        text: JSON.stringify({
+          matched: true,
+          kind: 'city',
+          candidate_id: 6,
+          confidence: 0.84,
+        }),
+      }],
+    }],
+  })
+
+  expect(choice).toEqual({ kind: 'city', candidateId: 6, confidence: 0.84 })
+})
+
+it('treats refusals and malformed model payloads as unresolved', () => {
+  expect(parseLocationResponse({ output: [] })).toBeNull()
+  expect(
+    parseLocationResponse({
+      output: [{ content: [{ type: 'output_text', text: '{not json}' }] }],
+    }),
+  ).toBeNull()
+})

@@ -16,6 +16,15 @@ The executable source of truth remains `supabase/migrations/`; generated applica
   catalog entry. This preserves the actual vehicle details and permits manual entries.
 - Row-level security is not defined yet. Add its policies here when they are introduced.
 
+## Storage
+
+### `profile-photos`
+
+Public bucket for profile avatars. Objects are limited to JPEG, PNG, or WebP files of at most 5 MB.
+Authenticated users may insert, update, and delete objects only inside a top-level folder matching
+their own Auth user UUID (`<auth.uid()>/<filename>`). Public reads are intentional because profile
+photos are part of the public identity shown on ride and profile pages.
+
 ## Enums
 
 | Enum | Values | Used by |
@@ -52,6 +61,8 @@ Canonical pickup/drop-off landmarks within a `city_id`, with Macedonian and Engl
 key `(id, city_id)` lets rides enforce that a selected pickup point belongs to the selected city.
 The initial seed contains Skopje landmarks only: Mavrovka, Skopje City Mall, Porta Vlae,
 Avtokomanda, Ramstore Mall, Transport Centre, and East Gate Mall.
+Transport Centre aliases also cover the reusable “главна станица” / “main station” phrasing
+verified during location-resolver tuning.
 
 ### `car_models`
 

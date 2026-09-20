@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { isAllowedStudentEmail } from '@/lib/auth/email-domain'
+
 /**
  * Refreshes the Supabase auth session on every request and writes the rotated
  * cookies back onto the response. Without this, a Server Component reading the
@@ -37,10 +39,60 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  // Do not remove: this call is what triggers the token refresh.
-  await supabase.auth.getUser()
+  // Do not replace with getSession(): getUser verifies the JWT with Supabase.
+  const { data } = await supabase.auth.getUser()
+  const user = data.user
+  const pathname = request.nextUrl.pathname
+  const needsAuth =
+    pathname === '/onboarding' ||
+    pathname === '/rides' ||
+    pathname.startsWith('/rides/') ||
+    pathname === '/dashboard' ||
+    pathname.startsWith('/dashboard/')
+
+  if (needsAuth && !user) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search}`)
+    return redirectWithCookies(loginUrl, response)
+  }
+
+  if (user && needsAuth) {
+    if (!user.email || !isAllowedStudentEmail(user.email)) {
+      await supabase.auth.signOut()
+      return redirectWithCookies(
+        new URL('/login?status=invalid-domain', request.url),
+        response,
+      )
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, photo_url, university')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const profileComplete = Boolean(
+      profile?.full_name.trim() && profile.photo_url.trim() && profile.university.trim(),
+    )
+
+    if (pathname === '/onboarding' && profileComplete) {
+      return redirectWithCookies(new URL('/rides', request.url), response)
+    }
+
+    if (pathname !== '/onboarding' && !profileComplete) {
+      return redirectWithCookies(new URL('/onboarding', request.url), response)
+    }
+  }
 
   return response
+}
+
+function redirectWithCookies(url: URL, source: NextResponse) {
+  const redirectResponse = NextResponse.redirect(url)
+  for (const cookie of source.cookies.getAll()) {
+    redirectResponse.cookies.set(cookie)
+  }
+  return redirectResponse
 }
 
 export const config = {
