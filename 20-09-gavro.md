@@ -58,12 +58,12 @@ catalog data remains unchanged.
 
 ### 4. Price and CO2 calculator (~20 min)
 
-- [ ] Put pure calculator functions in a reusable non-UI module and add unit tests.
-- [ ] Suggested seat price: `distance_km * consumption_l_100km / 100 * fuel_price_mkd_l / seats`.
-- [ ] Fuel CO2: petrol `2.31 kg/L`, diesel `2.68 kg/L`; label other fuel types honestly instead of
+- [x] Put pure calculator functions in a reusable non-UI module and add unit tests.
+- [x] Suggested seat price: `distance_km * consumption_l_100km / 100 * fuel_price_mkd_l / seats`.
+- [x] Fuel CO2: petrol `2.31 kg/L`, diesel `2.68 kg/L`; label other fuel types honestly instead of
       inventing a factor.
-- [ ] Read fuel prices from server environment/config, with assumptions visible beside the result.
-- [ ] Do not fetch a live fuel price in this task; the plan says to verify it before recording.
+- [x] Read fuel prices from server environment/config, with assumptions visible beside the result.
+- [x] Do not fetch a live fuel price in this task; the plan says to verify it before recording.
 
 Acceptance check: calculator tests cover petrol, diesel, rounding, invalid/zero inputs, and a user
 override of the suggested price.

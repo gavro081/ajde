@@ -33,6 +33,7 @@ export function readRideDraftFromFormData(formData: FormData, carIdOverride?: st
       rawText: null,
     },
     departureAt: nullableString(formData.get("departureAt")),
+    distanceKm: nullableNumber(formData.get("distanceKm")),
     seatsTotal: nullableNumber(formData.get("seatsTotal")),
     carId: carIdOverride ?? nullableString(formData.get("carId")),
     car: {

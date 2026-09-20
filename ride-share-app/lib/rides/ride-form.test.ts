@@ -12,6 +12,7 @@ function validFormData() {
   formData.set("destinationCityId", "3");
   formData.set("destinationPickupPointId", "");
   formData.set("departureAt", "2026-09-21T08:00:00+02:00");
+  formData.set("distanceKm", "170");
   formData.set("seatsTotal", "3");
   formData.set("carId", "8cf6b8f1-ef8b-4eef-b3ff-6e131648ed47");
   formData.set("pricePerSeatMkd", "500");
@@ -34,6 +35,7 @@ describe("validateRideSubmission", () => {
         origin: { cityId: 1, pickupPointId: 2 },
         destination: { cityId: 3, pickupPointId: null },
         seatsTotal: 3,
+        distanceKm: 170,
         pricePerSeatMkd: 500,
         tags: ["no_smoking"],
       });
