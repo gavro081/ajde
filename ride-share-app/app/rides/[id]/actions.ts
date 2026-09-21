@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { bookingRequestSchema, requestEligibility } from "@/lib/bookings/validation";
+import { canRequestSameGenderRide } from "@/lib/rides/gender-discovery";
 import { createClient } from "@/lib/supabase/server";
 
 function detailUrl(rideId: string, type: "success" | "error", message: string) {
@@ -46,7 +47,7 @@ export async function requestBooking(rideId: string, formData: FormData) {
       .in("id", [ride.driver_id, user.id]);
     const driverGender = profiles?.find((profile) => profile.id === ride.driver_id)?.gender;
     const passengerGender = profiles?.find((profile) => profile.id === user.id)?.gender;
-    if (!driverGender || !passengerGender || driverGender !== passengerGender) {
+    if (!canRequestSameGenderRide(driverGender, passengerGender)) {
       redirect(detailUrl(rideId, "error", "This driver accepts requests only from students of the same gender."));
     }
   }
