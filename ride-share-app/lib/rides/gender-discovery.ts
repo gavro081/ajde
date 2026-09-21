@@ -7,6 +7,13 @@ export function usableDiscoveryGender(
   return gender && gender !== "prefer_not_to_say" ? gender : null;
 }
 
+export function shouldFilterRidesByDriverGender(
+  enabled: boolean,
+  passengerGender: DiscoveryGender | undefined,
+) {
+  return enabled && usableDiscoveryGender(passengerGender) !== null;
+}
+
 export function filterRidesByDriverGender<T extends { driver_id: string | null }>(
   rides: readonly T[],
   driverGenders: ReadonlyMap<string, DiscoveryGender>,

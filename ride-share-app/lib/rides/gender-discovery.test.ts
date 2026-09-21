@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { filterRidesByDriverGender, usableDiscoveryGender } from "./gender-discovery";
+import {
+  filterRidesByDriverGender,
+  shouldFilterRidesByDriverGender,
+  usableDiscoveryGender,
+} from "./gender-discovery";
 
 const rides = [
   { id: "matching-any", driver_id: "driver-woman", gender_preference: "any" },
@@ -43,5 +47,12 @@ describe("same-gender discovery filtering", () => {
     expect(usableDiscoveryGender("non_binary")).toBe("non_binary");
     expect(usableDiscoveryGender("prefer_not_to_say")).toBeNull();
     expect(usableDiscoveryGender(null)).toBeNull();
+  });
+
+  it("only expands the feed query when gender filtering can be applied", () => {
+    expect(shouldFilterRidesByDriverGender(true, "woman")).toBe(true);
+    expect(shouldFilterRidesByDriverGender(true, "prefer_not_to_say")).toBe(false);
+    expect(shouldFilterRidesByDriverGender(true, null)).toBe(false);
+    expect(shouldFilterRidesByDriverGender(false, "woman")).toBe(false);
   });
 });
