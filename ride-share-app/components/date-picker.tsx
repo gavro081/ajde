@@ -118,7 +118,7 @@ export function MonthCalendar({ value, onChoose, today }: { value: string; onCho
       <button type="button" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid size-8 min-h-0 place-items-center rounded-full hover:bg-[#f1f4f1]">›</button>
     </div>
     <div className="mt-2 grid grid-cols-7 gap-0.5 text-center">
-      {weekdays.map((day) => <span key={day} className="py-1 font-mono text-[11px] font-medium uppercase text-[#849182]">{day}</span>)}
+      {weekdays.map((day) => <span key={day} className="py-1 text-[13px] font-semibold text-[#849182]">{day}</span>)}
       {Array.from({ length: leading }, (_, index) => <span key={`gap-${index}`} />)}
       {Array.from({ length: daysInMonth }, (_, index) => {
         const date = new Date(month.getFullYear(), month.getMonth(), index + 1);

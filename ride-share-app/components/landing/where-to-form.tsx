@@ -10,7 +10,7 @@ function CityField({ tag, label, name, value, onChange, cities, loading }: {
   tag: string; label: string; name: string; value: string; onChange: (value: string) => void; cities: City[]; loading: boolean;
 }) {
   return <label className="relative flex min-h-[3.6rem] items-center rounded-xl bg-[#f1f4f1] focus-within:ring-2 focus-within:ring-[#16201a]">
-    <span aria-hidden="true" className="w-16 shrink-0 pl-4 font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-[#647063]">{tag}</span>
+    <span aria-hidden="true" className="w-16 shrink-0 pl-4 text-sm font-semibold text-[#647063]">{tag}</span>
     <span className="sr-only">{label}</span>
     <select name={name} value={value} onChange={(event) => onChange(event.target.value)} disabled={loading}
       className={`min-h-0 w-full appearance-none bg-transparent py-3 pr-14 text-[17px] font-medium outline-none ${value ? "" : "text-[#647063]"}`}>

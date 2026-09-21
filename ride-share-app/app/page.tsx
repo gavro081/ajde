@@ -33,7 +33,7 @@ function Savings({ summary, message }: { summary: PublicImpact | null; message?:
         <svg className="shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#86efac" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{s.icon}</svg>
         <span className="flex min-w-0 flex-col">
           <span className="font-display text-[clamp(1.4rem,2.2vw,1.9rem)] font-extrabold leading-tight tracking-[-0.03em]" style={{ fontVariantNumeric: "tabular-nums" }}>{s.value}</span>
-          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-[#a3b8aa] sm:text-xs">{s.label}</span>
+          <span className="text-xs font-medium text-[#a3b8aa] sm:text-sm">{s.label}</span>
         </span>
       </li>)}
     </ul>

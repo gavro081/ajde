@@ -48,7 +48,7 @@ export function DateTimeField({ value, onChange, invalid, disabled, describedBy,
       <ChipRow options={quickDatePicks(today)} value={date} onChoose={(next) => update(next)} />
       <div className="mt-4"><MonthCalendar value={date} onChoose={(next) => update(next)} today={today} /></div>
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#16201a]/8 pt-4">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-[#647063]">Time</span>
+        <span className="text-sm font-semibold text-[#647063]">Time</span>
         <div className="flex items-center gap-1.5">
           <label><span className="sr-only">Hour</span>
             <select value={hour} disabled={!date} onChange={(event) => update(date, event.target.value)} className={selectClass}><option value="">Hour</option>{hours.map((option) => <option key={option}>{option}</option>)}</select>

@@ -739,7 +739,7 @@ function RideEstimatePanel({
 function EstimateValue({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-white p-3 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-xs font-medium text-slate-500">{label}</p>
       <p className="mt-1 text-lg font-bold text-slate-950">{value}</p>
     </div>
   );

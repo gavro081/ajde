@@ -153,7 +153,7 @@ function ParsedReview({ result, cities }: { result: ParseResponse; cities: { id:
       <dl className="mt-5 grid gap-3 sm:grid-cols-2">
         {fields.map(([label, value]) => (
           <div className="rounded-xl bg-white p-3" key={label}>
-            <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+            <dt className="text-xs font-medium text-slate-500">{label}</dt>
             <dd className="mt-1 font-semibold text-slate-900">{value}</dd>
           </div>
         ))}
