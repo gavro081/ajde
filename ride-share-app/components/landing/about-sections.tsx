@@ -52,11 +52,11 @@ function Heading({ id, children, className = "" }: { id: string; children: React
   return <h2 id={id} className={`mt-3 font-display text-[clamp(2rem,4.2vw,3.4rem)] font-extrabold leading-[1.02] tracking-[-0.045em] ${className}`}>{children}</h2>;
 }
 
-/** Sits at the bottom of the first screen so visitors know there is more below. */
+/** Sits in the bottom-right corner of the first screen so visitors know there is more below. */
 export function ScrollHint() {
-  return <a href="#about" className="absolute bottom-3 left-1/2 z-10 hidden -translate-x-1/2 items-center gap-2 rounded-full bg-white/70 py-1.5 pl-4 pr-3 text-sm font-semibold text-[#3c4a41] shadow-sm ring-1 ring-[#16201a]/5 backdrop-blur-md hover:bg-white lg:flex">
-    Scroll to learn more
-    <svg className={styles.nudge} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
+  return <a href="#about" aria-label="Scroll to learn more" title="Scroll to learn more"
+    className="absolute bottom-5 right-5 z-10 hidden size-11 place-items-center rounded-full border border-white/15 bg-white/10 text-[#86efac] backdrop-blur-md transition-colors hover:bg-white/20 lg:grid">
+    <svg className={styles.nudge} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
   </a>;
 }
 

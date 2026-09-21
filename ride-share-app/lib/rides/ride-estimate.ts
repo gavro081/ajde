@@ -6,6 +6,8 @@ export type RideEstimateInput = {
   fuelPriceMkdL: number;
   seats: number;
   fuelType: CombustionFuelType;
+  /** Road tolls for the whole trip, shared across seats like the fuel. */
+  tollsMkd?: number;
 };
 
 const CO2_KG_PER_LITRE: Record<CombustionFuelType, number> = {
@@ -25,15 +27,19 @@ export function calculateRideEstimate(input: RideEstimateInput) {
   positiveFinite(input.fuelPriceMkdL, "Fuel price");
   positiveFinite(input.seats, "Seats");
   if (!Number.isInteger(input.seats)) throw new RangeError("Seats must be a whole number");
+  const tollsMkd = input.tollsMkd ?? 0;
+  if (!Number.isFinite(tollsMkd) || tollsMkd < 0) throw new RangeError("Tolls must be a nonnegative finite number");
 
   const fuelLitres = (input.distanceKm * input.consumptionL100Km) / 100;
   const totalFuelCostMkd = fuelLitres * input.fuelPriceMkdL;
-  const rawPricePerSeatMkd = totalFuelCostMkd / input.seats;
+  const totalTripCostMkd = totalFuelCostMkd + tollsMkd;
+  const rawPricePerSeatMkd = totalTripCostMkd / input.seats;
   const tripCo2Kg = fuelLitres * CO2_KG_PER_LITRE[input.fuelType];
 
   return {
     fuelLitres,
     totalFuelCostMkd,
+    totalTripCostMkd,
     pricePerSeatMkd: Math.round(rawPricePerSeatMkd),
     tripCo2Kg,
     potentialCo2SavedKg: tripCo2Kg * input.seats,

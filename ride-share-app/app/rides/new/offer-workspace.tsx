@@ -14,6 +14,17 @@ export type OfferWorkspaceProps = Omit<RideFormProps, "values" | "onChange" | "o
 const idle: CreateRideFormState = { status: "idle", message: "", fieldErrors: {} };
 
 const subscribeHydration = () => () => {};
+type Snapshot = { tabs: OfferTab[]; activeId: string; filled: boolean };
+
+/** A blank tab seeded from the page's draft, preselecting the driver's car when that is unambiguous. */
+function freshTab(props: OfferWorkspaceProps, id: string) {
+  const draft = !props.initialDraft.carId && !props.initialDraft.car && props.cars.length === 1
+    ? { ...props.initialDraft, carId: props.cars[0].id }
+    : props.initialDraft;
+  const tab = createOfferTab(draft, id);
+  if (!draft.carId && !draft.car && props.cars.length > 1) tab.values.carMode = "existing";
+  return tab;
+}
 export function OfferWorkspace(props: OfferWorkspaceProps) {
   const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
   return hydrated ? <WorkspaceSession key={`${props.userId}:${props.initialDraft.importId ?? "native"}`} {...props} /> : <p role="status">Restoring ride drafts…</p>;
@@ -25,11 +36,7 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
   const [savingCar, setSavingCar] = useState(false);
   const storageKey = `ride-offers:v1:${props.userId}:${props.initialDraft.importId ?? "native"}`;
   const [initial] = useState(() => {
-    const draft = !props.initialDraft.carId && !props.initialDraft.car && props.cars.length === 1
-      ? { ...props.initialDraft, carId: props.cars[0].id }
-      : props.initialDraft;
-    const fresh = { tabs: [createOfferTab(draft, props.submissionId)], activeId: props.submissionId, text: "", filled: false, message: "" };
-    if (!draft.carId && !draft.car && props.cars.length > 1) fresh.tabs[0].values.carMode = "existing";
+    const fresh = { tabs: [freshTab(props, props.submissionId)], activeId: props.submissionId, text: "", filled: false, message: "" };
     try {
       const raw = sessionStorage.getItem(storageKey);
       if (!raw) return fresh;
@@ -46,7 +53,9 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
   const [storageMessage, setStorageMessage] = useState("");
   const [interpreting, setInterpreting] = useState(false);
   const [filled, setFilled] = useState(initial.filled);
-  const [retry, setRetry] = useState<{ append: boolean } | null>(null);
+  const [retry, setRetry] = useState(false);
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const [states, setStates] = useState<Record<string, CreateRideFormState>>({});
   const [publishing, setPublishing] = useState<string[]>([]);
   const locks = useRef(new Set<string>());
@@ -78,10 +87,37 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
     setCars(previous => [...previous.filter(item => item.id !== car.id), car]);
     update(tab.id, previous => editOfferTab(previous, { ...previous.values, carMode: "existing", existingCarId: car.id }));
   }
-  async function fill(append = false) {
+  /** Removes unpublished drafts while keeping a copy so the driver can undo. */
+  function replaceDrafts(next: OfferTab[], notice: string) {
+    setSnapshot({ tabs: drafts, activeId: tab.id, filled });
+    setTabs(previous => [...previous.filter(item => item.publishedId), ...next]);
+    setActiveId(next[0]?.id ?? "");
+    setMessage(notice); setRetry(false);
+  }
+  function deleteDraft(id: string) {
+    const index = drafts.findIndex(item => item.id === id);
+    const remaining = drafts.filter(item => item.id !== id);
+    replaceDrafts(remaining, "Draft deleted.");
+    if (id === tab.id) setActiveId(remaining[Math.min(index, remaining.length - 1)].id);
+    else setActiveId(tab.id);
+  }
+  function startOver() {
+    interpretationEpoch.current += 1;
+    replaceDrafts([freshTab(props, crypto.randomUUID())], "Drafts cleared. Edit your description and fill the form again.");
+    setFilled(false); setUndo({});
+    descriptionRef.current?.focus();
+  }
+  function restoreSnapshot() {
+    if (!snapshot) return;
+    interpretationEpoch.current += 1;
+    setTabs(previous => [...previous.filter(item => item.publishedId), ...snapshot.tabs]);
+    setActiveId(snapshot.activeId); setFilled(snapshot.filled);
+    setSnapshot(null); setMessage("Drafts restored.");
+  }
+  async function fill() {
     const target = tab;
     const epoch = ++interpretationEpoch.current;
-    setInterpreting(true); setMessage(""); setRetry(null);
+    setInterpreting(true); setMessage(""); setRetry(false); setSnapshot(null);
     try {
       const response = await fetch("/api/rides/interpret", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, mode: "create" }), signal: AbortSignal.timeout(25000) });
@@ -90,13 +126,12 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
       const result = offerInterpretationSchema.parse(body);
       if (epoch !== interpretationEpoch.current) throw new Error("The description changed. Retry to apply the new text.");
       const current = tabsRef.current.find(item => item.id === target.id);
-      if (!append && (!current || current.revision !== target.revision || current.publishedId || locks.current.has(target.id))) throw new Error("The form changed. Retry to apply your description.");
-      if (!append && current) setUndo(previous => ({ ...previous, [target.id]: current }));
-      const extra = result.trips.slice(append ? 0 : 1).map(trip => applyOfferTrip(createOfferTab(emptyOfferDraft(), crypto.randomUUID()), trip));
-      setTabs(previous => append ? [...previous, ...extra] : [...previous.map(item => item.id === target.id && item.revision === target.revision && !item.publishedId ? applyOfferTrip(item, result.trips[0]) : item), ...extra]);
-      if (append && extra[0]) setActiveId(extra[0].id);
+      if (!current || current.revision !== target.revision || current.publishedId || locks.current.has(target.id)) throw new Error("The form changed. Retry to apply your description.");
+      setUndo(previous => ({ ...previous, [target.id]: current }));
+      const extra = result.trips.slice(1).map(trip => applyOfferTrip(createOfferTab(emptyOfferDraft(), crypto.randomUUID()), trip));
+      setTabs(previous => [...previous.map(item => item.id === target.id && item.revision === target.revision && !item.publishedId ? applyOfferTrip(item, result.trips[0]) : item), ...extra]);
       setFilled(true); setMessage("Details filled. Edit the form directly and review each ride before publishing.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Interpretation failed. Retry."); setRetry({ append }); }
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Interpretation failed. Retry."); setRetry(true); }
     finally { setInterpreting(false); }
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -113,6 +148,7 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
       setStates(previous => ({ ...previous, [id]: result }));
       if (result.status === "success" && result.rideId) {
         interpretationEpoch.current += 1;
+        setSnapshot(null);
         update(id, previous => ({ ...previous, publishedId: result.rideId!, revision: previous.revision + 1 }));
         setMessage(`${result.message} Continue with your remaining drafts.`);
       }
@@ -133,22 +169,31 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
       destination={props.cities.find(city => String(city.id) === item.values.destinationCityId)?.name_en} update={update} />)}
     <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4 sm:p-5">
     <p className="eyebrow mb-2">Start with a description</p>
-    <label className="block font-semibold text-slate-900">Describe your rides<textarea className="field mt-3 min-h-28 resize-y bg-white font-normal" maxLength={6000} placeholder="Going skp to bt 4pm Saturday with a Clio" value={text} onChange={event => { setText(event.target.value); interpretationEpoch.current += 1; }} /></label>
-    <p className="field-help mb-4">Describe one trip or a return journey. Review and edit each draft below before publishing.</p>
-    <button className="btn-primary disabled:opacity-50" type="button" disabled={savingCar || interpreting || !text.trim() || publishing.length > 0}
-      onClick={() => { void fill(filled); }}>{interpreting ? "Filling…" : filled ? "Create more drafts" : "Fill form"}</button>
+    <label className="block font-semibold text-slate-900">Describe your rides<textarea ref={descriptionRef} className="field mt-3 min-h-28 resize-y bg-white font-normal" maxLength={6000} placeholder="Going skp to bt 4pm Saturday with a Clio" value={text} onChange={event => { setText(event.target.value); interpretationEpoch.current += 1; }} /></label>
+    <p className="field-help mb-4">{filled ? "Not quite right? Start over to clear these drafts, then edit your description and fill again." : "Describe one trip or a return journey. Review and edit each draft below before publishing."}</p>
+    {filled
+      ? <button className="btn-secondary disabled:opacity-50" type="button" disabled={savingCar || interpreting || publishing.length > 0} onClick={startOver}>Start over</button>
+      : <button className="btn-primary disabled:opacity-50" type="button" disabled={savingCar || interpreting || !text.trim() || publishing.length > 0}
+        onClick={() => { void fill(); }}>{interpreting ? "Filling…" : "Fill form"}</button>}
     </div>
-    {message && <p role="status">{message}</p>}
-    {retry && <button type="button" className="btn-secondary" disabled={savingCar || interpreting || publishing.length > 0 || Boolean(tab.publishedId)} onClick={() => { void fill(retry.append); }}>Retry</button>}
+    {message && <p role="status">{message}{snapshot && <> <button type="button" className="font-semibold underline" onClick={restoreSnapshot}>Undo</button></>}</p>}
+    {retry && <button type="button" className="btn-secondary" disabled={savingCar || interpreting || publishing.length > 0 || Boolean(tab.publishedId)} onClick={() => { void fill(); }}>Retry</button>}
     <div role="tablist" aria-label="Ride drafts" className="flex flex-wrap gap-2">
-      {drafts.map((item, index) => <button key={item.id} type="button" role="tab" id={`tab-${item.id}`} aria-controls={`panel-${item.id}`}
-        aria-selected={item.id === tab.id} tabIndex={item.id === tab.id ? 0 : -1}
-        disabled={savingCar}
-        className={`min-w-0 max-w-full rounded-full border px-4 py-2 text-left text-sm font-semibold break-words ${item.id === tab.id ? "bg-brand-600 border-brand-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
-        onClick={() => setActiveId(item.id)} onKeyDown={event => {
-          const next = event.key === "ArrowRight" ? (index + 1) % drafts.length : event.key === "ArrowLeft" ? (index + drafts.length - 1) % drafts.length : event.key === "Home" ? 0 : event.key === "End" ? drafts.length - 1 : -1;
-          if (next >= 0) { event.preventDefault(); setActiveId(drafts[next].id); document.getElementById(`tab-${drafts[next].id}`)?.focus(); }
-        }}>{label(item, index)}</button>)}
+      {drafts.map((item, index) => <div key={item.id} role="presentation" className={`inline-flex min-w-0 max-w-full items-center rounded-full border ${item.id === tab.id ? "bg-brand-600 border-brand-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
+        <button type="button" role="tab" id={`tab-${item.id}`} aria-controls={`panel-${item.id}`}
+          aria-selected={item.id === tab.id} tabIndex={item.id === tab.id ? 0 : -1}
+          disabled={savingCar}
+          className={`min-w-0 rounded-full py-2 text-left text-sm font-semibold break-words ${drafts.length > 1 ? "pl-4 pr-1" : "px-4"}`}
+          onClick={() => setActiveId(item.id)} onKeyDown={event => {
+            const next = event.key === "ArrowRight" ? (index + 1) % drafts.length : event.key === "ArrowLeft" ? (index + drafts.length - 1) % drafts.length : event.key === "Home" ? 0 : event.key === "End" ? drafts.length - 1 : -1;
+            if (next >= 0) { event.preventDefault(); setActiveId(drafts[next].id); document.getElementById(`tab-${drafts[next].id}`)?.focus(); }
+          }}>{label(item, index)}</button>
+        {drafts.length > 1 && <button type="button" aria-label={`Delete draft: ${label(item, index)}`} title="Delete draft"
+          disabled={savingCar || publishing.includes(item.id)} onClick={() => deleteDraft(item.id)}
+          className={`mr-1.5 grid size-8 min-h-0 shrink-0 place-items-center rounded-full disabled:opacity-40 ${item.id === tab.id ? "hover:bg-white/20" : "hover:bg-slate-200"}`}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>}
+      </div>)}
     </div>
     <section role="tabpanel" id={`panel-${tab.id}`} aria-labelledby={`tab-${tab.id}`}>
         {undo[tab.id] && <button type="button" className="btn-secondary mb-4" disabled={savingCar || publishing.includes(tab.id)} onClick={() => {
@@ -163,9 +208,6 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
           <RideForm {...props} cars={cars} onCarSaved={carSaved} onCarSaving={setSavingCar} key={tab.id} submissionId={tab.id} initialDraft={{ ...emptyOfferDraft(), source: tab.source, importId: tab.importId }}
             isImportedDraft={tab.source === "imported"} values={tab.values} onChange={change} onSubmit={submit} pending={publishing.includes(tab.id)} state={states[tab.id] ?? idle} />
         </fieldset>
-        {drafts.length > 1 && <button className="mt-4 text-sm underline" type="button" disabled={savingCar || publishing.includes(tab.id)} onClick={() => {
-          const remaining = drafts.filter(item => item.id !== tab.id); setTabs(previous => previous.filter(item => item.id !== tab.id)); setActiveId(remaining[0].id);
-        }}>Discard this draft</button>}
     </section>
     <p className="text-xs text-slate-500">City-to-city routing by <a href="https://project-osrm.org/" className="underline">OSRM</a>, data © <a href="https://www.openstreetmap.org/copyright" className="underline">OpenStreetMap contributors</a>. <a href="https://www.openstreetmap.org/fixthemap" className="underline">Fix the map</a>. Estimates may differ from your journey.</p>
   </div>;

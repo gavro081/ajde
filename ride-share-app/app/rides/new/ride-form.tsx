@@ -87,6 +87,20 @@ export function RideForm({
   const carFieldsRef = useRef<HTMLFieldSetElement>(null);
   const carChangeRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
+  const [priceFilled, setPriceFilled] = useState(false);
+  useEffect(() => {
+    if (!priceFilled) return;
+    const timer = setTimeout(() => setPriceFilled(false), 1600);
+    return () => clearTimeout(timer);
+  }, [priceFilled]);
+  /** Applies the suggested price, then brings the field into view and briefly highlights it. */
+  function applySuggestedPrice(price: number) {
+    setPricePerSeatMkd(price.toString());
+    setPriceFilled(true);
+    const smooth = !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    priceRef.current?.scrollIntoView?.({ behavior: smooth ? "smooth" : "auto", block: "center" });
+  }
   useEffect(() => {
     if (state.status === "error") formRef.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();
   }, [state]);
@@ -277,7 +291,8 @@ export function RideForm({
           <label className="font-medium text-slate-800">
             Price per seat (MKD)
             <input
-              className={inputClass}
+              ref={priceRef}
+              className={`${inputClass} ${priceFilled ? "ring-4 ring-brand-200" : ""}`}
               min={0}
               name="pricePerSeatMkd"
               aria-invalid={Boolean(state.fieldErrors.pricePerSeatMkd) || undefined}
@@ -535,47 +550,50 @@ export function RideForm({
         fuelPrices={fuelPrices}
         fuelType={estimateFuelType}
         onDistanceChange={setDistanceKm}
-        onUseSuggestion={(price) => setPricePerSeatMkd(price.toString())}
+        onUseSuggestion={applySuggestedPrice}
         seats={seatsTotal}
       />
       </details>
 
-      <fieldset className="form-section">
-        <legend className="pr-3 text-lg font-semibold text-slate-800">Ride preferences</legend>
-        <div className="mt-3 flex flex-wrap gap-3">
-          {RIDE_TAGS.map((tag) => (
-            <label
-              className="flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm text-slate-700"
-              key={tag}
-            >
-              <input
-                checked={values.tags.includes(tag)}
-                onChange={(event) => onChange({ ...values, tags: event.target.checked ? [...values.tags, tag] : values.tags.filter(t => t !== tag) })}
-                name="tags"
-                type="checkbox"
-                value={tag}
-              />
-              {tagLabels[tag]}
-            </label>
-          ))}
-        </div>
-        <FieldError errors={state.fieldErrors.tags} />
-      </fieldset>
+      <details className="card-options" open={values.tags.length > 0 || values.genderPreference !== "any" || Boolean(state.fieldErrors.tags?.length || state.fieldErrors.genderPreference?.length)}>
+        <summary>Preferences</summary>
+        <fieldset>
+          <legend className="font-medium text-slate-800">Ride</legend>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {RIDE_TAGS.map((tag) => (
+              <label
+                className="flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm text-slate-700"
+                key={tag}
+              >
+                <input
+                  checked={values.tags.includes(tag)}
+                  onChange={(event) => onChange({ ...values, tags: event.target.checked ? [...values.tags, tag] : values.tags.filter(t => t !== tag) })}
+                  name="tags"
+                  type="checkbox"
+                  value={tag}
+                />
+                {tagLabels[tag]}
+              </label>
+            ))}
+          </div>
+          <FieldError errors={state.fieldErrors.tags} />
+        </fieldset>
 
-      <label className="block font-medium text-slate-800">
-        Passenger preference
-        <select
-          className={inputClass}
-          value={values.genderPreference}
-          onChange={(event) => onChange({ ...values, genderPreference: event.target.value === "same_as_driver" ? "same_as_driver" : "any" })}
-          name="genderPreference"
-          required
-        >
-          <option value="any">Anyone</option>
-          <option value="same_as_driver">Same gender as me</option>
-        </select>
-        <FieldError errors={state.fieldErrors.genderPreference} />
-      </label>
+        <label className="mt-6 block font-medium text-slate-800">
+          Passengers
+          <select
+            className={inputClass}
+            value={values.genderPreference}
+            onChange={(event) => onChange({ ...values, genderPreference: event.target.value === "same_as_driver" ? "same_as_driver" : "any" })}
+            name="genderPreference"
+            required
+          >
+            <option value="any">Anyone</option>
+            <option value="same_as_driver">Same gender as me</option>
+          </select>
+          <FieldError errors={state.fieldErrors.genderPreference} />
+        </label>
+      </details>
 
       <label className="block font-medium text-slate-800">
         Notes
@@ -651,6 +669,9 @@ function RideEstimatePanel({
   onUseSuggestion,
   seats,
 }: RideEstimatePanelProps) {
+  const [tolls, setTolls] = useState("0");
+  const tollsMkd = Number(tolls) > 0 ? Number(tolls) : 0;
+  const hasSeats = Number(seats) > 0;
   const supportedFuel = fuelType === "petrol" || fuelType === "diesel" ? fuelType : null;
   const fuelPrice = supportedFuel ? fuelPrices[supportedFuel] : null;
   const numericInput = {
@@ -667,7 +688,7 @@ function RideEstimatePanel({
     Object.values(numericInput).every((value) => Number.isFinite(value) && value > 0)
   ) {
     try {
-      estimate = calculateRideEstimate({ ...numericInput, fuelType: supportedFuel });
+      estimate = calculateRideEstimate({ ...numericInput, fuelType: supportedFuel, tollsMkd });
     } catch {
       estimate = null;
     }
@@ -677,20 +698,38 @@ function RideEstimatePanel({
     <section className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4 sm:p-5">
       <h2 className="font-semibold text-brand-950">Fair-price and CO₂ estimate</h2>
       <p className="mt-1 text-sm text-brand-900/75">
-        Fuel cost is split across the offered passenger seats. The price remains editable.
+        Fuel and tolls are split across the offered passenger seats. The price remains editable.
       </p>
-      <label className="mt-4 block max-w-xs font-medium text-slate-800">
-        Estimated route distance (km)
-        <input
-          className={inputClass}
-          min="0.1"
-          name="distanceKm"
-          onChange={(event) => onDistanceChange(event.target.value)}
-          step="0.1"
-          type="number"
-          value={distanceKm}
-        />
-      </label>
+      <div className="mt-4 grid max-w-xl gap-4 sm:grid-cols-2">
+        <label className="block font-medium text-slate-800">
+          Estimated route distance (km)
+          <input
+            className={inputClass}
+            min="0.1"
+            name="distanceKm"
+            onChange={(event) => onDistanceChange(event.target.value)}
+            step="0.1"
+            type="number"
+            value={distanceKm}
+          />
+        </label>
+        <label className="block font-medium text-slate-800">
+          Tolls (MKD)
+          <input
+            className={inputClass}
+            inputMode="numeric"
+            min="0"
+            onChange={(event) => setTolls(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            step="1"
+            type="number"
+            value={tolls}
+          />
+        </label>
+      </div>
+      {!hasSeats ? (
+        <p className="mt-3 text-sm text-slate-500">Enter the number of available seats to get an estimate.</p>
+      ) : null}
 
       {!supportedFuel && fuelType ? (
         <p className="mt-4 text-sm text-amber-800">
@@ -708,8 +747,8 @@ function RideEstimatePanel({
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <EstimateValue label="Fuel used" value={`${estimate.fuelLitres.toFixed(1)} L`} />
           <EstimateValue
-            label="Fuel cost"
-            value={`${Math.round(estimate.totalFuelCostMkd)} MKD`}
+            label={tollsMkd > 0 ? "Fuel + tolls" : "Fuel cost"}
+            value={`${Math.round(estimate.totalTripCostMkd)} MKD`}
           />
           <EstimateValue label="Suggested seat" value={`${estimate.pricePerSeatMkd} MKD`} />
           <EstimateValue
@@ -725,7 +764,7 @@ function RideEstimatePanel({
               Use {estimate.pricePerSeatMkd} MKD suggestion
             </button>
             <p className="mt-2 text-xs text-brand-900/70">
-              Assumes {fuelPrice} MKD/L and {supportedFuel === "petrol" ? "2.31" : "2.68"} kg CO₂
+              Assumes {fuelPrice} MKD/L{tollsMkd > 0 ? `, ${Math.round(tollsMkd)} MKD in tolls` : ""} and {supportedFuel === "petrol" ? "2.31" : "2.68"} kg CO₂
               per litre. Potential savings assume every offered seat replaces one separate car on
               the same route.
             </p>

@@ -152,7 +152,7 @@ it("routes an imported draft, ignores pickup edits, and allows manual km after p
   expect(screen.getByLabelText("From")).toHaveProperty("value", "1");
 });
 
-it("retains incomplete dates in extra tabs, supports keyboard navigation, append and discard", async () => {
+it("retains incomplete dates in extra tabs, supports keyboard navigation and deleting a draft", async () => {
   const incomplete = { ...trip, draft: { ...trip.draft, departureAt: null }, timeLocal: null };
   vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("interpret") ? Response.json({ trips: [trip, incomplete] }) : Response.json({ distanceKm: 174 })));
   render(<OfferWorkspace {...props} />);
@@ -162,10 +162,30 @@ it("retains incomplete dates in extra tabs, supports keyboard navigation, append
   fireEvent.keyDown(screen.getAllByRole("tab")[0], { key: "ArrowRight" });
   expect(screen.getAllByRole("tab")[1].getAttribute("aria-selected")).toBe("true");
   expect(screen.getByText(/Recognized 2026-09-26/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Create more drafts" }));
-  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(4));
-  fireEvent.click(screen.getByRole("button", { name: "Discard this draft" }));
-  expect(screen.getAllByRole("tab")).toHaveLength(3);
+  expect(screen.queryByRole("button", { name: "Fill form" })).toBeNull();
+  fireEvent.click(screen.getAllByRole("button", { name: /^Delete draft/ })[1]);
+  expect(screen.getAllByRole("tab")).toHaveLength(1);
+  expect(screen.getAllByRole("tab")[0].getAttribute("aria-selected")).toBe("true");
+  expect(screen.queryByRole("button", { name: /^Delete draft/ })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(screen.getAllByRole("tab")).toHaveLength(2);
+});
+
+it("starts over with one blank draft, keeps the description, and can undo", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("interpret") ? Response.json({ trips: [trip, trip] }) : Response.json({ distanceKm: 174 })));
+  render(<OfferWorkspace {...props} />);
+  fireEvent.change(screen.getByLabelText("Describe your rides"), { target: { value: "two trips" } });
+  fireEvent.click(screen.getByRole("button", { name: "Fill form" }));
+  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(2));
+  fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+  expect(screen.getAllByRole("tab")).toHaveLength(1);
+  expect(screen.getByLabelText("From")).toHaveProperty("value", "");
+  expect(screen.getByLabelText("Describe your rides")).toHaveProperty("value", "two trips");
+  expect(screen.getByRole("button", { name: "Fill form" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(screen.getAllByRole("tab")).toHaveLength(2);
+  expect(screen.getByLabelText("From")).toHaveProperty("value", "1");
+  expect(screen.getByRole("button", { name: "Start over" })).toBeTruthy();
 });
 
 it("removes published tabs from recovery and redirects to My trips when the final draft publishes", async () => {

@@ -54,7 +54,7 @@ async function CitySearch() {
 export default function Home() {
   // The hero slides up under the sticky glass navbar so the map fills the whole first screen.
   return <>
-  <div className="-mt-[var(--header-h)] flex min-h-svh flex-col bg-[#0f1511] text-[#16201a] lg:h-svh lg:min-h-[44rem]">
+  <div className="relative -mt-[var(--header-h)] flex min-h-svh flex-col bg-[#0f1511] text-[#16201a] lg:h-svh lg:min-h-[44rem]">
     <section className="relative isolate flex flex-1 flex-col overflow-hidden rounded-b-[2rem] bg-[linear-gradient(180deg,#b9e3fb_0%,#d9f0f4_45%,#e7f6de_100%)] lg:min-h-0">
       <LandingMap />
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-3/5 bg-[linear-gradient(0deg,#e7f6de_0%,rgb(231_246_222/0.85)_40%,transparent_100%)]" />
@@ -70,12 +70,12 @@ export default function Home() {
           <CitySearch />
         </Suspense>
       </main>
-      <ScrollHint />
     </section>
 
     <Suspense fallback={<Savings summary={null} message="Loading trip statistics…" />}>
       <HomepageImpact />
     </Suspense>
+    <ScrollHint />
   </div>
   <AboutSections />
   </>;

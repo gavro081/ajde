@@ -19,6 +19,23 @@ describe("calculateRideEstimate", () => {
     expect(result.potentialCo2SavedKg).toBeCloseTo(48.51);
   });
 
+  it("adds tolls to the shared trip cost without changing fuel or CO2", () => {
+    const result = calculateRideEstimate({
+      distanceKm: 100,
+      consumptionL100Km: 7,
+      fuelPriceMkdL: 80,
+      seats: 3,
+      fuelType: "petrol",
+      tollsMkd: 100,
+    });
+
+    expect(result.totalFuelCostMkd).toBe(560);
+    expect(result.totalTripCostMkd).toBe(660);
+    expect(result.pricePerSeatMkd).toBe(220);
+    expect(result.tripCo2Kg).toBeCloseTo(16.17);
+    expect(() => calculateRideEstimate({ distanceKm: 100, consumptionL100Km: 7, fuelPriceMkdL: 80, seats: 3, fuelType: "petrol", tollsMkd: -5 })).toThrow(RangeError);
+  });
+
   it("uses the diesel emissions factor", () => {
     const result = calculateRideEstimate({
       distanceKm: 200,
