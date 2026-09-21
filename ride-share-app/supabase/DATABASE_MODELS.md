@@ -165,7 +165,8 @@ INSERT RLS requires the authenticated rater and a completed ride: accepted passe
 its driver, and that driver can rate accepted passengers. Self-rating, passenger-to-passenger,
 unclaimed rides, and other booking/ride statuses are ineligible. Multiple seats do not multiply
 ratings. The unique tuple is the final concurrent-submission guard. Notes submitted by clients
-are optional, nonblank when present, trimmed, and limited to 1000 characters. No updates/deletes.
+are optional, nonblank when present, trimmed (including surrounding tabs/newlines), and limited
+to 1000 characters. Clients cannot supply rating IDs or creation timestamps. No updates/deletes.
 Only rater and ratee can SELECT raw detail; anonymous users and unrelated students see no rows.
 
 Public `profile_rating_summary(target_profile_id)` returns exactly `{ average, count }`, with
@@ -240,7 +241,7 @@ and use SECURITY DEFINER to query membership without depending on caller table p
 and anon execution is revoked; authenticated execution is granted only for policy checks. The narrow
 rating aggregate is also SECURITY DEFINER with explicit grants. No helper accepts a viewer identity.
 
-`schema_smoke.sql` includes `room_policies.sql`, which switches into real PostgreSQL roles and sets
+`schema_smoke.sql` includes `communication_reputation.sql` and `room_policies.sql`, which switch into real PostgreSQL roles and set
 JWT subject claims. It tests driver/two passengers/new passengers, denial states, forged data,
 immutable rows, send expiry, cancellation, and aggregate privacy. Every fixture rolls back.
 

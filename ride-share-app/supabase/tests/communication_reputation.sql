@@ -34,13 +34,16 @@ insert into public.bookings (ride_id, passenger_id, seats, status, decided_at) v
 insert into public.messages (ride_id, sender_id, recipient_id, body, created_at) values
 ('10000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', null, 'Before the second passenger joined', now() - interval '2 hours'),
 ('10000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', 'Deferred direct message', now());
+-- Privileged fixture setup; the deployed trigger stamps every new message.
+update public.messages set created_at = now() - interval '2 hours'
+where ride_id = '10000000-0000-0000-0000-000000000010' and recipient_id is null;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
 insert into public.messages (ride_id, sender_id, recipient_id, body)
 values ('10000000-0000-0000-0000-000000000010', auth.uid(), null, 'Whole room');
 select pg_temp.assert_true((select count(*) = 2 from public.messages), 'Driver sees room history only');
-select pg_temp.expect_error($q$insert into public.messages (ride_id, sender_id, body, created_at) values ('10000000-0000-0000-0000-000000000010', auth.uid(), 'Forged clock', now() + interval '1 day')$q$, '42501');
+-- room_policies.sql checks that supplied timestamps are overwritten by the trigger.
 select pg_temp.expect_error($q$insert into public.messages (ride_id, sender_id, recipient_id, body) values ('10000000-0000-0000-0000-000000000010', auth.uid(), '00000000-0000-0000-0000-000000000002', 'Direct')$q$, '42501');
 select pg_temp.expect_error($q$insert into public.messages (ride_id, sender_id, body) values ('10000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000002', 'Forged sender')$q$, '42501');
 
@@ -84,11 +87,13 @@ select pg_temp.expect_error($q$insert into public.ratings (ride_id, rater_id, ra
 select pg_temp.expect_error($q$insert into public.ratings (ride_id, rater_id, ratee_id, score) values ('10000000-0000-0000-0000-000000000010', auth.uid(), '00000000-0000-0000-0000-000000000004', 5)$q$, '42501');
 select pg_temp.expect_error($q$insert into public.ratings (ride_id, rater_id, ratee_id, score) values ('10000000-0000-0000-0000-000000000010', auth.uid(), '00000000-0000-0000-0000-000000000003', 0)$q$, '23514');
 select pg_temp.expect_error($q$insert into public.ratings (ride_id, rater_id, ratee_id, score, note) values ('10000000-0000-0000-0000-000000000010', auth.uid(), '00000000-0000-0000-0000-000000000003', 5, repeat('x', 1001))$q$, '42501');
+select pg_temp.expect_error($q$insert into public.ratings (ride_id, rater_id, ratee_id, score, note) values ('10000000-0000-0000-0000-000000000010', auth.uid(), '00000000-0000-0000-0000-000000000003', 5, E'\t untrimmed\n')$q$, '42501');
+select pg_temp.expect_error($q$insert into public.ratings (ride_id, rater_id, ratee_id, score, created_at) values ('10000000-0000-0000-0000-000000000010', auth.uid(), '00000000-0000-0000-0000-000000000003', 5, now())$q$, '42501');
 
 set local role anon;
 select set_config('request.jwt.claim.sub', '', true);
-select pg_temp.assert_true((select count(*) = 0 from public.ratings), 'Anonymous cannot enumerate raw ratings');
-select pg_temp.assert_true((select count(*) = 0 from public.messages), 'Anonymous cannot read messages');
+select pg_temp.expect_error('select * from public.ratings', '42501');
+select pg_temp.expect_error('select * from public.messages', '42501');
 select pg_temp.assert_true((select average = 3 and count = 2 from public.profile_rating_summary('00000000-0000-0000-0000-000000000001')), 'Public average counts each pair once despite multiple seats');
 select pg_temp.assert_true((select average = 5 and count = 1 from public.profile_rating_summary('00000000-0000-0000-0000-000000000002')), 'Single public rating');
 select pg_temp.assert_true((select average is null and count = 0 from public.profile_rating_summary('00000000-0000-0000-0000-000000000008')), 'Empty aggregate has no invented score');
@@ -105,7 +110,7 @@ select pg_temp.assert_true((select count(*) = 0 from public.messages), 'Booking 
 select pg_temp.expect_error($q$insert into public.messages (ride_id, sender_id, body) values ('10000000-0000-0000-0000-000000000010', auth.uid(), 'Cancelled passenger')$q$, '42501');
 
 reset role;
-update public.rides set departure_at = now() - interval '48 hours' where id = '10000000-0000-0000-0000-000000000010';
+update public.rides set departure_at = now() - interval '49 hours' where id = '10000000-0000-0000-0000-000000000010';
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', true);
 select pg_temp.expect_error($q$insert into public.messages (ride_id, sender_id, body) values ('10000000-0000-0000-0000-000000000010', auth.uid(), 'Expired')$q$, '42501');
