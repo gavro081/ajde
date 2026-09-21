@@ -56,46 +56,51 @@ export function OnboardingForm({ userId }: { userId: string }) {
     }
 
     setSaving(true);
-    const form = new FormData(event.currentTarget);
-    const extension =
-      photo.name.split('.').pop()?.toLocaleLowerCase('en-US') || 'jpg';
-    const storagePath = `${userId}/${crypto.randomUUID()}.${extension}`;
-    const supabase = createClient();
-    const { error: uploadError } = await supabase.storage
-      .from('profile-photos')
-      .upload(storagePath, photo, { contentType: photo.type, upsert: false });
+    try {
+      const form = new FormData(event.currentTarget);
+      const extension =
+        photo.name.split('.').pop()?.toLocaleLowerCase('en-US') || 'jpg';
+      const storagePath = `${userId}/${crypto.randomUUID()}.${extension}`;
+      const supabase = createClient();
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(storagePath, photo, { contentType: photo.type, upsert: false });
 
-    if (uploadError) {
-      setError(
-        'The photo could not be uploaded. Check the file and try again.',
-      );
+      if (uploadError) {
+        setError(
+          'The photo could not be uploaded. Check the file and try again.',
+        );
+        setSaving(false);
+        return;
+      }
+
+      const result = await saveProfile({
+        fullName: String(form.get('fullName') ?? ''),
+        university: String(form.get('university') ?? ''),
+        bio: String(form.get('bio') ?? ''),
+        gender: String(form.get('gender') ?? '') as ProfileInput['gender'],
+        storagePath,
+      });
+
+      if (!result.ok) {
+        await supabase.storage.from('profile-photos').remove([storagePath]);
+        setError(result.message);
+        setSaving(false);
+        return;
+      }
+
+      router.replace('/rides?welcome=1');
+      router.refresh();
+    } catch {
+      setError('We could not finish your profile. Check your connection and try again.');
       setSaving(false);
-      return;
     }
-
-    const result = await saveProfile({
-      fullName: String(form.get('fullName') ?? ''),
-      university: String(form.get('university') ?? ''),
-      bio: String(form.get('bio') ?? ''),
-      gender: String(form.get('gender') ?? '') as ProfileInput['gender'],
-      storagePath,
-    });
-
-    if (!result.ok) {
-      await supabase.storage.from('profile-photos').remove([storagePath]);
-      setError(result.message);
-      setSaving(false);
-      return;
-    }
-
-    router.replace('/rides');
-    router.refresh();
   }
 
   return (
-    <form onSubmit={submit} className="mt-8 space-y-6">
-      <div className="flex items-center gap-5">
-        <div className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-3xl bg-emerald-50 text-sm font-semibold text-emerald-800">
+    <form onSubmit={submit} className="mt-7 space-y-6" aria-busy={saving}>
+      <div className="flex flex-col gap-4 rounded-xl bg-slate-50 p-4 sm:flex-row sm:items-center">
+        <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-50 text-sm font-semibold text-emerald-800">
           {previewUrl ? (
             // The object URL is local-only and exists solely for the pre-upload preview.
             // eslint-disable-next-line @next/next/no-img-element
@@ -105,7 +110,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
               className="size-full object-cover"
             />
           ) : (
-            'Your photo'
+            <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="8" r="4" /><path d="M4 22v-2a8 8 0 0 1 16 0v2" /></svg>
           )}
         </div>
         <div className="min-w-0 flex-1">
@@ -121,18 +126,22 @@ export function OnboardingForm({ userId }: { userId: string }) {
             type="file"
             accept="image/jpeg,image/png,image/webp"
             required
+            aria-describedby="photo-help"
             onChange={(event) => choosePhoto(event.target.files?.[0] ?? null)}
             className="mt-2 block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-emerald-100 file:px-4 file:py-2 file:font-semibold file:text-emerald-900"
           />
-          <p className="mt-2 text-xs text-slate-500">
-            JPEG, PNG, or WebP. Maximum 5 MB.
+          <p id="photo-help" className="field-help">
+            A clear photo of you. JPEG, PNG, or WebP, up to 5 MB.
           </p>
         </div>
       </div>
 
+      <div className="grid gap-5 sm:grid-cols-2">
       <Field
         label="Full name"
         name="fullName"
+        placeholder="Your first and last name"
+        autoComplete="name"
         minLength={2}
         maxLength={100}
         required
@@ -140,26 +149,31 @@ export function OnboardingForm({ userId }: { userId: string }) {
       <Field
         label="University"
         name="university"
+        placeholder="e.g. UKIM · FINKI"
+        autoComplete="organization"
         minLength={2}
         maxLength={160}
         required
       />
+      </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2 border-t border-slate-100 pt-6">
         <label
           htmlFor="bio"
           className="block text-sm font-semibold text-slate-800"
         >
-          Bio
+          Bio <span className="font-normal text-slate-500">(optional)</span>
         </label>
         <textarea
           id="bio"
           name="bio"
           maxLength={500}
           rows={3}
-          placeholder="A little about you (optional)"
+          placeholder="What are you studying? Where do you usually travel?"
+          aria-describedby="bio-help"
           className="w-full resize-none rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         />
+        <p id="bio-help" className="field-help">A short introduction for your fellow travellers. Up to 500 characters.</p>
       </div>
 
       <div className="space-y-2">
@@ -167,17 +181,22 @@ export function OnboardingForm({ userId }: { userId: string }) {
           htmlFor="gender"
           className="block text-sm font-semibold text-slate-800"
         >
-          Gender
+          Gender <span className="font-normal text-slate-500">(optional)</span>
         </label>
         <select
           id="gender"
           name="gender"
           defaultValue=""
+          aria-describedby="gender-help"
           className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         >
+          <option value="">Choose an option</option>
           <option value="woman">Woman</option>
           <option value="man">Man</option>
+          <option value="non_binary">Non-binary</option>
+          <option value="prefer_not_to_say">Prefer not to say</option>
         </select>
+        <p id="gender-help" className="field-help">Shown on your profile and used for same-gender ride preferences. You can leave this blank.</p>
       </div>
 
       {error ? (
@@ -192,9 +211,9 @@ export function OnboardingForm({ userId }: { userId: string }) {
       <button
         type="submit"
         disabled={saving}
-        className="w-full rounded-2xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full btn-primary disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {saving ? 'Creating profile…' : 'Complete profile'}
+        {saving ? 'Creating profile…' : 'Complete profile & find a ride'}
       </button>
     </form>
   );
@@ -206,9 +225,11 @@ type FieldProps = {
   minLength: number;
   maxLength: number;
   required?: boolean;
+  placeholder?: string;
+  autoComplete?: string;
 };
 
-function Field({ label, name, minLength, maxLength, required }: FieldProps) {
+function Field({ label, name, minLength, maxLength, required, placeholder, autoComplete }: FieldProps) {
   return (
     <div className="space-y-2">
       <label
@@ -224,6 +245,8 @@ function Field({ label, name, minLength, maxLength, required }: FieldProps) {
         minLength={minLength}
         maxLength={maxLength}
         required={required}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
         className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
       />
     </div>

@@ -1,13 +1,13 @@
 import { getImpactSummary, type ImpactSummary, type ImpactTotal } from "@/lib/impact/queries";
 
 function Counter({ title, total }: { title: string; total: ImpactTotal }) {
-  return <div className="rounded-xl border border-emerald-100 bg-white p-5">
+  return <div className="rounded-3xl bg-white p-7">
     <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
     <p className="mt-2 break-words text-3xl font-bold text-emerald-800">
       {new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 }).format(total.savedCo2Kg)}
       <span className="ml-2 text-base font-medium">kg CO₂</span>
     </p>
-    <p className="mt-3 text-sm text-slate-600">{total.includedTrips} included / {total.eligibleTrips} eligible trips · {total.excludedTrips} excluded</p>
+    <details className="mt-4 text-sm text-slate-500"><summary>Trips included</summary><p className="mt-2">{total.includedTrips} included / {total.eligibleTrips} eligible trips · {total.excludedTrips} excluded</p></details>
     {total.eligibleTrips === 0 ? <p className="mt-2 text-sm text-slate-600">No completed shared trips with accepted seats yet.</p> : null}
     {total.eligibleTrips > 0 && total.includedTrips === 0 ? <p className="mt-2 text-sm text-slate-600">Eligible trips exist, but none have supported, valid calculation data.</p> : null}
   </div>;
@@ -23,9 +23,9 @@ export async function ImpactSummaryPanel() {
       <p role="status" className="mt-2 text-sm text-amber-900">Impact estimates are unavailable right now. Reload this page to try again.</p>
     </section>;
   }
-  return <section aria-labelledby="impact-heading" className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-    <h2 id="impact-heading" className="text-xl font-bold">Estimated CO₂ savings</h2>
-    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+  return <section aria-labelledby="impact-heading" className="mt-14">
+    <h2 id="impact-heading" className="text-2xl font-medium">Estimated CO₂ savings</h2>
+    <div className="mt-6 grid gap-6 sm:grid-cols-2">
       <Counter title="Your passenger savings" total={summary.personal} />
       <Counter title="Platform passenger savings" total={summary.platform} />
     </div>

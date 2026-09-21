@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import type { Tables } from "@/lib/supabase/database.types";
 import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
@@ -65,9 +66,9 @@ function dateTimeLocalValue(value: string | null) {
   return value?.slice(0, 16) ?? "";
 }
 
-function FieldError({ errors }: { errors?: string[] }) {
+function FieldError({ errors, id }: { errors?: string[]; id?: string }) {
   if (!errors?.length) return null;
-  return <p className="mt-1 text-sm text-red-700">{errors[0]}</p>;
+  return <p id={id} className="mt-1 text-sm text-red-700">{errors[0]}</p>;
 }
 
 export function RideForm({
@@ -81,6 +82,17 @@ export function RideForm({
   isImportedDraft,
 }: RideFormProps) {
   const [state, formAction, pending] = useActionState(createRide, initialState);
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state.status === "success" && state.rideId) {
+      router.replace(`/rides/${state.rideId}?success=${encodeURIComponent(state.message)}`);
+      router.refresh();
+    }
+    if (state.status === "error") {
+      formRef.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();
+    }
+  }, [state, router]);
   const [originCityId, setOriginCityId] = useState(initialDraft.origin.cityId?.toString() ?? "");
   const [destinationCityId, setDestinationCityId] = useState(
     initialDraft.destination.cityId?.toString() ?? "",
@@ -166,7 +178,15 @@ export function RideForm({
   }
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form
+      ref={formRef}
+      action={formAction}
+      // React resets forms after a resolved action, including validation failures.
+      // Keep every entered value until the successful save navigates away.
+      onReset={(event) => event.preventDefault()}
+      className="ride-form space-y-8"
+      aria-busy={pending}
+    >
       <input type="hidden" name="source" value={initialDraft.source} />
       <input type="hidden" name="importId" value={initialDraft.importId ?? ""} />
       <input type="hidden" name="submissionId" value={submissionId} />
@@ -179,12 +199,15 @@ export function RideForm({
         </div>
       ) : null}
 
-      <section className="grid gap-5 md:grid-cols-2">
+      <section className="grid gap-5 md:grid-cols-2" aria-labelledby="route-heading">
+        <div className="md:col-span-2"><h2 id="route-heading" className="text-lg font-semibold">1. Your route</h2><p className="mt-1 text-sm text-slate-500">Choose both cities and, if you know them, the meeting points.</p></div>
         <label className="font-medium text-slate-800">
-          Origin city
+          Departure city
           <select
             className={inputClass}
             name="originCityId"
+            aria-invalid={Boolean(state.fieldErrors["origin.cityId"]) || undefined}
+            aria-describedby={state.fieldErrors["origin.cityId"] ? "origin-error" : undefined}
             required
             value={originCityId}
             onChange={(event) => {
@@ -199,11 +222,11 @@ export function RideForm({
               </option>
             ))}
           </select>
-          <FieldError errors={state.fieldErrors["origin.cityId"]} />
+          <FieldError id="origin-error" errors={state.fieldErrors["origin.cityId"]} />
         </label>
 
         <label className="font-medium text-slate-800">
-          Origin pickup
+          Pickup point
           <select
             className={inputClass}
             name="originPickupPointId"
@@ -224,6 +247,8 @@ export function RideForm({
           <select
             className={inputClass}
             name="destinationCityId"
+            aria-invalid={Boolean(state.fieldErrors["destination.cityId"]) || undefined}
+            aria-describedby={state.fieldErrors["destination.cityId"] ? "destination-error" : undefined}
             required
             value={destinationCityId}
             onChange={(event) => {
@@ -238,11 +263,11 @@ export function RideForm({
               </option>
             ))}
           </select>
-          <FieldError errors={state.fieldErrors["destination.cityId"]} />
+          <FieldError id="destination-error" errors={state.fieldErrors["destination.cityId"]} />
         </label>
 
         <label className="font-medium text-slate-800">
-          Destination pickup
+          Drop-off point
           <select
             className={inputClass}
             name="destinationPickupPointId"
@@ -259,18 +284,21 @@ export function RideForm({
         </label>
       </section>
 
-      <section className="grid gap-5 md:grid-cols-2">
+      <section className="form-section grid gap-5 md:grid-cols-2" aria-labelledby="timing-heading">
+        <div className="md:col-span-2"><h2 id="timing-heading" className="text-lg font-semibold">2. Time, seats & price</h2><p className="mt-1 text-sm text-slate-500">Enter departure in your device’s local time. Rides display in Skopje time.</p></div>
         <label className="font-medium text-slate-800">
           Departure
           <input
             className={inputClass}
             name="departureLocal"
+            aria-invalid={Boolean(state.fieldErrors.departureAt) || undefined}
+            aria-describedby={state.fieldErrors.departureAt ? "departure-error" : undefined}
             type="datetime-local"
             required
             value={departureLocal}
             onChange={(event) => setDepartureLocal(event.target.value)}
           />
-          <FieldError errors={state.fieldErrors.departureAt} />
+          <FieldError id="departure-error" errors={state.fieldErrors.departureAt} />
         </label>
 
         <label className="font-medium text-slate-800">
@@ -280,12 +308,14 @@ export function RideForm({
             max={8}
             min={1}
             name="seatsTotal"
+            aria-invalid={Boolean(state.fieldErrors.seatsTotal) || undefined}
+            aria-describedby={state.fieldErrors.seatsTotal ? "seats-error" : undefined}
             onChange={(event) => setSeatsTotal(event.target.value)}
             required
             type="number"
             value={seatsTotal}
           />
-          <FieldError errors={state.fieldErrors.seatsTotal} />
+          <FieldError id="seats-error" errors={state.fieldErrors.seatsTotal} />
         </label>
 
         <label className="font-medium text-slate-800">
@@ -294,27 +324,30 @@ export function RideForm({
             className={inputClass}
             min={0}
             name="pricePerSeatMkd"
+            aria-invalid={Boolean(state.fieldErrors.pricePerSeatMkd) || undefined}
+            aria-describedby={state.fieldErrors.pricePerSeatMkd ? "price-error" : undefined}
             onChange={(event) => setPricePerSeatMkd(event.target.value)}
             required
             step={1}
             type="number"
             value={pricePerSeatMkd}
           />
-          <FieldError errors={state.fieldErrors.pricePerSeatMkd} />
+          <FieldError id="price-error" errors={state.fieldErrors.pricePerSeatMkd} />
         </label>
       </section>
 
-      <fieldset className="rounded-2xl border border-slate-200 p-4 sm:p-5">
-        <legend className="px-2 font-semibold text-slate-900">Car</legend>
+      <fieldset className="form-section">
+        <legend className="pr-3 text-lg font-semibold text-slate-900">3. Your car</legend>
         <div className="flex flex-wrap gap-2">
           {cars.length > 0 ? (
             <button
               className={`rounded-full px-4 py-2 text-sm font-semibold ${
                 carMode === "existing"
-                  ? "bg-emerald-700 text-white"
+                  ? "bg-coral-600 text-white"
                   : "bg-slate-100 text-slate-700"
               }`}
               onClick={() => setCarMode("existing")}
+              aria-pressed={carMode === "existing"}
               type="button"
             >
               Saved car
@@ -323,10 +356,11 @@ export function RideForm({
           <button
             className={`rounded-full px-4 py-2 text-sm font-semibold ${
               carMode === "catalog"
-                ? "bg-emerald-700 text-white"
+                ? "bg-coral-600 text-white"
                 : "bg-slate-100 text-slate-700"
             }`}
             onClick={() => setCarMode("catalog")}
+            aria-pressed={carMode === "catalog"}
             type="button"
           >
             Find model
@@ -334,10 +368,11 @@ export function RideForm({
           <button
             className={`rounded-full px-4 py-2 text-sm font-semibold ${
               carMode === "manual"
-                ? "bg-emerald-700 text-white"
+                ? "bg-coral-600 text-white"
                 : "bg-slate-100 text-slate-700"
             }`}
             onClick={() => setCarMode("manual")}
+            aria-pressed={carMode === "manual"}
             type="button"
           >
             Enter manually
@@ -466,6 +501,8 @@ export function RideForm({
         <FieldError errors={state.fieldErrors.carId} />
       </fieldset>
 
+      <details className="card-options" open={Boolean(initialDraft.distanceKm || state.fieldErrors.distanceKm?.length)}>
+      <summary>Estimate fuel costs & CO₂ savings</summary>
       <RideEstimatePanel
         consumption={estimateConsumption}
         distanceKm={distanceKm}
@@ -475,9 +512,10 @@ export function RideForm({
         onUseSuggestion={(price) => setPricePerSeatMkd(price.toString())}
         seats={seatsTotal}
       />
+      </details>
 
-      <fieldset>
-        <legend className="font-medium text-slate-800">Ride preferences</legend>
+      <fieldset className="form-section">
+        <legend className="pr-3 text-lg font-semibold text-slate-800">4. Ride preferences</legend>
         <div className="mt-3 flex flex-wrap gap-3">
           {RIDE_TAGS.map((tag) => (
             <label
@@ -526,6 +564,8 @@ export function RideForm({
       {state.message ? (
         <div
           aria-live="polite"
+          role={state.status === "error" ? "alert" : "status"}
+          tabIndex={-1}
           className={`rounded-xl border p-4 text-sm ${
             state.status === "success"
               ? "border-emerald-300 bg-emerald-50 text-emerald-900"
@@ -533,14 +573,16 @@ export function RideForm({
           }`}
         >
           {state.message}
-          {state.rideId ? <span className="ml-1 font-mono">({state.rideId})</span> : null}
+          {state.rideId ? <span className="ml-1">Opening your ride…</span> : null}
+          {Object.keys(state.fieldErrors).length ? <ul className="mt-2 list-disc space-y-1 pl-5">{Object.entries(state.fieldErrors).map(([field, errors]) => <li key={field}>{errors[0]}</li>)}</ul> : null}
         </div>
       ) : null}
 
       <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
+        <p className="text-sm text-slate-500 sm:mr-auto sm:max-w-xs">Drafts are private. Published rides are visible to students, and you approve each seat request.</p>
         <button
-          className="rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-700 disabled:opacity-50"
-          disabled={pending}
+          className="btn-secondary disabled:opacity-50"
+          disabled={pending || state.status === "success"}
           name="intent"
           type="submit"
           value="save_draft"
@@ -548,8 +590,8 @@ export function RideForm({
           {pending ? "Saving…" : "Save draft"}
         </button>
         <button
-          className="rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
-          disabled={pending}
+          className="btn-primary disabled:opacity-50"
+          disabled={pending || state.status === "success"}
           name="intent"
           type="submit"
           value="publish"
@@ -629,8 +671,7 @@ function RideEstimatePanel({
       ) : null}
       {supportedFuel && !fuelPrice ? (
         <p className="mt-4 text-sm text-amber-800">
-          Add the verified {supportedFuel} pump price to the server environment to enable the
-          estimate.
+          The {supportedFuel} price estimate is unavailable right now. Enter your price per seat above.
         </p>
       ) : null}
 
@@ -648,7 +689,7 @@ function RideEstimatePanel({
           />
           <div className="sm:col-span-2 lg:col-span-4">
             <button
-              className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+              className="btn-primary"
               onClick={() => onUseSuggestion(estimate.pricePerSeatMkd)}
               type="button"
             >

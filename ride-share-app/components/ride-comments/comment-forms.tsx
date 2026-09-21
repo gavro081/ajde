@@ -27,7 +27,7 @@ export function CommentForm({ rideId }: { rideId: string }) {
       <p id="comment-audience" className="text-sm text-slate-600">Other students who can view this ride can read your comment. Avoid sharing private contact details.</p>
       {state.error ? <p role="alert" className="text-sm text-red-700">{state.error}</p> : null}
       {state.success ? <p role="status" className="text-sm text-emerald-700">{state.success}</p> : null}
-      <button type="submit" disabled={pending} className="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60 sm:w-auto">
+      <button type="submit" disabled={pending} className="w-full btn-primary disabled:opacity-60 sm:w-auto">
         {pending ? "Posting..." : "Post comment"}
       </button>
     </form>

@@ -18,8 +18,9 @@ type RideFeedPageProps = {
 };
 
 export default async function RideFeedPage({ searchParams }: RideFeedPageProps) {
-  const user = await requireCompleteProfile("/rides");
   const rawParams = await searchParams;
+  const returnParams = serializeParams(rawParams);
+  const user = await requireCompleteProfile(returnParams ? `/rides?${returnParams}` : "/rides");
   const filters = parseRideFilters(rawParams);
   const interpretation = decodeSearchInterpretation(rawParams.interpretation);
   const naturalQuery = firstParam(rawParams.q)?.slice(0, 300) ?? "";
@@ -39,16 +40,15 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <AppHeader />
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <main id="main-content" className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-14">
+        {firstParam(rawParams.welcome) === "1" ? <p role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">Your profile is ready. Welcome aboard — find your first ride below.</p> : null}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Student routes</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Find your next ride home</h1>
-            <p className="mt-3 text-slate-600">Browse upcoming rides, compare seats and request your place.</p>
+            <h1 className="page-heading">Find a ride</h1>
+            <p className="mt-4 text-slate-500">A seat, some company, and a way home.</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/rides/import" className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold hover:bg-slate-100">Import post</Link>
-            <Link href="/rides/new" className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Offer a ride</Link>
+            <Link href="/rides/new" className="btn-primary">Offer a ride</Link>
           </div>
         </div>
 
@@ -61,33 +61,35 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
           />
         ) : null}
 
-        <form className="mt-8 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
+        <details className="filter-options" open={Boolean(filters.origin || filters.destination || filters.date || filters.sameGenderOnly || filters.seats > 1 || firstParam(rawParams.manual))}>
+        <summary>Filter by city, date or seats</summary>
+        <form aria-label="Filter rides" className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {naturalQuery ? <input type="hidden" name="q" value={naturalQuery} /> : null}
           {firstParam(rawParams.search) === "1" ? <input type="hidden" name="search" value="1" /> : null}
           {firstParam(rawParams.interpretation) ? (
             <input type="hidden" name="interpretation" value={firstParam(rawParams.interpretation)} />
           ) : null}
-          <label className="text-sm font-semibold text-slate-700">From
-            <select name="origin" defaultValue={filters.origin ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal">
+          <label className="text-sm font-semibold text-slate-600">From
+            <select name="origin" defaultValue={filters.origin ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal text-slate-950">
               <option value="">Anywhere</option>
               {cities?.map((city) => <option key={city.id} value={city.id}>{city.name_en}</option>)}
             </select>
           </label>
-          <label className="text-sm font-semibold text-slate-700">To
-            <select name="destination" defaultValue={filters.destination ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal">
+          <label className="text-sm font-semibold text-slate-600">To
+            <select name="destination" defaultValue={filters.destination ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal text-slate-950">
               <option value="">Anywhere</option>
               {cities?.map((city) => <option key={city.id} value={city.id}>{city.name_en}</option>)}
             </select>
           </label>
-          <label className="text-sm font-semibold text-slate-700">Date
-            <input name="date" type="date" defaultValue={filters.date ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 font-normal" />
+          <label className="text-sm font-semibold text-slate-600">Date
+            <input name="date" type="date" defaultValue={filters.date ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal text-slate-950" />
           </label>
-          <label className="text-sm font-semibold text-slate-700">Seats
-            <select name="seats" defaultValue={filters.seats} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal">
+          <label className="text-sm font-semibold text-slate-600">Seats
+            <select name="seats" defaultValue={filters.seats} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal text-slate-950">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((value) => <option key={value} value={value}>{value}+</option>)}
             </select>
           </label>
-          <label className="flex items-center gap-2 self-end rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700">
+          <label className="flex items-center gap-2 self-end rounded-xl px-1 py-2.5 text-sm font-semibold text-slate-600 lg:col-span-2">
             <input
               name="sameGender"
               type="checkbox"
@@ -97,25 +99,26 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
             />
             Same-gender drivers
           </label>
-          <button name="manual" value="1" className="self-end rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700" type="submit">Apply filters</button>
+          <div className="flex flex-wrap items-center justify-end gap-3 self-end lg:col-span-2"><Link href="/rides" className="inline-flex min-h-11 items-center px-3 text-sm font-semibold text-slate-600 hover:text-slate-950">Reset</Link><button name="manual" value="1" className="btn-primary" type="submit">Apply filters</button></div>
         </form>
+        </details>
 
         {genderUnavailable ? (
           <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            Add a declared gender to your profile to use this discovery filter. No gender-based filtering was applied.
+            This filter needs a declared gender on your profile. Your profile does not have one, so all drivers are shown.
           </p>
         ) : null}
 
         <div className="mt-8 flex items-center justify-between">
-          <p className="text-sm font-medium text-slate-600">{rides.length} matching ride{rides.length === 1 ? "" : "s"}</p>
-          <Link href="/rides" className="text-sm font-semibold text-emerald-700 hover:underline">Clear filters</Link>
+          <div><h2 className="text-2xl font-normal tracking-tight">Your next ride</h2><p className="mt-1 text-sm text-slate-500">{rides.length} matching ride{rides.length === 1 ? "" : "s"} · Soonest departures first</p></div>
         </div>
         {rides.length ? (
           <RideResults rides={rides} searchContext={interpretation} />
         ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center">
             <h2 className="text-xl font-bold">No rides match yet</h2>
             <p className="mt-2 text-slate-600">Try a wider search or offer the first ride on this route.</p>
+            <div className="mt-5 flex flex-wrap justify-center gap-3"><Link href="/rides" className="btn-secondary">Show all rides</Link><Link href="/rides/new" className="btn-primary">Offer a ride</Link></div>
           </div>
         )}
       </main>

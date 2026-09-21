@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { Brand } from "@/components/brand";
 import { getSharedItinerary } from "@/lib/sharing/queries";
 
 export const dynamic = "force-dynamic";
@@ -12,15 +14,17 @@ export default async function SharedTripPage({ params }: { params: Promise<{ tok
   const { token } = await params;
   const itinerary = await getSharedItinerary(token);
   if (!itinerary) return <main className="mx-auto w-full max-w-xl px-4 py-12">
-    <h1 className="text-2xl font-bold">Itinerary unavailable</h1>
+    <Brand />
+    <h1 className="mt-8 text-2xl font-bold">Itinerary unavailable</h1>
     <p className="mt-3 text-slate-600">This link may have expired or been revoked, or the trip is no longer confirmed. Ask the passenger for an updated itinerary.</p>
+    <Link href="/" className="btn-secondary mt-6">Back to home</Link>
   </main>;
 
   return <main className="mx-auto w-full max-w-xl px-4 py-12 text-slate-950">
-    <p className="text-sm font-semibold text-emerald-700">Student Ride Share</p>
-    <h1 className="mt-2 text-3xl font-bold">Shared itinerary</h1>
+    <Brand />
+    <h1 className="mt-8 text-3xl font-semibold">Shared itinerary</h1>
     <p className="mt-3 text-slate-600">This is a planned itinerary, not live tracking. It does not confirm the traveller’s current location.</p>
-    <section className="mt-6 rounded-2xl border border-slate-200 p-5">
+    <section className="mt-6 rounded-3xl border border-white bg-white p-6 shadow-sm">
       <h2 className="text-xl font-bold">{itinerary.origin} → {itinerary.destination}</h2>
       <dl className="mt-4 space-y-3 text-sm">
         <div><dt className="font-semibold">Departure (Skopje time)</dt><dd>{new Date(itinerary.departureAt).toLocaleString("en-GB", { timeZone: "Europe/Skopje", dateStyle: "full", timeStyle: "short" })}</dd></div>

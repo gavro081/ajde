@@ -49,13 +49,13 @@ export function TripShareControls({ bookingId, expiresAt, expired }: { bookingId
     });
   }
 
-  return <section className="mt-4 rounded-xl border border-slate-200 p-4" aria-label="Share itinerary">
+  return <section className="mt-4" aria-label="Share itinerary">
     <h2 className="font-semibold">Share itinerary with a parent</h2>
-    <p className="mt-1 text-sm text-slate-600">A shared itinerary, not live tracking. Contacts and other passengers are not included.</p>
+    <p className="mt-3 text-sm text-slate-600">Share the route and time. Contact details stay private. This is not live tracking.</p>
     <p className="mt-1 text-sm text-slate-600">{expired ? "Sharing has expired." : `Link access expires ${new Date(expiresAt).toLocaleString("en-GB", { timeZone: "Europe/Skopje" })} (Skopje time), 24 hours after departure.`}</p>
     <div className="mt-3 flex flex-wrap gap-3">
-      {!share ? <button type="button" disabled={pending || expired} onClick={create} className="min-h-11 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Creating…" : "Create or retrieve link"}</button> : <>
-        <button type="button" disabled={pending || expired} onClick={copy} className="min-h-11 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Copy link</button>
+      {!share ? <button type="button" disabled={pending || expired} onClick={create} className="btn-primary disabled:opacity-50">{pending ? "Creating…" : "Create or retrieve link"}</button> : <>
+        <button type="button" disabled={pending || expired} onClick={copy} className="btn-primary disabled:opacity-50">Copy link</button>
         <button type="button" disabled={pending} onClick={revoke} className="min-h-11 rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50">{pending ? "Revoking…" : "Revoke link"}</button>
       </>}
     </div>

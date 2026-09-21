@@ -2,14 +2,14 @@ export function SeatAvailability({ available, total }: { available: number; tota
   const occupied = total - available;
   return (
     <div aria-label={`${available} of ${total} seats available`}>
-      <div className="flex gap-1.5" aria-hidden="true">
+      <div className="flex flex-wrap gap-1.5" aria-hidden="true">
         {Array.from({ length: total }, (_, index) => (
           <span
             key={index}
             className={`h-5 w-5 rounded-t-lg rounded-b-sm border ${
               index < occupied
                 ? "border-slate-300 bg-slate-300"
-                : "border-emerald-600 bg-emerald-100"
+                : "border-blue-400 bg-blue-100"
             }`}
           />
         ))}
