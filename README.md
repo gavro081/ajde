@@ -9,7 +9,8 @@ into a structured **draft**. The driver reviews and edits every extracted field 
 be saved or published.
 
 > This repository is under active hackathon development. The Tier 1 journey and all planned Tier 2
-> features are implemented; production authorization remains intentionally unfinished.
+> features, private ride rooms, and post-ride ratings are implemented. Production authorization
+> remains unfinished outside the message/rating tables.
 
 ## Feature status
 
@@ -31,7 +32,9 @@ be saved or published.
 | Public ride Q&A | Implemented | Authenticated students can post on future published/full rides and delete their own comments |
 | Share my trip | Implemented | Accepted passengers can create and revoke signed-out itinerary links that expire 24 hours after departure |
 | Ride completion and CO2 impact | Implemented | Drivers complete/cancel rides; passenger and platform estimates count completed shared trips with explicit assumptions |
-| Production authorization | Planned | Row-level security policies are intentionally deferred and must be added before deployment |
+| Private ride rooms | Implemented | Driver and accepted passengers share a Realtime room; acceptance-time history and a 48-hour send window |
+| Post-ride ratings | Implemented | Completed-ride counterpart ratings, private written feedback, and aggregate-only public reputation |
+| Production authorization | Partial | Messages and ratings have RLS; other public tables still need policies before production deployment |
 
 ## Architecture
 
@@ -77,6 +80,8 @@ More detail:
 
 - [Database model](ride-share-app/supabase/DATABASE_MODELS.md)
 - [Parser fixture evaluation](ride-share-app/fixtures/posts/README.md)
+- [Ride-room setup and verification](ride-share-app/fixtures/chat/README.md)
+- [Rating verification](ride-share-app/fixtures/ratings/README.md)
 
 ## Local setup
 
@@ -318,11 +323,48 @@ Implemented protections:
 - Totals use the currently stored ride, booking, and car data rather than an immutable historical
   snapshot, so later booking changes can alter the totals.
 
+### Post-ride feedback
+
+Once a driver marks a ride completed, accepted passengers can rate that driver in My trips,
+and the driver can rate each accepted passenger in the driver dashboard. Requested, declined,
+cancelled, unrelated, and passenger-to-passenger pairs are ineligible. Unclaimed rides have no
+driver to rate. Each ride/rater/ratee pair contributes once, even for a multi-seat booking;
+the database unique constraint resolves concurrent submissions.
+
+Scores are integers from 1 to 5. Optional feedback is trimmed and limited to 1000 characters.
+Submitted ratings become read-only. Public profiles show only the average to one decimal and
+the count, or an honest empty state. The aggregate function excludes ineligible legacy rows.
+Raw scores and notes are readable only by the rater and ratee; the dashboard shows the signed-in
+user's submitted feedback as escaped text. Received-feedback UI, edits, deletion, appeals,
+moderation UI, and AI spam/safety screening are deferred.
+
+### Ride rooms and Realtime
+
+Each ride has one room shared by its driver and currently accepted passengers. Passengers can
+read messages created at or after their accepted booking's `decided_at`; the driver sees the
+whole room history. Cancelling a booking immediately removes database read/send access.
+Previously delivered text cannot be recalled. The client rechecks membership on reads, sends,
+events, reconnect, focus, and periodically while open.
+
+Sending is allowed until 48 hours after departure, inclusive, and stops when a ride is cancelled.
+Completed rides inside the window can still receive messages. Authorized members keep read-only
+history after cancellation or expiry. Direct messages, edits, deletes, read receipts, and AI
+processing are deferred. Realtime events trigger an authorized history refresh.
+
+Apply the migrations in order, including `20260921140000_communication_reputation_policies.sql`
+and `20260921190000_rating_input_grants.sql`. The first publishes `public.messages` through
+`supabase_realtime`; Realtime must also be enabled in the Supabase project. Use normal authenticated
+student sessions and the existing public project key. The second narrows rating insert columns
+and enforces private-note input without changing room permissions. No admin key is used by
+the application for chat or ratings. See the linked verification guides for repeatable checks.
+
 ## Known issues and limitations
 
-- Row-level security policies are absent. Do not deploy the current database as a production system.
-- Chat, ratings, unclaimed imported-ride ownership, reports, recurring rides, payments, and live
-  location tracking are not implemented.
+- Messages and ratings have table-specific RLS, but the other public tables remain unrestricted.
+  Direct mutation of rides/bookings could forge the membership facts used by those policies.
+  Complete project-wide RLS before production deployment.
+- Unclaimed imported-ride ownership, reports, recurring rides, payments, and live location tracking
+  are not implemented. Rating moderation, appeals, and AI spam/safety screening are also deferred.
 - The local auth bypass requires a server admin key; it is guarded from production but should remain
   disabled during normal testing.
 - Parser accuracy has only been measured on five curated post fixtures, and search on eight curated

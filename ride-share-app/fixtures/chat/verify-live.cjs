@@ -152,6 +152,7 @@ function check(r) { if (r.error)
     await shared.reload();
     await expect(shared.getByRole('heading', { name: 'Itinerary unavailable' })).toBeVisible();
     await publicDetail.getByRole('button', { name: 'Send request', exact: true }).click();
+    await expect(publicDetail.getByText('Seat request sent to the driver.', { exact: true })).toBeVisible();
     const outsiderTrips = await outsider.context.newPage();
     await outsiderTrips.goto(`${base}/dashboard/trips`);
     await expect(outsiderTrips.getByText('Booking requested', { exact: true })).toBeVisible();
