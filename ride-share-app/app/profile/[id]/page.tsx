@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth/session'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -13,6 +14,7 @@ const genderLabels = {
 
 export default async function ProfilePage({ params }: PageProps<'/profile/[id]'>) {
   const { id } = await params
+  const viewer = await getCurrentUser()
   const profile = await getPublicProfile(id)
 
   if (!profile) notFound()
@@ -23,6 +25,7 @@ export default async function ProfilePage({ params }: PageProps<'/profile/[id]'>
         <Link href="/rides" className="text-sm font-semibold text-brand-700 hover:underline">
           Back to rides
         </Link>
+        {viewer?.id === id ? <Link href="/onboarding" className="ml-5 text-sm font-semibold text-brand-700 hover:underline">Edit profile & contacts</Link> : null}
         <article className="surface-card mt-6 overflow-hidden">
           <div className="p-7 sm:p-10">
             <div className="size-28 overflow-hidden rounded-full bg-slate-50">
@@ -66,7 +69,7 @@ export default async function ProfilePage({ params }: PageProps<'/profile/[id]'>
           </div>
         </article>
         <p className="mt-5 text-center text-sm leading-6 text-slate-500">
-          Contact details are private and become available only for confirmed rides.
+          Phone numbers are shared with drivers receiving a booking request. Ride-room members can see each other’s contact details.
         </p>
       </div>
     </main></>

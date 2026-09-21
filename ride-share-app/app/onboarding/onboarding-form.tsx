@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 
+import { contactSchema } from '@/lib/profiles/contact';
+import type { Tables } from '@/lib/supabase/database.types';
 import { createClient } from '@/lib/supabase/client';
 
 import { saveProfile, type ProfileInput } from './actions';
@@ -10,7 +12,9 @@ import { saveProfile, type ProfileInput } from './actions';
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
-export function OnboardingForm({ userId }: { userId: string }) {
+type InitialProfile = Pick<Tables<'profiles'>, 'full_name' | 'university' | 'photo_url' | 'bio' | 'gender' | 'phone' | 'social_url'>;
+
+export function OnboardingForm({ userId, initial }: { userId: string; initial: InitialProfile | null }) {
   const router = useRouter();
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -50,7 +54,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
     event.preventDefault();
     setError(null);
 
-    if (!photo) {
+    if (!photo && !initial?.photo_url) {
       setError('Add a profile photo to continue.');
       return;
     }
@@ -58,20 +62,16 @@ export function OnboardingForm({ userId }: { userId: string }) {
     setSaving(true);
     try {
       const form = new FormData(event.currentTarget);
-      const extension =
-        photo.name.split('.').pop()?.toLocaleLowerCase('en-US') || 'jpg';
-      const storagePath = `${userId}/${crypto.randomUUID()}.${extension}`;
+      const contacts = contactSchema.safeParse({ phone: form.get('phone'), socialUrl: form.get('socialUrl') });
+      if (!contacts.success) { setError(contacts.error.issues[0].message); setSaving(false); return; }
       const supabase = createClient();
-      const { error: uploadError } = await supabase.storage
-        .from('profile-photos')
-        .upload(storagePath, photo, { contentType: photo.type, upsert: false });
-
-      if (uploadError) {
-        setError(
-          'The photo could not be uploaded. Check the file and try again.',
-        );
-        setSaving(false);
-        return;
+      let storagePath = '';
+      if (photo) {
+        const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg';
+        storagePath = `${userId}/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage.from('profile-photos')
+          .upload(storagePath, photo, { contentType: photo.type, upsert: false });
+        if (uploadError) { setError('The photo could not be uploaded. Please try again.'); setSaving(false); return; }
       }
 
       const result = await saveProfile({
@@ -80,10 +80,12 @@ export function OnboardingForm({ userId }: { userId: string }) {
         bio: String(form.get('bio') ?? ''),
         gender: String(form.get('gender') ?? '') as ProfileInput['gender'],
         storagePath,
+        phone: contacts.data.phone,
+        socialUrl: contacts.data.socialUrl,
       });
 
       if (!result.ok) {
-        await supabase.storage.from('profile-photos').remove([storagePath]);
+        if (storagePath) await supabase.storage.from('profile-photos').remove([storagePath]);
         setError(result.message);
         setSaving(false);
         return;
@@ -101,11 +103,11 @@ export function OnboardingForm({ userId }: { userId: string }) {
     <form onSubmit={submit} className="mt-7 space-y-6" aria-busy={saving}>
       <div className="flex flex-col gap-4 rounded-xl bg-slate-50 p-4 sm:flex-row sm:items-center">
         <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-full border border-emerald-200 bg-emerald-50 text-sm font-semibold text-emerald-800">
-          {previewUrl ? (
+          {(previewUrl || initial?.photo_url) ? (
             // The object URL is local-only and exists solely for the pre-upload preview.
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={previewUrl}
+              src={previewUrl || initial?.photo_url || undefined}
               alt="Selected profile preview"
               className="size-full object-cover"
             />
@@ -125,7 +127,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
             name="photo"
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            required
+            required={!initial?.photo_url}
             aria-describedby="photo-help"
             onChange={(event) => choosePhoto(event.target.files?.[0] ?? null)}
             className="mt-2 block w-full text-sm text-slate-600 file:mr-3 file:rounded-xl file:border-0 file:bg-emerald-100 file:px-4 file:py-2 file:font-semibold file:text-emerald-900"
@@ -140,6 +142,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
       <Field
         label="Full name"
         name="fullName"
+        defaultValue={initial?.full_name}
         placeholder="Your first and last name"
         autoComplete="name"
         minLength={2}
@@ -149,12 +152,20 @@ export function OnboardingForm({ userId }: { userId: string }) {
       <Field
         label="University"
         name="university"
+        defaultValue={initial?.university}
         placeholder="e.g. UKIM · FINKI"
         autoComplete="organization"
         minLength={2}
         maxLength={160}
         required
       />
+      </div>
+
+      <div className="space-y-5 border-t border-slate-100 pt-6">
+        <Field label="Phone number" name="phone" type="tel" autoComplete="tel" minLength={7} maxLength={40} required defaultValue={initial?.phone ?? ''} placeholder="e.g. +389 70 123 456" />
+        <p className="field-help">Shared with a driver when you request a seat and with fellow members of your ride room.</p>
+        <Field label="Social profile (optional)" name="socialUrl" type="url" minLength={0} maxLength={500} defaultValue={initial?.social_url ?? ''} placeholder="https://instagram.com/yourname" />
+        <p className="field-help">Facebook, Instagram, X, or another HTTPS profile link. Visible to members of your ride room.</p>
       </div>
 
       <div className="space-y-2 border-t border-slate-100 pt-6">
@@ -167,6 +178,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
         <textarea
           id="bio"
           name="bio"
+          defaultValue={initial?.bio ?? ""}
           maxLength={500}
           rows={3}
           placeholder="What are you studying? Where do you usually travel?"
@@ -186,7 +198,7 @@ export function OnboardingForm({ userId }: { userId: string }) {
         <select
           id="gender"
           name="gender"
-          defaultValue=""
+          defaultValue={initial?.gender ?? ""}
           aria-describedby="gender-help"
           className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         >
@@ -220,6 +232,8 @@ export function OnboardingForm({ userId }: { userId: string }) {
 }
 
 type FieldProps = {
+  defaultValue?: string;
+  type?: "text" | "tel" | "url";
   label: string;
   name: string;
   minLength: number;
@@ -229,7 +243,7 @@ type FieldProps = {
   autoComplete?: string;
 };
 
-function Field({ label, name, minLength, maxLength, required, placeholder, autoComplete }: FieldProps) {
+function Field({ defaultValue, type = "text", label, name, minLength, maxLength, required, placeholder, autoComplete }: FieldProps) {
   return (
     <div className="space-y-2">
       <label
@@ -241,7 +255,8 @@ function Field({ label, name, minLength, maxLength, required, placeholder, autoC
       <input
         id={name}
         name={name}
-        type="text"
+        type={type}
+        defaultValue={defaultValue}
         minLength={minLength}
         maxLength={maxLength}
         required={required}
