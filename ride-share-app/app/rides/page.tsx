@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AppHeader } from "@/components/app-header";
+import { NaturalLanguageSearch } from "@/components/discovery/natural-language-search";
+import { SearchInterpretation } from "@/components/discovery/search-interpretation";
 import { RideCard } from "@/components/ride-card";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { usableDiscoveryGender } from "@/lib/rides/gender-discovery";
-import { parseRideFilters } from "@/lib/rides/ride-filters";
+import { decodeSearchInterpretation, parseRideFilters } from "@/lib/rides/ride-filters";
 import { getRideFeed } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
 
@@ -17,7 +19,11 @@ type RideFeedPageProps = {
 
 export default async function RideFeedPage({ searchParams }: RideFeedPageProps) {
   const user = await requireCompleteProfile("/rides");
-  const filters = parseRideFilters(await searchParams);
+  const rawParams = await searchParams;
+  const filters = parseRideFilters(rawParams);
+  const interpretation = decodeSearchInterpretation(rawParams.interpretation);
+  const naturalQuery = firstParam(rawParams.q)?.slice(0, 300) ?? "";
+  const currentParams = serializeParams(rawParams);
   const supabase = await createClient();
   const [{ data: cities, error }, { data: passengerProfile, error: profileError }] = await Promise.all([
     supabase.from("cities").select("id, name_en, name_mk").order("name_en"),
@@ -28,6 +34,7 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
   const passengerGender = usableDiscoveryGender(passengerProfile?.gender);
   const rides = await getRideFeed(filters, { passengerGender });
   const genderUnavailable = filters.sameGenderOnly && !passengerGender;
+  const cityNames = new Map((cities ?? []).map((city) => [city.id, city.name_en]));
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -45,7 +52,21 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
           </div>
         </div>
 
+        <NaturalLanguageSearch key={naturalQuery} currentParams={currentParams} initialQuery={naturalQuery} />
+        {interpretation ? (
+          <SearchInterpretation
+            result={interpretation}
+            cityNames={cityNames}
+            manualOverride={firstParam(rawParams.manual) === "1"}
+          />
+        ) : null}
+
         <form className="mt-8 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
+          {naturalQuery ? <input type="hidden" name="q" value={naturalQuery} /> : null}
+          {firstParam(rawParams.search) === "1" ? <input type="hidden" name="search" value="1" /> : null}
+          {firstParam(rawParams.interpretation) ? (
+            <input type="hidden" name="interpretation" value={firstParam(rawParams.interpretation)} />
+          ) : null}
           <label className="text-sm font-semibold text-slate-700">From
             <select name="origin" defaultValue={filters.origin ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal">
               <option value="">Anywhere</option>
@@ -76,7 +97,7 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
             />
             Same-gender drivers
           </label>
-          <button className="self-end rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700" type="submit">Apply filters</button>
+          <button name="manual" value="1" className="self-end rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700" type="submit">Apply filters</button>
         </form>
 
         {genderUnavailable ? (
@@ -100,4 +121,17 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
       </main>
     </div>
   );
+}
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function serializeParams(params: Record<string, string | string[] | undefined>) {
+  const result = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) value.forEach((item) => result.append(key, item));
+    else if (value !== undefined) result.set(key, value);
+  }
+  return result.toString();
 }

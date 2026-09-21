@@ -105,7 +105,7 @@ export function departureBoundsForFilters(
 }
 
 const REPLACED_BY_SEARCH = ["origin", "destination", "date", "seats", "after", "before"];
-const SEARCH_STATE = ["q", "search", "interpretation"];
+const SEARCH_STATE = ["q", "search", "interpretation", "manual"];
 
 export function searchResultParams(
   current: URLSearchParams,

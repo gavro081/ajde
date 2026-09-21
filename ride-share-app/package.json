@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "eval:parser": "tsx scripts/evaluate-parser.ts",
+    "eval:search": "tsx scripts/evaluate-search.ts",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run --exclude '.test-dist/**'",

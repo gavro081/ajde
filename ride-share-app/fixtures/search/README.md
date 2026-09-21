@@ -1,0 +1,53 @@
+# Natural-language search evaluation
+
+Run the deterministic/mocked regression suite with:
+
+```bash
+npm test
+```
+
+Run the separate live OpenAI evaluation with a configured server-only `OPENAI_API_KEY`:
+
+```bash
+npm run eval:search
+```
+
+The live evaluator uses the fixed instant `2026-09-21T10:00:00Z` and the `Europe/Skopje`
+timezone so relative-date results are reproducible. It sends the canonical test vocabulary and
+never reads or writes production ride data.
+
+## Coverage
+
+- Macedonian Cyrillic and Latin transliteration
+- Albanian phrasing
+- a landmark that must resolve to its parent city
+- missing criteria that must remain null
+- an unknown city that must not receive a fabricated ID
+- an unsupported gender request that must not alter the separately controlled feed toggle
+- relative dates and after-time boundaries
+
+## Live results
+
+Run on 21 September 2026 with `OPENAI_SEARCH_MODEL=gpt-5.4-mini`: **8/8 fixtures matched every
+expected route, lower departure bound, and seat field**.
+
+| Fixture group | Result | Notes |
+| --- | --- | --- |
+| English and Macedonian Friday-after-16:00 | Pass | Both produced `2026-09-25T14:00:00Z`, which is 16:00 in Skopje. |
+| Macedonian Latin relative date + seats | Pass | “utre” resolved from the fixed clock and retained two requested seats. |
+| Albanian phrasing | Pass | Tetovo, Friday-after-16:00, and two seats were extracted. |
+| Landmark origin | Pass | Mavrovka resolved deterministically to its parent city, Skopje. |
+| Missing fields | Pass | Missing date and seats remained null. |
+| Unknown canonical city | Pass | Berovo remained unresolved and produced review warnings instead of a fabricated ID. |
+| Unsupported gender request | Pass | Destination/date were retained while the unsupported preference became a warning. |
+
+The live run made real provider calls; the normal `npm test` suite remains fully mocked and does
+not consume API credits.
+
+## Known limitations
+
+- Search resolves only the canonical city and pickup-point catalog. Unknown places require manual
+  correction even when the model recognizes the name.
+- The feed accepts one origin, one destination, one time interval, and one minimum seat count. More
+  complex requests are reduced to those supported filters and accompanied by review warnings.
+- Match explanations are evaluated separately because feed rendering must not depend on them.
