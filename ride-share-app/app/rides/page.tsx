@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { RideCard } from "@/components/ride-card";
 import { requireCompleteProfile } from "@/lib/auth/session";
+import { usableDiscoveryGender } from "@/lib/rides/gender-discovery";
 import { parseRideFilters } from "@/lib/rides/ride-filters";
 import { getRideFeed } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
@@ -15,14 +16,18 @@ type RideFeedPageProps = {
 };
 
 export default async function RideFeedPage({ searchParams }: RideFeedPageProps) {
-  await requireCompleteProfile("/rides");
+  const user = await requireCompleteProfile("/rides");
   const filters = parseRideFilters(await searchParams);
   const supabase = await createClient();
-  const [{ data: cities, error }, rides] = await Promise.all([
+  const [{ data: cities, error }, { data: passengerProfile, error: profileError }] = await Promise.all([
     supabase.from("cities").select("id, name_en, name_mk").order("name_en"),
-    getRideFeed(filters),
+    supabase.from("profiles").select("gender").eq("id", user.id).maybeSingle(),
   ]);
-  if (error) throw new Error("Unable to load city filters.");
+  if (error || profileError) throw new Error("Unable to load discovery filters.");
+
+  const passengerGender = usableDiscoveryGender(passengerProfile?.gender);
+  const rides = await getRideFeed(filters, { passengerGender });
+  const genderUnavailable = filters.sameGenderOnly && !passengerGender;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -40,7 +45,7 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
           </div>
         </div>
 
-        <form className="mt-8 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
+        <form className="mt-8 grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-6">
           <label className="text-sm font-semibold text-slate-700">From
             <select name="origin" defaultValue={filters.origin ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal">
               <option value="">Anywhere</option>
@@ -61,8 +66,24 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
               {[1, 2, 3, 4, 5, 6, 7, 8].map((value) => <option key={value} value={value}>{value}+</option>)}
             </select>
           </label>
+          <label className="flex items-center gap-2 self-end rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700">
+            <input
+              name="sameGender"
+              type="checkbox"
+              value="1"
+              defaultChecked={filters.sameGenderOnly}
+              className="size-4 accent-emerald-700"
+            />
+            Same-gender drivers
+          </label>
           <button className="self-end rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700" type="submit">Apply filters</button>
         </form>
+
+        {genderUnavailable ? (
+          <p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            Add a declared gender to your profile to use this discovery filter. No gender-based filtering was applied.
+          </p>
+        ) : null}
 
         <div className="mt-8 flex items-center justify-between">
           <p className="text-sm font-medium text-slate-600">{rides.length} matching ride{rides.length === 1 ? "" : "s"}</p>

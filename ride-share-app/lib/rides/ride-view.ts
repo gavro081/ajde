@@ -5,6 +5,10 @@ import {
   departureBoundsForFilters,
   type RideFilters,
 } from "@/lib/rides/ride-filters";
+import {
+  filterRidesByDriverGender,
+  type DiscoveryGender,
+} from "@/lib/rides/gender-discovery";
 import { createClient } from "@/lib/supabase/server";
 
 export type RideView = Tables<"rides"> & {
@@ -18,7 +22,10 @@ export type RideView = Tables<"rides"> & {
 
 export async function getRideFeed(
   filters: RideFilters,
-  { now = new Date() }: { now?: Date } = {},
+  {
+    now = new Date(),
+    passengerGender,
+  }: { now?: Date; passengerGender?: DiscoveryGender } = {},
 ): Promise<RideView[]> {
   const supabase = await createClient();
   const bounds = departureBoundsForFilters(filters, now);
@@ -28,16 +35,35 @@ export async function getRideFeed(
     .in("status", ["published", "full"])
     .gte("departure_at", bounds.after)
     .gte("seats_available", filters.seats)
-    .order("departure_at")
-    .limit(100);
+    .order("departure_at");
 
   if (filters.origin) query = query.eq("origin_city_id", filters.origin);
   if (filters.destination) query = query.eq("dest_city_id", filters.destination);
   if (bounds.before) query = query.lt("departure_at", bounds.before);
+  if (!filters.sameGenderOnly) query = query.limit(100);
 
   const { data, error } = await query;
   if (error) throw new Error("Unable to load rides.");
-  return hydrateRides(data);
+
+  let eligibleRides = data;
+  if (filters.sameGenderOnly && data.length > 0) {
+    const driverIds = [
+      ...new Set(data.map((ride) => ride.driver_id).filter((id): id is string => id !== null)),
+    ];
+    const { data: driverProfiles, error: driverError } = driverIds.length
+      ? await supabase.from("profiles").select("id, gender").in("id", driverIds)
+      : { data: [], error: null };
+    if (driverError) throw new Error("Unable to apply the discovery preference.");
+
+    eligibleRides = filterRidesByDriverGender(
+      data,
+      new Map((driverProfiles ?? []).map((profile) => [profile.id, profile.gender])),
+      passengerGender,
+      true,
+    );
+  }
+
+  return hydrateRides(eligibleRides.slice(0, 100));
 }
 
 export async function getRide(rideId: string): Promise<RideView | null> {
