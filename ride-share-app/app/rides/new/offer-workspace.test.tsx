@@ -43,7 +43,7 @@ it("fills cities and Skopje departure before requesting kilometres with their na
   expect(fetcher).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("Describe your rides"), { target: { value: "going skp to bt 4pm saturday with a clio" } });
   fireEvent.click(screen.getByRole("button", { name: "Fill form" }));
-  await waitFor(() => expect(screen.getByLabelText("Departure")).toHaveProperty("value", "2026-09-26T16:00"));
+  await waitFor(() => expect(screen.getByRole("button", { name: /^Departure/ }).textContent).toContain("16:00"));
   await waitFor(() => expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "174.3"));
   expect(screen.getByLabelText("Available seats", { exact: false })).toHaveProperty("value", "");
   expect(screen.getByLabelText("Price per seat (MKD)")).toHaveProperty("value", "");
@@ -61,7 +61,7 @@ it("keeps two recognized trips in separate tabs and stays with the siblings afte
   fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "Keep my outbound note" } });
   fireEvent.click(screen.getAllByRole("tab")[1]);
   expect(screen.getByLabelText("From")).toHaveProperty("value", "3");
-  expect(screen.getByLabelText("Departure")).toHaveProperty("value", "2026-09-27T18:00");
+  expect(screen.getByRole("button", { name: /^Departure/ }).textContent).toContain("18:00");
   fireEvent.submit(screen.getByRole("button", { name: "Publish ride" }).closest("form")!);
   await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(1));
   expect(router.replace).not.toHaveBeenCalled();
@@ -85,9 +85,12 @@ it("allows direct form edits after filling and protects manual km from stale loo
   expect(screen.queryByRole("button", { name: "Update this draft" })).toBeNull();
   fireEvent.change(screen.getByLabelText("From"), { target: { value: "3" } });
   fireEvent.change(screen.getByLabelText("To"), { target: { value: "1" } });
-  fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2026-09-27T17:00" } });
+  fireEvent.click(screen.getByRole("button", { name: /^Departure/ }));
+  fireEvent.change(screen.getByLabelText("Hour"), { target: { value: "17" } });
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
   fireEvent.change(screen.getByLabelText("Estimated route distance (km)"), { target: { value: "185" } });
-  expect(screen.getByLabelText("Departure")).toHaveProperty("value", "2026-09-27T17:00");
+  expect(screen.getByRole("button", { name: /^Departure/ }).textContent).toContain("17:00");
+  expect(new FormData(screen.getByRole("button", { name: "Publish ride" }).closest("form")!).get("departureAt")).toBe("2026-09-26T15:00:00.000Z");
   await act(async () => { resolveRoute(Response.json({ distanceKm: 190 })); });
   expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "185");
 });

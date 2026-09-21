@@ -45,6 +45,17 @@ async function main() {
   await page.goto(`${base}/rides/new`);
   const localParts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Skopje', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(departureAt)).map(p => [p.type, p.value]));
   const dateLocal = `${localParts.year}-${localParts.month}-${localParts.day}`, timeLocal = `${localParts.hour}:${localParts.minute}`;
+  async function chooseDeparture(hour) {
+    await page.getByRole('button', { name: /^Departure/ }).click();
+    const dateLabel = new Date(`${dateLocal}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const day = page.getByRole('button', { name: dateLabel, exact: true });
+    if (!await day.count()) await page.getByRole('button', { name: 'Next month', exact: true }).click();
+    await day.click();
+    await page.getByRole('combobox', { name: /^Hour/ }).selectOption(hour);
+    await page.getByRole('combobox', { name: /^Minute/ }).selectOption('00');
+    if (process.env.OFFERS_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.OFFERS_SCREENSHOTS, 'merge-date-picker.png') });
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+  }
   const trip = { draft: { ...offer, carId: a.carId }, mentioned: ['origin','destination','departureDate','departureTime','car','seatsTotal','pricePerSeatMkd'], dateLocal, timeLocal };
   await page.route('**/api/rides/interpret', async route => {
     const trips = [trip, { ...trip, draft: { ...trip.draft, origin: offer.destination, destination: offer.origin } }];
@@ -53,14 +64,14 @@ async function main() {
   await page.getByLabel('Describe your rides').fill('skp bt next week and back, Clio, 3 seats, 400 den');
   await page.getByRole('button', { name: 'Fill form', exact: true }).click();
   await expect(page.getByRole('tab')).toHaveCount(2);
-  await expect(page.getByLabel('Departure', { exact: true })).toHaveValue(`${dateLocal}T${timeLocal}`);
+  await expect(page.getByRole('button', { name: /^Departure/ })).toContainText(timeLocal);
   await expect(page.getByLabel('Estimated route distance (km)')).not.toHaveValue('', { timeout: 30000 });
   console.log('LIVE Skopje–Bitola km:', await page.getByLabel('Estimated route distance (km)').inputValue());
   await page.getByLabel('Estimated route distance (km)').fill('180');
   await page.getByLabel('Notes').fill('Preserve outbound notes');
   await expect(page.getByLabel('Correct this ride')).toHaveCount(0);
-  await page.getByLabel('Departure', { exact: true }).fill(`${dateLocal}T17:00`);
-  await expect(page.getByLabel('Departure', { exact: true })).toHaveValue(`${dateLocal}T17:00`);
+  await chooseDeparture('17');
+  await expect(page.getByRole('button', { name: /^Departure/ })).toContainText('17:00');
   await page.reload();
   await expect(page.getByRole('tab')).toHaveCount(2);
   await expect(page.getByLabel('Estimated route distance (km)')).toHaveValue('180');
@@ -118,7 +129,7 @@ async function main() {
   assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 6);
   await page.locator('select[name="originCityId"]').selectOption('1');
   await page.locator('select[name="destinationCityId"]').selectOption('3');
-  await page.getByLabel('Departure', { exact: true }).fill(`${dateLocal}T18:00`);
+  await chooseDeparture('18');
   await page.getByLabel('Available seats', { exact: false }).fill('2');
   await page.getByLabel('Price per seat (MKD)').fill('400');
   await page.getByRole('button', { name: 'Save draft', exact: true }).click();
@@ -130,6 +141,18 @@ async function main() {
   assert.equal(savedCar.model, 'Inline save verification');
   assert.deepEqual(errors, []);
   console.log('PASS incoming inline car save without a ride, reuse for a private draft, explicit offered seats and driver dashboard navigation');
+  await page.goto(`${base}/rides/${a.rideId}`);
+  await expect(page.getByRole('link', { name: /^Open ride chat for/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ride Q&A', exact: true })).toBeVisible();
+  await page.getByLabel('Ask a question or answer').fill('Synthetic merge verification question');
+  await page.getByRole('button', { name: 'Post comment', exact: true }).click();
+  await expect(page.getByText('Synthetic merge verification question', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete my comment', exact: true }).click();
+  await expect(page.getByText('Synthetic merge verification question', { exact: true })).toHaveCount(0);
+  await page.getByRole('link', { name: /^Open ride chat for/ }).click();
+  await page.waitForURL(`**/rides/${a.rideId}/chat`);
+  assert.deepEqual(errors, []);
+  console.log('PASS public ride Q&A posting/deletion alongside the incoming ride chat entry point');
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(async () => {
   if (browser) await browser.close();

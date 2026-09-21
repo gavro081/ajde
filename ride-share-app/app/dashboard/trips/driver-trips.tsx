@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { SubmitButton } from "@/components/submit-button";
 import { SeatAvailability } from "@/components/seat-availability";
+import { ChatIcon } from "@/components/chat-icon";
 import { CompleteRideButton } from "@/components/ride-completion/complete-ride-button";
 import { CancelRideControl } from "@/components/ride-completion/cancel-ride-control";
 import { RatingControl } from "@/components/ratings/rating-control";
@@ -59,6 +60,10 @@ export async function DriverRides({ userId }: { userId: string }) {
             <div className="journey-card-top"><p className="journey-card-date">{formatDeparture(ride.departure_at)}</p><span className={`status-pill ${ride.status === "cancelled" ? "bg-red-50 text-red-800" : isOpen ? "bg-blue-50 text-blue-800" : ""}`}>{ride.status}</span></div>
             <h2><Link href={`/rides/${ride.id}`} className="journey-card-route hover:text-brand-700">{cityMap.get(ride.origin_city_id)} <span>to</span> {cityMap.get(ride.dest_city_id)}</Link></h2>
             <div className="journey-card-meta"><SeatAvailability available={ride.seats_available} total={ride.seats_total} /><p className="text-slate-500">{confirmedSeats} confirmed · Skopje time</p></div>
+            <nav aria-label="Ride actions" className="mt-6 flex flex-wrap gap-3">
+              <Link href={`/rides/${ride.id}`} className="btn-secondary flex-1">View ride</Link>
+              {confirmedSeats > 0 ? <Link href={`/rides/${ride.id}/chat`} className="btn-primary flex-1" aria-label={`Open ride chat for ${cityMap.get(ride.origin_city_id)} to ${cityMap.get(ride.dest_city_id)}`}><ChatIcon /> Open ride chat</Link> : null}
+            </nav>
             {isOpen && hasDeparted ? <CompleteRideButton rideId={ride.id} /> : null}
             <details className="card-options" open={(canDecide && pendingRequests > 0) || ratingControls.has(ride.id)}>
               <summary>{ride.status === "completed" ? "Passengers & feedback" : "Manage ride"}{canDecide && pendingRequests > 0 ? <span className="ml-3 rounded-full bg-brand-50 px-3 py-1 text-sm text-brand-700">{pendingRequests} pending</span> : null}</summary>

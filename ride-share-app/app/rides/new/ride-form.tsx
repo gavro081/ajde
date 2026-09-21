@@ -7,6 +7,7 @@ import type { Tables } from "@/lib/supabase/database.types";
 import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
 import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
+import { DateTimeField } from "@/components/date-time-field";
 
 import { saveCar, type CreateRideFormState } from "./actions";
 
@@ -242,21 +243,20 @@ export function RideForm({
           </label>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <label className="font-medium text-slate-800 col-span-2">
-            Departure
-            <input
+          <div className="font-medium text-slate-800 col-span-2">
+            <span id="departure-label">Departure</span>
+            <DateTimeField
+              labelledBy="departure-label"
               className={inputClass}
-              name="departureLocal"
-              aria-invalid={Boolean(state.fieldErrors.departureAt) || undefined}
-              aria-describedby={state.fieldErrors.departureAt ? "departure-error" : undefined}
-              type="datetime-local"
-              required
-              value={/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(departureLocal) ? departureLocal : ""}
-              onChange={(event) => setDepartureLocal(event.target.value)}
+              invalid={Boolean(state.fieldErrors.departureAt)}
+              describedBy={state.fieldErrors.departureAt ? "departure-error" : undefined}
+              disabled={pending || savingCar}
+              value={departureLocal}
+              onChange={setDepartureLocal}
             />
             <FieldError id="departure-error" errors={state.fieldErrors.departureAt} />
-            {departureLocal && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(departureLocal) && <p className="mt-2 text-sm text-amber-800">Recognized {departureLocal.split("T").filter(Boolean).join(" ")}. Complete the departure date and time.</p>}
-          </label>
+            {departureLocal && !departureAt && <p className="mt-2 text-sm text-amber-800">Recognized {departureLocal.split("T").filter(Boolean).join(" ")}. Complete the departure date and time.</p>}
+          </div>
           <label className="font-medium text-slate-800">
             Available seats
             <input

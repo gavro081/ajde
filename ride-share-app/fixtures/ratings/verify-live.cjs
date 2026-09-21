@@ -90,7 +90,7 @@ async function main() {
   await first.focus();
   await first.press('Space');
   for (let index = 0; index < 3; index++) await one.page.keyboard.press('ArrowRight');
-  await expect(form.getByRole('radio', { name: '4 — Very good' })).toBeChecked();
+  await expect(form.getByRole('radio', { name: '4 stars, Very good' })).toBeChecked();
   await one.page.keyboard.press('Tab');
   await expect(form.getByLabel(/Private feedback/)).toBeFocused();
   await form.getByLabel(/Private feedback/).fill(`  ${malicious}  `);
@@ -98,13 +98,13 @@ async function main() {
   await one.page.keyboard.press('Tab');
   await expect(form.getByRole('button', { name: 'Submit rating' })).toBeFocused();
   await one.page.keyboard.press('Enter');
-  await expect(one.page.getByText('Your submitted rating: 4 out of 5')).toBeVisible();
+  await expect(one.page.getByRole('img', { name: '4 out of 5 stars' })).toBeVisible();
   await expect(one.page.getByText(malicious, { exact: true })).toBeVisible();
   assert.equal(await one.page.evaluate(() => window.ratingInjected), undefined);
   await one.page.reload();
   await expect(forms(one.page)).toHaveCount(0);
   await expect(one.page.getByText(malicious, { exact: true })).toBeVisible();
-  await forms(stale).getByRole('radio', { name: '5 — Excellent' }).check();
+  await forms(stale).getByRole('radio', { name: '5 stars, Excellent' }).check();
   await forms(stale).getByRole('button', { name: 'Submit rating' }).click();
   await expect(stale.getByText(/You have already rated this person/)).toBeVisible();
   assert.equal(check(await admin.from('ratings').select('id').eq('ride_id', rideId)).length, 1);
@@ -112,32 +112,32 @@ async function main() {
 
   // Tampering happens in the real form; the Server Action must reload facts.
   const twoForm = forms(two.page);
-  await twoForm.getByRole('radio', { name: '2 — Fair' }).check();
+  await twoForm.getByRole('radio', { name: '2 stars, Fair' }).check();
   await twoForm.locator('input[name="rateeId"]').evaluate((input, target) => { input.value = target; }, one.id);
   await twoForm.getByRole('button', { name: 'Submit rating' }).click();
   await expect(forms(two.page).getByRole('alert')).toContainText('You can only rate');
   assert.equal(check(await admin.from('ratings').select('id').eq('ride_id', rideId)).length, 1);
   await two.page.reload();
-  await forms(two.page).getByRole('radio', { name: '2 — Fair' }).check();
+  await forms(two.page).getByRole('radio', { name: '2 stars, Fair' }).check();
   await forms(two.page).locator('input[name="rideId"]').evaluate((input, target) => { input.value = target; }, rides[1]);
   await forms(two.page).getByRole('button', { name: 'Submit rating' }).click();
   await expect(forms(two.page).getByRole('alert')).toContainText('You can only rate');
   await two.page.reload();
   const racing = await two.context.newPage();
   await racing.goto(`${base}/dashboard/trips`);
-  for (const page of [two.page, racing]) await forms(page).getByRole('radio', { name: '2 — Fair' }).check();
+  for (const page of [two.page, racing]) await forms(page).getByRole('radio', { name: '2 stars, Fair' }).check();
   await Promise.all([two.page, racing].map(page => forms(page).getByRole('button', { name: 'Submit rating' }).click()));
   await expect.poll(async () => check(await admin.from('ratings').select('id').eq('ride_id', rideId)).length).toBe(2);
   await two.page.reload();
-  await expect(two.page.getByText('Your submitted rating: 2 out of 5')).toBeVisible();
+  await expect(two.page.getByRole('img', { name: '2 out of 5 stars' })).toBeVisible();
   console.log('PASS forged targets/ride IDs and concurrent pair submissions');
 
   for (const [person, score] of [[one, 5], [two, 3]]) {
     await driver.page.reload();
     const target = driver.page.getByRole('form', { name: `Rate ${person.name}`, exact: true });
-    await target.getByRole('radio', { name: new RegExp(`^${score} —`) }).check();
+    await target.getByRole('radio', { name: new RegExp(`^${score} stars?,`) }).check();
     await target.getByRole('button', { name: 'Submit rating' }).click();
-    await expect(driver.page.getByText(`Your submitted rating: ${score} out of 5`)).toBeVisible();
+    await expect(driver.page.getByRole('img', { name: `${score} out of 5 stars` })).toBeVisible();
   }
   await driver.page.reload();
   await expect(forms(driver.page)).toHaveCount(0);
@@ -146,17 +146,17 @@ async function main() {
   await responsiveScreenshots(driver.page, 'driver-submitted');
   const publicPage = await browser.newPage({ viewport: { width: 375, height: 850 } });
   await publicPage.goto(`${base}/profile/${driver.id}`);
-  await expect(publicPage.getByText('3.0 out of 5 · 2 ratings')).toBeVisible();
+  await expect(publicPage.getByRole('img', { name: '3.0 out of 5 stars' })).toBeVisible();
   const profileHtml = await publicPage.content();
   for (const secret of [one.id, two.id, rideId, malicious, 'PRIVATE RATINGS CONTACT']) assert(!profileHtml.includes(secret), `Public profile leaked ${secret}`);
   await noOverflow(publicPage);
   await publicPage.screenshot({ path: '.test-dist/ratings/profile-mobile.png', fullPage: true });
   await responsiveScreenshots(publicPage, 'profile');
   await publicPage.goto(`${base}/profile/${outsider.id}`);
-  await expect(publicPage.getByText('No completed-ride ratings yet.')).toBeVisible();
+  await expect(publicPage.getByText('No ratings yet. They appear after completed shared rides.')).toBeVisible();
   for (const [person, score] of [[one, '5.0'], [two, '3.0']]) {
     await publicPage.goto(`${base}/profile/${person.id}`);
-    await expect(publicPage.getByText(`${score} out of 5 · 1 rating`)).toBeVisible();
+    await expect(publicPage.getByRole('img', { name: `${score} out of 5 stars` })).toBeVisible();
   }
   console.log('PASS both driver targets and aggregate-only public profiles');
 
