@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { explainMatch, type ExplainRideFact } from "./explain-match";
-import { shouldApplyExplanationResponse } from "./explain-match-schema";
+import {
+  explanationRideMatchesContext,
+  shouldApplyExplanationResponse,
+} from "./explain-match-schema";
 import type { SearchQueryResult } from "./search-query-schema";
 
 const context: SearchQueryResult = {
@@ -90,5 +93,30 @@ describe("batched match explanations", () => {
   it("ignores a response after the search context changes", () => {
     expect(shouldApplyExplanationResponse("query-a", "query-b")).toBe(false);
     expect(shouldApplyExplanationResponse("query-b", "query-b")).toBe(true);
+  });
+
+  it("excludes server-reloaded rides that no longer match the search context", () => {
+    expect(
+      explanationRideMatchesContext(
+        {
+          origin_city_id: 1,
+          dest_city_id: 3,
+          departure_at: "2026-09-25T16:00:00Z",
+          seats_available: 2,
+        },
+        context,
+      ),
+    ).toBe(true);
+    expect(
+      explanationRideMatchesContext(
+        {
+          origin_city_id: 1,
+          dest_city_id: 4,
+          departure_at: "2026-09-25T16:00:00Z",
+          seats_available: 2,
+        },
+        context,
+      ),
+    ).toBe(false);
   });
 });

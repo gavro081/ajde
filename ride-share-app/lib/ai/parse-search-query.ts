@@ -86,8 +86,20 @@ export async function parseSearchQuery(
   const now = context.now ?? new Date();
   const timeZone = context.timeZone ?? "Europe/Skopje";
   const runModel = context.modelRunner ?? runOpenAISearchModel;
+  let rawModelOutput: SearchModelOutput;
+  try {
+    rawModelOutput = await runModel({
+      query: normalizedQuery,
+      candidates: context.candidates,
+      now,
+      timeZone,
+    });
+  } catch (error) {
+    if (error instanceof SearchParserError) throw error;
+    throw new SearchParserError("The search provider failed.", "provider_error", { cause: error });
+  }
   const modelOutput = searchModelOutputSchema.safeParse(
-    await runModel({ query: normalizedQuery, candidates: context.candidates, now, timeZone }),
+    rawModelOutput,
   );
   if (!modelOutput.success) {
     throw new SearchParserError("The model returned an invalid search interpretation.", "invalid_output");

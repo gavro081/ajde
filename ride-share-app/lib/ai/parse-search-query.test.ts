@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSearchQuery, type SearchLocationCandidate, type SearchModelOutput } from "./parse-search-query";
+import {
+  parseSearchQuery,
+  SearchParserError,
+  type SearchLocationCandidate,
+  type SearchModelOutput,
+} from "./parse-search-query";
 
 const candidates: SearchLocationCandidate[] = [
   { kind: "city", id: 1, cityId: null, nameMk: "Скопје", nameEn: "Skopje", aliases: ["skopje", "shkup"] },
@@ -86,5 +91,16 @@ describe("natural-language search parsing", () => {
     });
     expect(result).not.toHaveProperty("sameGenderOnly");
     expect(result.warnings[0]?.code).toBe("unsupported");
+  });
+
+  it("classifies provider failures without weakening manual search", async () => {
+    await expect(
+      parseSearchQuery("Bitola Friday", {
+        candidates,
+        modelRunner: async () => {
+          throw new Error("offline");
+        },
+      }),
+    ).rejects.toMatchObject({ code: "provider_error" } satisfies Partial<SearchParserError>);
   });
 });
