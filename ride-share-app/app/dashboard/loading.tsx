@@ -9,7 +9,7 @@ export default function DashboardLoading() {
   return <div className="text-slate-950">
     <main id="main-content" className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
       <TripsHeading isDriver={false} />
-      <div aria-hidden="true" className={tripTabsClass}>{tripTabs.map((tab) => <span key={tab.href} className={`${tripTabClass} text-slate-500`}>{tab.label}</span>)}</div>
+      <div aria-hidden="true" className={tripTabsClass}>{tripTabs.map((tab) => <span key={tab.href} className={`${tripTabClass} text-slate-600`}>{tab.label}</span>)}</div>
       <TripsSkeleton />
       <ImpactSummarySkeleton />
     </main>

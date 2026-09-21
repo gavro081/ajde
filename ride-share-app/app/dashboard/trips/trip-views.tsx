@@ -35,7 +35,7 @@ export function TripViews({ isDriver, children }: { isDriver: boolean; children:
           });
         }}
         aria-current={selectedDriver === view.driver ? "page" : undefined}
-        className={`${tripTabClass} ${selectedDriver === view.driver ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-950"}`}
+        className={`${tripTabClass} ${selectedDriver === view.driver ? "bg-white text-slate-950 shadow-sm ring-1 ring-slate-300/60" : "text-slate-600 hover:bg-white/50 hover:text-slate-950"}`}
       >{view.label}</Link>)}
     </nav>
     {isPending ? <TripsSkeleton /> : children}

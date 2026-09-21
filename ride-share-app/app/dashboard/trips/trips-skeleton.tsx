@@ -1,7 +1,7 @@
-export function TripsSkeleton() {
+export function TripsSkeleton({ gridClassName = "" }: { gridClassName?: string }) {
   return <div aria-busy="true">
     <p role="status" className="sr-only">Loading trips…</p>
-    <div aria-hidden="true" className="dashboard-grid">
+    <div aria-hidden="true" className={`dashboard-grid ${gridClassName}`}>
       {[0, 1, 2].map((card) => <div key={card} className="journey-card">
         <div className="flex items-center justify-between gap-4">
           <div className="h-4 w-36 skeleton" />

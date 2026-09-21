@@ -12,18 +12,31 @@ import { formatDeparture } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
 
 import { decideBooking } from "../actions";
+import { DriverRideFilterNav } from "./driver-ride-filter-nav";
+import { driverRideFilters, type DriverRideFilter } from "./trip-tabs";
 
-export async function DriverRides({ userId }: { userId: string }) {
+const emptyStates: Record<DriverRideFilter, { title: string; body: string }> = {
+  active: { title: "No active rides", body: "Have a spare seat? Give someone a way home." },
+  completed: { title: "No completed rides yet", body: "Rides you finish will show up here." },
+  cancelled: { title: "No cancelled rides", body: "Rides you cancel will show up here." },
+  all: { title: "No rides offered yet", body: "Have a spare seat? Give someone a way home." },
+};
+
+export async function DriverRides({ userId, filter }: { userId: string; filter: DriverRideFilter }) {
   const supabase = await createClient();
-  const { data: rides, error } = await supabase
+  const { data: allRides, error } = await supabase
     .from("rides")
     .select("id, departure_at, status, seats_total, seats_available, origin_city_id, dest_city_id")
     .eq("driver_id", userId)
     .order("departure_at", { ascending: false });
   if (error) throw new Error("Unable to load your rides.");
+  const counts = new Map(driverRideFilters.map((option) => [option.value,
+    (allRides ?? []).filter((ride) => !option.statuses || (option.statuses as readonly string[]).includes(ride.status)).length]));
+  const statuses = driverRideFilters.find((option) => option.value === filter)?.statuses;
+  const rides = (allRides ?? []).filter((ride) => !statuses || (statuses as readonly string[]).includes(ride.status));
 
-  const rideIds = rides?.map((ride) => ride.id) ?? [];
-  const cityIds = [...new Set((rides ?? []).flatMap((ride) => [ride.origin_city_id, ride.dest_city_id]))];
+  const rideIds = rides.map((ride) => ride.id);
+  const cityIds = [...new Set(rides.flatMap((ride) => [ride.origin_city_id, ride.dest_city_id]))];
   const [{ data: bookings }, { data: cities }] = await Promise.all([
     rideIds.length
       ? supabase.from("bookings").select("id, ride_id, passenger_id, seats, message, status, created_at").in("ride_id", rideIds).order("created_at")
@@ -43,13 +56,14 @@ export async function DriverRides({ userId }: { userId: string }) {
   const cityMap = new Map((cities ?? []).map((city) => [city.id, city.name_en]));
   const passengerMap = new Map((passengers ?? []).map((passenger) => [passenger.id, passenger]));
   const contactMap = new Map((requestContacts ?? []).map((contact) => [contact.id, contact]));
-  const ratingControls = await getRatingControls(userId, (rides ?? []).map((ride) => ({ ...ride, driver_id: userId })), bookings ?? []);
+  const ratingControls = await getRatingControls(userId, rides.map((ride) => ({ ...ride, driver_id: userId })), bookings ?? []);
   // This authenticated Server Component renders a fresh eligibility snapshot per request.
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
 
-  return <div className="dashboard-grid">
-        {rides?.map((ride) => {
+  return <DriverRideFilterNav filter={filter} counts={Object.fromEntries(counts)}>
+    <div className="dashboard-grid mt-6">
+        {rides.map((ride) => {
           const rideBookings = (bookings ?? []).filter((booking) => booking.ride_id === ride.id);
           const isOpen = ["published", "full"].includes(ride.status);
           const hasDeparted = Date.parse(ride.departure_at) < now;
@@ -96,6 +110,7 @@ export async function DriverRides({ userId }: { userId: string }) {
             </details>
           </section>;
         })}
-        {!rides?.length ? <div className="journey-card dashboard-empty"><h2>No rides offered yet</h2><p>Have a spare seat? Give someone a way home.</p><Link href="/rides/new" className="btn-primary">Offer your first ride</Link></div> : null}
-      </div>;
+        {!rides.length ? <div className="journey-card dashboard-empty"><h2>{allRides?.length ? emptyStates[filter].title : "No rides offered yet"}</h2><p>{allRides?.length ? emptyStates[filter].body : emptyStates.all.body}</p><Link href="/rides/new" className="btn-primary">{allRides?.length ? "Offer a ride" : "Offer your first ride"}</Link></div> : null}
+      </div>
+    </DriverRideFilterNav>;
 }
