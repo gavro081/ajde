@@ -40,7 +40,7 @@ beforeEach(() => {
   db.tables = {
     rides: [{ id: rideId, driver_id: "driver", status: "published", departure_at: "2099-09-21T12:00:00Z" }],
     bookings: [{ ride_id: rideId, passenger_id: "passenger", status: "accepted", decided_at: "2026-09-21T12:00:00Z" }],
-    profiles: ["driver", "passenger", "former"].map(id => ({ id, full_name: id, photo_url: "/photo.png", university: "UKIM" })),
+    profiles: ["driver", "passenger", "former"].map(id => ({ id, full_name: id, photo_url: "/photo.png", university: "UKIM", phone: "+38970123456", social_url: "https://x.com/" + id, instagram: null, facebook: null })),
     messages: Array.from({ length: 105 }, (_, n) => ({ id: uuid(n + 10), ride_id: rideId, sender_id: "former", recipient_id: null, body: String(n), created_at: "2026-09-21T12:00:00Z" })),
   };
 });
@@ -54,7 +54,11 @@ describe("room history and mutations", () => {
     expect(third.value.nextCursor).toBeNull();
     expect(first.value.members.map(m => m.id)).toEqual(["driver", "passenger"]);
     expect(first.value.messages[0].sender?.full_name).toBe("former");
-    expect(db.reads.join()).not.toMatch(/phone|instagram|facebook/);
+    expect(first.value.members[0].phone).toBe("+38970123456");
+    expect(first.value.members[0].social_url).toBe("https://x.com/driver");
+    expect(first.value.members.some(m => m.id === "former")).toBe(false);
+    expect(first.value.messages[0].sender).not.toHaveProperty("phone");
+    expect(first.value.messages[0].sender).not.toHaveProperty("social_url");
   });
   it("supports forward catch-up after more than 50 missed messages", async () => {
     const result = await queryRoom({ rideId, direction: "newer", cursor: { id: uuid(10), created_at: "2026-09-21T12:00:00Z" } });
@@ -99,4 +103,13 @@ describe("room history and mutations", () => {
     expect((await queryRoom({ rideId })).ok).toBe(true);
     expect(await insertRoomMessage({ rideId, body: "Hello" })).toMatchObject({ ok: false, code: "closed" });
   });
+});
+
+it("denies contact roster access before acceptance and when phone is missing", async () => {
+  db.tables.bookings[0].status="requested";
+  expect((await queryRoom({rideId})).ok).toBe(false);
+  expect(db.reads.some(columns=>columns.includes("social_url"))).toBe(false);
+  db.tables.bookings[0].status="accepted";
+  db.tables.profiles.find(p=>p.id==="passenger")!.phone=null;
+  expect((await queryRoom({rideId})).ok).toBe(false);
 });

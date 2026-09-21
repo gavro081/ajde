@@ -1,7 +1,7 @@
 # Private ride rooms
 
 Each `/rides/[id]/chat` page is one room shared by the driver and currently accepted passengers.
-The ride detail page is the only new entry point; public Q&A and both dashboards are unchanged.
+Ride detail and My trips provide entry points. Room participants can see each other’s phone numbers and optional social-profile links. Drivers also see phone numbers on incoming booking requests.
 
 ## Setup
 
@@ -25,7 +25,7 @@ and `npx next build --webpack` from the app directory.
 ## Behavior and limits
 
 - Passengers see messages at or after their current accepted booking's `decided_at`; the driver
-  sees the room history. The roster contains only current participants' names/photos.
+  sees the room history. The roster contains current participants’ names/photos, phone numbers, and optional social links; historical message authors remain name/photo only.
 - SQL policies check current membership for queries and Realtime. Booking cancellation revokes
   database access immediately. The open UI rechecks on events, focus, reconnect, history loads,
   sends, and every 15 seconds. Already delivered content cannot be recalled; offline clients can
@@ -52,8 +52,7 @@ The checkpoint also enables rating RLS and adds
 `profile_rating_summary(target_profile_id)` returning aggregate-only `{ average, count }` rows.
 Empty history is null average / zero count. Raw notes are readable only by the rater and ratee.
 `can_rate_ride` derives the current identity and permits only completed-ride driver/passenger pairs.
-The ratings UI, dashboards, and root README remain Pero's ownership. Chat changes no booking,
-completion, impact, contact-reveal, Q&A, or trip-share semantics.
+The ratings UI, dashboards, and root README remain Pero's ownership. Booking, completion, impact, Q&A, and trip-share rules are unchanged. Contact visibility was expanded by the subsequent profile-contact feature: drivers see requester phones and authorized room participants see current member contacts.
 
 ## Repeatable live browser verification
 
@@ -83,7 +82,7 @@ existing booking/Q&A/contact/trip-sharing flows. Realtime authentication is set 
 subscribing, and each mounted subscription has its own channel identity.
 
 
-## Verified results � 2026-09-21
+## Verified results — 2026-09-21
 
 - 230 tests across 20 files passed, including 42 chat contract/server/component tests.
 - ESLint, TypeScript, and the Webpack production build passed.

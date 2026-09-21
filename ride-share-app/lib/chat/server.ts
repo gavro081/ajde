@@ -1,4 +1,5 @@
 import "server-only";
+import { phoneSchema } from "../profiles/contact";
 import { isAllowedStudentEmail } from "../auth/email-domain";
 import { createClient } from "../supabase/server";
 import { compareMessages, historySchema, PAGE_SIZE, roomMembership, rosterIds, sendSchema,
@@ -13,9 +14,9 @@ export async function roomAccess(rideId: string) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user || !user.email || !isAllowedStudentEmail(user.email)) return unavailable;
   const { data: profile, error: profileError } = await supabase.from("profiles")
-    .select("full_name, photo_url, university").eq("id", user.id).maybeSingle();
+    .select("full_name, photo_url, university, phone").eq("id", user.id).maybeSingle();
   if (profileError) return database;
-  if (!profile?.full_name.trim() || !profile.photo_url.trim() || !profile.university.trim()) return unavailable;
+  if (!profile?.full_name.trim() || !profile.photo_url.trim() || !profile.university.trim() || !phoneSchema.safeParse(profile.phone).success) return unavailable;
   const { data: ride, error } = await supabase.from("rides").select("id, driver_id, status, departure_at").eq("id", rideId).maybeSingle();
   if (error) return database;
   if (!ride) return unavailable;
@@ -38,7 +39,7 @@ export async function queryRoom(input: unknown): Promise<Result<RoomPage>> {
     const { supabase, membership } = access;
     const ids = rosterIds(access.ride, access.bookings);
     const { data: profiles, error: rosterError } = await supabase.from("profiles")
-      .select("id, full_name, photo_url").in("id", ids);
+      .select("id, full_name, photo_url, phone, social_url, instagram, facebook").in("id", ids);
     if (rosterError || !profiles) return database;
     let query = supabase.from("messages").select(messageColumns).eq("ride_id", rideId).is("recipient_id", null);
     if (membership.joinedAt) query = query.gte("created_at", membership.joinedAt);
