@@ -178,3 +178,10 @@ GitHub publication is excluded by the user's explicit instruction. This task pre
 - Public OSRM is the selected low-volume, non-commercial demo dependency. Respect the [operator policy](https://routing.openstreetmap.de/about.html), [demo policy](https://github.com/Project-OSRM/osrm-backend/wiki/Demo-server), and [OpenStreetMap attribution requirements](https://www.openstreetmap.org/copyright). No uptime or latency guarantee is assumed.
 - The feature scope comes from the completed design interview and subsequent user corrections. The testing approach retains the existing component/action tools and a small browser smoke check; no implementation tests were run for this documentation task.
 - Keep the specification and tickets local. No GitHub issue or label change is authorized.
+# Current scope amendment
+
+The user subsequently removed natural-language corrections. After initial AI drafting, drivers
+edit the form fields directly. The “Correct this ride” input and correction API mode are removed.
+Initial-fill Undo and creating additional drafts remain available. This supersedes correction
+requirements in the original specification above. Successful publication also closes its tab;
+after the final draft publishes, redirect to My trips (`/dashboard/trips`) and clear session drafts.

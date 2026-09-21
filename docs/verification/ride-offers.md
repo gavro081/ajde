@@ -1,5 +1,17 @@
 # Ride-offer tickets: completion and verification
 
+## Subsequent scope change: direct editing
+
+At the user's request, the “Correct this ride” input and AI correction mode have been removed.
+After initial drafting, the user edits form fields directly. Initial-fill Undo remains available.
+The recovery schema ignores legacy correction text while retaining saved forms. Successful
+publication removes its tab and its session draft; the last publication redirects to My trips
+(`/dashboard/trips`) and clears the session draft set. Failed publication remains editable. The updated
+form/parser tests (32 tests), lint and TypeScript check pass. Live browser verification also passed
+direct editing, closed published tabs, remaining-draft recovery, last-tab My trips redirects and
+session cleanup for native and imported offers. Synthetic records were removed. The verification
+below records the original implementation before this scope change.
+
 All five approved local tickets are implemented. Baseline: `7ec95d2`. Initial implementation:
 `43fa6e8`; subsequent local fix commit includes review corrections and this verification record.
 The unrelated concurrent logo commit was excluded from this feature's review. No GitHub issues,

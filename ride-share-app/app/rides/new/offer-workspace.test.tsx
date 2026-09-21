@@ -5,6 +5,8 @@ import type { RideDraft } from "@/lib/rides/ride-draft";
 import { OfferWorkspace } from "./offer-workspace";
 
 const publish = vi.hoisted(() => vi.fn());
+const router = vi.hoisted(() => ({ replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("./actions", () => ({ createRide: publish }));
 const blank: RideDraft = { source: "native", importId: null,
   origin: { cityId: null, pickupPointId: null, rawText: null }, destination: { cityId: null, pickupPointId: null, rawText: null },
@@ -15,7 +17,7 @@ const props = { userId: "driver-one", initialDraft: blank, submissionId: "200000
   pickupPoints: [], cars: [], carModels: [], fuelPrices: { petrol: 80, diesel: 75 } };
 const trip = { draft: { ...blank, origin: { cityId: 1, pickupPointId: null, rawText: "skp" }, destination: { cityId: 3, pickupPointId: null, rawText: "bt" }, departureAt: "2026-09-26T14:00:00Z" },
   mentioned: ["origin", "destination", "departureDate", "departureTime"], dateLocal: "2026-09-26", timeLocal: "16:00" };
-beforeEach(() => { sessionStorage.clear(); publish.mockReset(); });
+beforeEach(() => { sessionStorage.clear(); publish.mockReset(); router.replace.mockReset(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it("fills cities and Skopje departure before requesting kilometres with their names", async () => {
@@ -51,17 +53,16 @@ it("keeps two recognized trips in separate tabs and stays with the siblings afte
   expect(screen.getByLabelText("Departure city")).toHaveProperty("value", "3");
   expect(screen.getByLabelText("Departure")).toHaveProperty("value", "2026-09-27T18:00");
   fireEvent.submit(screen.getByRole("button", { name: "Publish ride" }).closest("form")!);
-  await screen.findByRole("link", { name: "View ride" });
-  fireEvent.click(screen.getAllByRole("tab")[0]);
+  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(1));
+  expect(router.replace).not.toHaveBeenCalled();
   expect(screen.getByLabelText("Notes")).toHaveProperty("value", "Keep my outbound note");
   expect(screen.getByRole("button", { name: "Publish ride" })).toBeTruthy();
 });
 
-it("corrects only the active draft and Undo restores its manual km without a stale lookup overwriting it", async () => {
+it("allows direct form edits after filling and protects manual km from stale lookups", async () => {
   let resolveRoute: (value: Response) => void = () => {};
-  const correction = { ...trip, draft: { ...trip.draft, origin: trip.draft.destination, destination: trip.draft.origin }, mentioned: ["origin", "destination"] };
   vi.stubGlobal("fetch", vi.fn(async (url: string, options: RequestInit) => {
-    if (url.includes("interpret")) return Response.json({ trips: [JSON.parse(String(options.body)).mode === "correct" ? correction : trip] });
+    if (url.includes("interpret")) return Response.json({ trips: [trip] });
     if (JSON.parse(String(options.body)).originCity === "Bitola") return new Promise<Response>(resolve => { resolveRoute = resolve; });
     return Response.json({ distanceKm: 174.3 });
   }));
@@ -70,14 +71,15 @@ it("corrects only the active draft and Undo restores its manual km without a sta
   fireEvent.click(screen.getByRole("button", { name: "Fill form" }));
   await waitFor(() => expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "174.3"));
   fireEvent.change(screen.getByLabelText("Estimated route distance (km)"), { target: { value: "180" } });
-  fireEvent.change(screen.getByLabelText("Correct this ride"), { target: { value: "reverse the cities" } });
-  fireEvent.click(screen.getByRole("button", { name: "Update this draft" }));
-  await waitFor(() => expect(screen.getByLabelText("Departure city")).toHaveProperty("value", "3"));
-  fireEvent.click(screen.getByRole("button", { name: "Undo fill" }));
-  expect(screen.getByLabelText("Departure city")).toHaveProperty("value", "1");
-  expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "180");
+  expect(screen.queryByLabelText("Correct this ride")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Update this draft" })).toBeNull();
+  fireEvent.change(screen.getByLabelText("Departure city"), { target: { value: "3" } });
+  fireEvent.change(screen.getByLabelText("Destination city"), { target: { value: "1" } });
+  fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2026-09-27T17:00" } });
+  fireEvent.change(screen.getByLabelText("Estimated route distance (km)"), { target: { value: "185" } });
+  expect(screen.getByLabelText("Departure")).toHaveProperty("value", "2026-09-27T17:00");
   await act(async () => { resolveRoute(Response.json({ distanceKm: 190 })); });
-  expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "180");
+  expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "185");
 });
 
 it("recovers every current field and manual km in the same user's session without exposing them to another user", async () => {
@@ -153,7 +155,7 @@ it("retains incomplete dates in extra tabs, supports keyboard navigation, append
   expect(screen.getAllByRole("tab")).toHaveLength(3);
 });
 
-it("restores published tabs as terminal and preserves sibling drafts and identities", async () => {
+it("removes published tabs from recovery and redirects to My trips when the final draft publishes", async () => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("interpret") ? Response.json({ trips: [trip, trip] }) : Response.json({ distanceKm: 174 })));
   publish.mockResolvedValue({ status: "success", message: "Published", fieldErrors: {}, rideId: "30000000-0000-4000-8000-000000000002" });
   const view = render(<OfferWorkspace {...props} />);
@@ -162,15 +164,18 @@ it("restores published tabs as terminal and preserves sibling drafts and identit
   await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(2));
   const ids = screen.getAllByRole("tab").map(tab => tab.id);
   fireEvent.submit(screen.getByRole("button", { name: "Publish ride" }).closest("form")!);
-  await screen.findByRole("link", { name: "View ride" });
+  await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(1));
+  expect(router.replace).not.toHaveBeenCalled();
   view.unmount();
   render(<OfferWorkspace {...props} />);
-  await screen.findByRole("link", { name: "View ride" });
-  expect(screen.queryByRole("button", { name: "Publish ride" })).toBeNull();
-  expect(screen.getAllByRole("tab").map(tab => tab.id)).toEqual(ids);
-  fireEvent.click(screen.getAllByRole("tab")[1]);
+  await waitFor(() => expect(screen.getAllByRole("tab").map(tab => tab.id)).toEqual([ids[1]]));
   expect(screen.getByRole("button", { name: "Publish ride" })).toBeTruthy();
-  expect(publish).toHaveBeenCalledTimes(1);
+  fireEvent.submit(screen.getByRole("button", { name: "Publish ride" }).closest("form")!);
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/trips"));
+  expect(screen.queryByRole("tab")).toBeNull();
+  expect(sessionStorage.getItem(`ride-offers:v1:${props.userId}:native`)).toBeNull();
+  expect(publish).toHaveBeenCalledTimes(2);
+
 });
 
 it("handles corrupt and unavailable storage without claiming recovery or losing editing", async () => {
@@ -183,4 +188,18 @@ it("handles corrupt and unavailable storage without claiming recovery or losing 
   fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "Still editable" } });
   expect(screen.getByLabelText("Notes")).toHaveProperty("value", "Still editable");
   failing.mockRestore();
+});
+
+it("keeps a failed publication editable and redirects only after a successful retry", async () => {
+  publish.mockResolvedValueOnce({ status: "error", message: "Please retry", fieldErrors: {} })
+    .mockResolvedValueOnce({ status: "success", message: "Published", fieldErrors: {}, rideId: "30000000-0000-4000-8000-000000000003" });
+  render(<OfferWorkspace {...props} />);
+  fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "Keep this on failure" } });
+  fireEvent.submit(screen.getByRole("button", { name: "Publish ride" }).closest("form")!);
+  await screen.findByText("Please retry");
+  expect(screen.getAllByRole("tab")).toHaveLength(1);
+  expect(screen.getByLabelText("Notes")).toHaveProperty("value", "Keep this on failure");
+  expect(router.replace).not.toHaveBeenCalled();
+  fireEvent.submit(screen.getByRole("button", { name: "Publish ride" }).closest("form")!);
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/trips"));
 });

@@ -1,7 +1,6 @@
 import { expect, it } from "vitest";
 import { parseOfferDescription, type OfferModelOutput } from "./parse-offer-description";
 import { emptyOfferDraft } from "@/lib/rides/offer-interpretation";
-import { valuesFromDraft } from "@/lib/rides/offer-values";
 
 const cities = [{ id: 1, name_en: "Skopje", name_mk: "Скопје", aliases: [] }, { id: 3, name_en: "Bitola", name_mk: "Битола", aliases: [] }];
 const raw: OfferModelOutput = { recurring: false, trips: [{ draft: { ...emptyOfferDraft(),
@@ -22,25 +21,22 @@ it.each([["2026-09-26T13:59:00Z", "2026-09-26T14:00:00.000Z"], ["2026-09-26T14:0
   expect(result.trips[0].draft.departureAt).toBe(expected);
 });
 
-it("clears an ambiguous mentioned time rather than retaining a previous 16:00", async () => {
-  const current = valuesFromDraft({ ...emptyOfferDraft(), departureAt: "2026-09-26T14:00:00Z" });
-  const result = await parseOfferDescription({ text: "actually at 4", mode: "correct", current }, {
+it("leaves an ambiguous departure time unresolved", async () => {
+  const result = await parseOfferDescription({ text: "saturday at 4", mode: "create" }, {
     ...context, modelRunner: async () => ({ recurring: false, trips: [{ ...raw.trips[0], mentioned: ["departureTime"], timeEvidence: "at 4" }] }),
   });
   expect(result.trips[0]).toMatchObject({ dateLocal: "2026-09-26", timeLocal: null, draft: { departureAt: null } });
 });
 
-it("keeps a recognized date when a subsequent correction supplies the missing time", async () => {
-  const current = { ...valuesFromDraft(emptyOfferDraft()), departureLocal: "2026-09-26T" };
-  const result = await parseOfferDescription({ text: "at 4pm", mode: "correct", current }, {
+it("keeps a recognized time without inventing a missing date", async () => {
+  const result = await parseOfferDescription({ text: "at 4pm", mode: "create" }, {
     ...context, modelRunner: async () => ({ recurring: false, trips: [{ ...raw.trips[0], mentioned: ["departureTime"] }] }),
   });
-  expect(result.trips[0].draft.departureAt).toBe("2026-09-26T14:00:00.000Z");
+  expect(result.trips[0]).toMatchObject({ dateLocal: null, timeLocal: "16:00", draft: { departureAt: null } });
 });
 
-it("does not turn a missing time into a model-invented time on a date-only correction", async () => {
-  const current = { ...valuesFromDraft(emptyOfferDraft()), departureLocal: "2026-09-26T" };
-  const result = await parseOfferDescription({ text: "saturday", mode: "correct", current }, {
+it("does not turn a missing time into a model-invented time on a date-only description", async () => {
+  const result = await parseOfferDescription({ text: "saturday", mode: "create" }, {
     ...context, modelRunner: async () => ({ recurring: false, trips: [{ ...raw.trips[0], mentioned: ["departureDate"] }] }),
   });
   expect(result.trips[0]).toMatchObject({ dateLocal: "2026-09-26", timeLocal: null, draft: { departureAt: null } });

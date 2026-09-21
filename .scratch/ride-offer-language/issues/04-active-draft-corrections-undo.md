@@ -4,7 +4,11 @@
 
 **Blocked by:** 02: Calculate driving km from the two filled city names; 03: Create and publish multiple ride-draft tabs.
 
-**Status:** completed
+**Status:** superseded in part by user request
+
+The user removed AI corrections after implementation. Drivers now edit the drafted form directly;
+the correction input and API mode have been removed. Initial-fill Undo remains available. The
+original checklist below records the earlier implementation, not the current correction scope.
 
 - [x] Provide active-unpublished-draft correction intent separate from Create more drafts. Send only the active context needed for interpretation; a correction such as “actually Sunday at 5pm” must never reinterpret or overwrite sibling tabs.
 - [x] Distinguish explicitly mentioned values from omitted ones in the validated interpretation result. Replace clear mentioned fields, retain omitted fields and clear explicitly mentioned replacements that remain ambiguous or unresolved.

@@ -2,7 +2,8 @@
 
 On `/rides/new`, describe one or several explicit trips and select **Fill form**. English,
 Macedonian Latin/Cyrillic, and `skp`/`bt` are supported. Results are editable; each tab requires
-its own **Publish ride** action. Return journeys get separate tabs, with clearly shared vehicle,
+its own **Publish ride** action. A successful publication closes that tab; after the last
+draft publishes, the page redirects to **My trips** (`/dashboard/trips`). Return journeys get separate tabs, with clearly shared vehicle,
 seats and price applied to both. Recurring schedules need explicit trips instead.
 
 Dates are displayed and submitted in Europe/Skopje even on a device in another timezone.
@@ -11,9 +12,9 @@ Missing/ambiguous times need review. Offered seats and price are never guessed. 
 matching saved car is used; otherwise the driver completes the vehicle variant. Fuel-price
 suggestions still need the separate **Use suggestion** action.
 
-**Correct this ride** changes only the active draft. Mentioned fields replace previous values;
-omitted fields remain. Ambiguous mentioned replacements clear the affected value. **Undo fill**
-restores that entire draft, including manual kilometres. **Create more drafts** appends trips.
+After AI fills a draft, edit its fields directly in the form. There is no separate AI correction
+input or correction API mode. **Undo fill** can restore the draft from before its initial fill,
+including manual kilometres. **Create more drafts** appends new trips.
 
 After both cities are selected in the form, the browser POSTs exactly
 `{originCity: "Skopje", destinationCity: "Bitola"}` to `/api/rides/distance`. The authenticated
@@ -28,10 +29,11 @@ timeout. Changing routing provider belongs in the server distance operation; the
 contract remains unchanged. Failure leaves km optional and manually editable. The form links
 OSRM, OpenStreetMap attribution, and map corrections.
 
-All current tabs, field values, stable submission IDs and published links are saved to
+Unpublished tabs, field values and stable submission IDs are saved to
 `sessionStorage`, scoped by account and import context. Refresh/navigation recovery works in
 the current browser session; there is no cross-device incomplete-draft storage. Storage errors
-are shown honestly. Published tabs remain terminal. Publication atomically creates/reuses the
+are shown honestly. Published tabs are removed from recovery; completing all drafts clears the
+saved draft set. Publication atomically creates/reuses the
 owned vehicle and ride; simultaneous retries use the same result, while distinct tabs create
 distinct rides. No new import records are made by natural-language fill.
 
@@ -57,7 +59,7 @@ no additional credentials. Existing student-account and onboarding restrictions 
 - `node scripts/verify-offers.cjs`: additionally exercises a dev server at `OFFERS_BASE_URL`
   (default `http://localhost:3104`) with development sign-in enabled. Uses deterministic AI
   responses plus real database publication and real OSRM distance, a Los Angeles browser
-  timezone, correction/Undo, refresh, keyboard tabs and mobile/desktop layouts. Requires the
+  timezone, direct form editing, refresh, keyboard tabs and mobile/desktop layouts. Requires the
   configured Supabase admin credential and an installed Playwright Chromium browser.
 
 All listed checks passed on 21 September 2026. Both migrations were applied to the configured

@@ -47,8 +47,7 @@ async function main() {
   const dateLocal = `${localParts.year}-${localParts.month}-${localParts.day}`, timeLocal = `${localParts.hour}:${localParts.minute}`;
   const trip = { draft: { ...offer, carId: a.carId }, mentioned: ['origin','destination','departureDate','departureTime','car','seatsTotal','pricePerSeatMkd'], dateLocal, timeLocal };
   await page.route('**/api/rides/interpret', async route => {
-    const input = route.request().postDataJSON();
-    const trips = input.mode === 'correct' ? [{ ...trip, mentioned: ['departureTime'], timeLocal: '17:00' }] : [trip, { ...trip, draft: { ...trip.draft, origin: offer.destination, destination: offer.origin } }];
+    const trips = [trip, { ...trip, draft: { ...trip.draft, origin: offer.destination, destination: offer.origin } }];
     await route.fulfill({ json: { trips } });
   });
   await page.getByLabel('Describe your rides').fill('skp bt next week and back, Clio, 3 seats, 400 den');
@@ -59,11 +58,9 @@ async function main() {
   console.log('LIVE Skopje–Bitola km:', await page.getByLabel('Estimated route distance (km)').inputValue());
   await page.getByLabel('Estimated route distance (km)').fill('180');
   await page.getByLabel('Notes').fill('Preserve outbound notes');
-  await page.getByLabel('Correct this ride').fill('actually at 5pm');
-  await page.getByRole('button', { name: 'Update this draft' }).click();
+  await expect(page.getByLabel('Correct this ride')).toHaveCount(0);
+  await page.getByLabel('Departure', { exact: true }).fill(`${dateLocal}T17:00`);
   await expect(page.getByLabel('Departure', { exact: true })).toHaveValue(`${dateLocal}T17:00`);
-  await page.getByRole('button', { name: 'Undo fill' }).click();
-  await expect(page.getByLabel('Departure', { exact: true })).toHaveValue(`${dateLocal}T${timeLocal}`);
   await page.reload();
   await expect(page.getByRole('tab')).toHaveCount(2);
   await expect(page.getByLabel('Estimated route distance (km)')).toHaveValue('180');
@@ -72,10 +69,10 @@ async function main() {
   await expect(page.getByLabel('Departure city')).toHaveValue('3');
   await page.keyboard.press('ArrowLeft');
   await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'View ride', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  assert.equal(new URL(page.url()).pathname, '/rides/new');
   await page.reload();
-  await expect(page.getByRole('link', { name: 'View ride', exact: true })).toBeVisible();
-  await page.getByRole('tab').nth(1).click();
+  await expect(page.getByRole('tab')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Publish ride', exact: true })).toBeEnabled();
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile form must not overflow');
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -83,7 +80,7 @@ async function main() {
   assert.deepEqual(errors, []);
   assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 4);
   assert.equal((await checked(admin.from('cars').select('id').eq('owner_id', actor))).length, 2);
-  console.log('PASS browser two-tab fill, city-first live routing, non-Skopje device timezone, correction/Undo, refresh, separate publication, keyboard and mobile/desktop layout');
+  console.log('PASS browser two-tab fill, city-first live routing, non-Skopje device timezone, direct form editing, refresh, separate publication, keyboard and mobile/desktop layout');
   const imported = await checked(admin.from('imports').insert({ created_by: actor, raw_text: 'Synthetic imported offer',
     parsed_json: { classification: 'offer', sourceLanguage: 'unknown', draft: { ...trip.draft, source: 'imported', distanceKm: 170 } } }).select('id').single());
   await page.route('**/api/rides/distance', route => route.fulfill({ status: 502, json: { error: 'Provider unavailable for fallback verification' } }));
@@ -92,18 +89,19 @@ async function main() {
   await expect(page.getByRole('button', { name: 'Retry distance' })).toBeVisible();
   await expect(page.getByLabel('Estimated route distance (km)')).toHaveValue('');
   await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'View ride', exact: true })).toBeVisible();
+  await page.waitForURL('**/dashboard/trips');
   const importedRide = await checked(admin.from('rides').select('source, import_id, details').eq('import_id', imported.id).single());
   assert.equal(importedRide.source, 'imported'); assert.equal(importedRide.details.distance_km, null);
   // Finish the remaining native tab using only manual edits, with providers unavailable.
   await page.goto(`${base}/rides/new`);
-  await page.getByRole('tab').nth(1).click();
+  await expect(page.getByRole('tab')).toHaveCount(1);
   await page.getByLabel('Estimated route distance (km)').fill('');
   await page.getByLabel('Notes').fill('Manually completed after recovery');
   await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'View ride', exact: true })).toBeVisible();
+  await page.waitForURL('**/dashboard/trips');
   assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 6);
-  console.log('PASS imported single-draft publication and manual completion during routing failure');
+  assert.equal(await page.evaluate(key => sessionStorage.getItem(key), `ride-offers:v1:${actor}:native`), null);
+  console.log('PASS imported publication, closed published tabs, final My trips redirects, session cleanup and manual completion during routing failure');
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(async () => {
   if (browser) await browser.close();

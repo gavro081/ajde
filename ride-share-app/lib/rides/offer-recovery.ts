@@ -9,7 +9,7 @@ const tabSchema = z.object({
   distanceMode: z.enum(["auto", "manual", "resolved", "error"]), distanceMessage: z.string(), publishedId: z.uuid().nullable(),
 });
 export const offerRecoverySchema = z.object({ version: z.literal(1), userId: z.string(), activeId: z.uuid(),
-  tabs: z.array(tabSchema).min(1), text: z.string().max(6000), correction: z.string().max(6000), filled: z.boolean(),
+  tabs: z.array(tabSchema).min(1), text: z.string().max(6000), filled: z.boolean(),
 }).refine(value => new Set(value.tabs.map(tab => tab.id)).size === value.tabs.length && value.tabs.some(tab => tab.id === value.activeId));
 
 type Catalog = { cities: { id: number }[]; pickupPoints: { id: number; city_id: number }[]; cars: { id: string }[]; carModels: { id: number }[] };
