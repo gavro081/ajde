@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AppHeader } from "@/components/app-header";
+import { ImpactSummaryPanel } from "@/components/impact-summary";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { formatDeparture } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
@@ -34,6 +35,7 @@ export default async function TripsDashboard({ searchParams }: { searchParams: P
     <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Passenger dashboard</p><h1 className="mt-2 text-3xl font-bold">My trips</h1><p className="mt-2 text-slate-600">Track requests and find driver contact details after approval.</p>
     {notice.success ? <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{notice.success}</p> : null}
     {notice.error ? <p className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">{notice.error}</p> : null}
+    <ImpactSummaryPanel />
     <div className="mt-7 space-y-4">{bookings?.map((booking) => {
       const ride = rides?.find((entry) => entry.id === booking.ride_id);
       if (!ride) return null;
