@@ -5,6 +5,8 @@ import { AppHeader } from "@/components/app-header";
 import { SeatAvailability } from "@/components/seat-availability";
 import { CompleteRideButton } from "@/components/ride-completion/complete-ride-button";
 import { CancelRideControl } from "@/components/ride-completion/cancel-ride-control";
+import { RatingControl } from "@/components/ratings/rating-control";
+import { getRatingControls } from "@/lib/ratings/queries";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { formatDeparture } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
@@ -44,6 +46,7 @@ export default async function DriverDashboard({ searchParams }: { searchParams: 
   const cityMap = new Map((cities ?? []).map((city) => [city.id, city.name_en]));
   const passengerMap = new Map((passengers ?? []).map((passenger) => [passenger.id, passenger]));
   const contactMap = new Map((acceptedContacts ?? []).map((contact) => [contact.id, contact]));
+  const ratingControls = await getRatingControls(user.id, (rides ?? []).map((ride) => ({ ...ride, driver_id: user.id })), bookings ?? []);
   const notice = await searchParams;
   // This authenticated Server Component renders a fresh eligibility snapshot per request.
   // eslint-disable-next-line react-hooks/purity
@@ -70,7 +73,9 @@ export default async function DriverDashboard({ searchParams }: { searchParams: 
             {rideBookings.length ? <div className="mt-3 space-y-3">{rideBookings.map((booking) => {
               const passenger = passengerMap.get(booking.passenger_id);
               const contact = contactMap.get(booking.passenger_id);
-              return <article key={booking.id} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><p className="font-semibold">{passenger?.full_name ?? "Student"} · {booking.seats} seat{booking.seats === 1 ? "" : "s"}</p><p className="text-sm text-slate-600">{passenger?.university}</p>{booking.message ? <p className="mt-2 text-sm text-slate-700">“{booking.message}”</p> : null}{booking.status === "accepted" ? <p className="mt-2 text-sm text-emerald-800">Contact: {contact?.phone || contact?.instagram || contact?.facebook || "No contact method added"}</p> : null}</div><div className="flex items-center gap-2">{booking.status === "requested" && canDecide ? <><form action={decideBooking.bind(null, booking.id, "accepted")}><button className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Accept</button></form><form action={decideBooking.bind(null, booking.id, "declined")}><button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">Decline</button></form></> : <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${booking.status === "accepted" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{booking.status}</span>}</div></div></article>;
+              return <article key={booking.id} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><p className="font-semibold">{passenger?.full_name ?? "Student"} · {booking.seats} seat{booking.seats === 1 ? "" : "s"}</p><p className="text-sm text-slate-600">{passenger?.university}</p>{booking.message ? <p className="mt-2 text-sm text-slate-700">“{booking.message}”</p> : null}{booking.status === "accepted" ? <p className="mt-2 text-sm text-emerald-800">Contact: {contact?.phone || contact?.instagram || contact?.facebook || "No contact method added"}</p> : null}</div><div className="flex items-center gap-2">{booking.status === "requested" && canDecide ? <><form action={decideBooking.bind(null, booking.id, "accepted")}><button className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Accept</button></form><form action={decideBooking.bind(null, booking.id, "declined")}><button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">Decline</button></form></> : <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${booking.status === "accepted" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{booking.status}</span>}</div></div>
+                {booking.status === "accepted" ? <RatingControl state={ratingControls.get(ride.id)?.get(booking.passenger_id)} rideId={ride.id} rateeId={booking.passenger_id} targetName={passenger?.full_name ?? "your passenger"} /> : null}
+              </article>;
             })}</div> : <p className="mt-3 text-sm text-slate-500">No requests yet.</p>}
           </section>;
         })}

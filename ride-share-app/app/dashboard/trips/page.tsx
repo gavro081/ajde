@@ -4,6 +4,8 @@ import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { ImpactSummaryPanel } from "@/components/impact-summary";
 import { TripShareControls } from "@/components/trip-share-controls";
+import { RatingControl } from "@/components/ratings/rating-control";
+import { getRatingControls } from "@/lib/ratings/queries";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { formatDeparture } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
@@ -30,6 +32,7 @@ export default async function TripsDashboard({ searchParams }: { searchParams: P
   ]);
   const cityMap = new Map((cities ?? []).map((city) => [city.id, city.name_en]));
   const driverMap = new Map((drivers ?? []).map((driver) => [driver.id, driver]));
+  const ratingControls = await getRatingControls(user.id, rides ?? [], (bookings ?? []).map((booking) => ({ ...booking, passenger_id: user.id })));
   const notice = await searchParams;
   // Request-time expiry is intentional in this uncached Server Component.
   // eslint-disable-next-line react-hooks/purity
@@ -55,6 +58,7 @@ export default async function TripsDashboard({ searchParams }: { searchParams: P
         {booking.status === "requested" ? <p className="mt-3 text-sm text-slate-600">Ride chat becomes available when the driver accepts your booking.</p> : null}
         {rideIsCompleted ? <div role="status" className="mt-4 rounded-xl bg-blue-50 p-4 text-sm text-blue-950"><p className="font-semibold">Ride completed</p><p className="mt-1">The driver marked this ride as completed.</p></div> : null}
         {rideIsCancelled ? <div role="alert" className="mt-4 rounded-xl bg-red-50 p-4 text-sm text-red-950"><p className="font-semibold">Ride cancelled</p><p className="mt-1">The driver cancelled this ride. Please make other travel plans.</p></div> : null}
+        {booking.status === "accepted" && ride.driver_id ? <RatingControl state={ratingControls.get(ride.id)?.get(ride.driver_id)} rideId={ride.id} rateeId={ride.driver_id} targetName={driver?.full_name ?? "your driver"} /> : null}
         {booking.status === "accepted" ? <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-semibold">You’re confirmed{driver ? ` with ${driver.full_name}` : ""}.</p><p className="mt-1">Driver contact: {contact || "No contact method has been added; coordinate through the driver dashboard during the demo."}</p></div> : null}
         {booking.status === "accepted" && ride.status !== "cancelled" ? <TripShareControls bookingId={booking.id} expiresAt={new Date(Date.parse(ride.departure_at) + 86400000).toISOString()} expired={Date.parse(ride.departure_at) + 86400000 <= now} /> : null}
         {['requested', 'accepted'].includes(booking.status) ? <form action={cancelBooking.bind(null, booking.id)} className="mt-4"><button className="text-sm font-semibold text-red-700 hover:underline">Cancel booking</button></form> : null}

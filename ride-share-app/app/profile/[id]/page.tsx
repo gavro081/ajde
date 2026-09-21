@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { getPublicProfile } from '@/lib/profiles/public-profile'
+import { ProfileRatingSummary } from '@/components/ratings/profile-rating-summary'
 
 const genderLabels = {
   woman: 'Woman',
@@ -43,6 +44,8 @@ export default async function ProfilePage({ params }: PageProps<'/profile/[id]'>
               </h1>
               <p className="mt-2 text-lg text-slate-600">{profile.university}</p>
             </div>
+
+            <ProfileRatingSummary profileId={profile.id} />
 
             <dl className="mt-8 grid gap-5 border-t border-slate-200 pt-7 sm:grid-cols-2">
               {profile.gender ? (
