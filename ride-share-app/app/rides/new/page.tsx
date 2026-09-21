@@ -8,7 +8,7 @@ import type { RideDraft } from "@/lib/rides/ride-draft";
 import { fuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { createClient } from "@/lib/supabase/server";
 
-import { RideForm } from "./ride-form";
+import { OfferWorkspace } from "./offer-workspace";
 
 type NewRidePageProps = {
   searchParams: Promise<{ fixture?: string; import?: string }>;
@@ -136,7 +136,8 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
         </div>
 
         <div className="surface-card p-5 sm:p-8">
-          <RideForm
+          <OfferWorkspace
+            userId={user.id}
             carModels={carModelsResult.data}
             cars={carsResult.data}
             cities={cities}

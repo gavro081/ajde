@@ -1,30 +1,24 @@
 "use server";
 
-import type { PostgrestError } from "@supabase/supabase-js";
+import type { TablesInsert } from "@/lib/supabase/database.types";
+import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 import { readCarSelection, type CarSelection } from "@/lib/rides/car-selection";
 import { createClient } from "@/lib/supabase/server";
 import { issuesByPath, validateRideSubmission } from "@/lib/rides/ride-form";
-import type { TablesInsert } from "@/lib/supabase/database.types";
+
 
 export type CreateRideFormState = {
   status: "idle" | "error" | "success";
   message: string;
   fieldErrors: Record<string, string[]>;
   rideId?: string;
+  carId?: string;
 };
 
-function databaseMessage(error: PostgrestError) {
-  if (error.code === "23503") {
-    return "One of the selected cities, pickup points, or car is no longer available.";
-  }
-  if (error.code === "23514") {
-    return "The ride conflicts with a database safety rule. Review the form and try again.";
-  }
-  return "We could not save this ride. Please try again.";
-}
-
 const NEW_CAR_VALIDATION_ID = "00000000-0000-4000-8000-000000000000";
+
 const savedCarColumns = "id, make, model, fuel_type, consumption_l_100km, color, plate_last3, seats_total";
 
 async function resolveCar(
@@ -154,135 +148,24 @@ export async function createRide(
     };
   }
 
-  const draft = validation.draft.data;
-  const { intent, submissionId } = validation.metadata.data;
-
-  const { data: existingRide, error: duplicateLookupError } = await supabase
-    .from("rides")
-    .select("id")
-    .eq("driver_id", user.id)
-    .contains("details", { submission_id: submissionId })
-    .maybeSingle();
-
-  if (duplicateLookupError) {
-    return {
-      status: "error",
-      message: "We could not verify this submission. Please try again.",
-      fieldErrors: {},
-    };
+  const result = await supabase.rpc("create_ride_offer", {
+    p_offer: validation.draft.data,
+    p_vehicle: carSelection.data,
+    p_submission_id: validation.metadata.data.submissionId,
+    p_publish: validation.metadata.data.intent === "publish",
+  });
+  if (result.error) {
+    return { status: "error", fieldErrors: {}, message:
+      result.error.code === "42501" ? "Your car or imported draft is unavailable for this account. Review the form."
+      : result.error.code === "23514" ? "Review the departure, available seats and vehicle details."
+      : result.error.code === "23503" ? "A selected city, pickup point or car is no longer available."
+      : "We could not save this ride. Retry; the same draft will not create a duplicate." };
   }
-
-  if (existingRide) {
-    return {
-      status: "success",
-      message: "This ride was already saved; no duplicate was created.",
-      fieldErrors: {},
-      rideId: existingRide.id,
-    };
-  }
-
-  if (draft.source === "imported") {
-    if (!draft.importId) {
-      return {
-        status: "error",
-        message: "This imported draft is incomplete. Parse the post again.",
-        fieldErrors: { importId: ["The import reference is missing."] },
-      };
-    }
-
-    const { data: ownedImport, error: importError } = await supabase
-      .from("imports")
-      .select("id")
-      .eq("id", draft.importId)
-      .eq("created_by", user.id)
-      .maybeSingle();
-
-    if (importError || !ownedImport) {
-      return {
-        status: "error",
-        message: "This imported draft is unavailable. Parse the post again.",
-        fieldErrors: { importId: ["The import does not belong to your account."] },
-      };
-    }
-  }
-
-  const resolvedCar = await resolveCar(supabase, user.id, carSelection.data);
-  if (resolvedCar.error || !resolvedCar.carId) {
-    return {
-      status: "error",
-      message:
-        carSelection.data.mode === "existing"
-          ? "Choose one of your saved cars."
-          : "We could not save this car. Review its details and try again.",
-      fieldErrors: {
-        carId:
-          carSelection.data.mode === "existing"
-            ? ["The selected car does not belong to your account."]
-            : ["The new car could not be saved."],
-      },
-    };
-  }
-
-  if (resolvedCar.seatsTotal !== null && draft.seatsTotal > resolvedCar.seatsTotal) {
-    if (resolvedCar.created) {
-      await supabase
-        .from("cars")
-        .delete()
-        .eq("id", resolvedCar.carId)
-        .eq("owner_id", user.id);
-    }
-
-    return {
-      status: "error",
-      message: "The ride offers more seats than the selected car has.",
-      fieldErrors: { seatsTotal: ["Reduce the available seats or choose a larger car."] },
-    };
-  }
-
-  const { data: ride, error } = await supabase
-    .from("rides")
-    .insert({
-      driver_id: user.id,
-      car_id: resolvedCar.carId,
-      origin_city_id: draft.origin.cityId,
-      origin_pickup_id: draft.origin.pickupPointId,
-      dest_city_id: draft.destination.cityId,
-      dest_pickup_id: draft.destination.pickupPointId,
-      departure_at: draft.departureAt,
-      seats_total: draft.seatsTotal,
-      seats_available: draft.seatsTotal,
-      price_per_seat_mkd: draft.pricePerSeatMkd,
-      notes: draft.notes,
-      details: { distance_km: draft.distanceKm, submission_id: submissionId },
-      tags: draft.tags,
-      gender_preference: draft.genderPreference,
-      status: intent === "publish" ? "published" : "draft",
-      source: draft.source,
-      import_id: draft.importId,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    if (resolvedCar.created) {
-      await supabase
-        .from("cars")
-        .delete()
-        .eq("id", resolvedCar.carId)
-        .eq("owner_id", user.id);
-    }
-
-    return {
-      status: "error",
-      message: databaseMessage(error),
-      fieldErrors: {},
-    };
-  }
-
-  return {
-    status: "success",
-    message: intent === "publish" ? "Ride published." : "Ride saved as a draft.",
-    fieldErrors: {},
-    rideId: ride.id,
-  };
+  const saved = z.object({ rideId: z.uuid(), carId: z.uuid(), status: z.enum(["draft", "published", "full", "completed", "cancelled"]) }).safeParse(result.data);
+  if (!saved.success) return { status: "error", fieldErrors: {}, message: "The publication result could not be confirmed. Retry this draft." };
+  revalidatePath("/rides");
+  revalidatePath("/dashboard/driver");
+  revalidatePath("/dashboard/trips");
+  return { status: "success", fieldErrors: {}, rideId: saved.data.rideId, carId: saved.data.carId,
+    message: saved.data.status === "draft" ? "Ride saved as a draft." : "Ride published." };
 }

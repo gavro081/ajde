@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useId, useRef, useState } from "react";
-import { ChipRow, describeDate, MonthCalendar, Popover, quickDatePicks, startOfDay } from "@/components/date-picker";
+import { ChipRow, describeDate, fromIsoDate, MonthCalendar, Popover, quickDatePicks } from "@/components/date-picker";
+import { departureInstant, skopjeLocal } from "@/lib/rides/offer-values";
 
 const hours = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, "0"));
 const minuteSteps = Array.from({ length: 12 }, (_, step) => String(step * 5).padStart(2, "0"));
@@ -11,52 +12,54 @@ const selectClass = "min-h-0 appearance-none rounded-xl bg-[#f1f4f1] px-3 py-2 t
  * Date + time picker that edits a `datetime-local` style value ("yyyy-mm-ddThh:mm", local time).
  * Picking a day keeps the panel open so the time can be set; Done closes it.
  */
-export function DateTimeField({ value, onChange, invalid, describedBy, labelledBy, className = "" }: {
+export function DateTimeField({ value, onChange, invalid, disabled, describedBy, labelledBy, className = "" }: {
   value: string;
   onChange: (value: string) => void;
   invalid?: boolean;
+  disabled?: boolean;
   describedBy?: string;
   labelledBy?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [today] = useState(() => startOfDay(new Date()));
+  const [today] = useState(() => fromIsoDate(skopjeLocal(new Date().toISOString()).split("T")[0]));
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => { setOpen(false); trigger.current?.focus(); }, []);
   const valueId = useId();
 
   const [date = "", time = ""] = value ? value.split("T") : [];
-  const [hour = "08", minute = "00"] = time ? time.split(":") : [];
+  const [hour = "", minute = "00"] = time ? time.split(":") : [];
+  const complete = Boolean(departureInstant(value));
   const minutes = minuteSteps.includes(minute) ? minuteSteps : [...minuteSteps, minute].sort();
-  const update = (nextDate: string, nextHour = hour, nextMinute = minute) => onChange(nextDate ? `${nextDate}T${nextHour}:${nextMinute}` : "");
+  const update = (nextDate: string, nextHour = hour, nextMinute = minute) => onChange(nextDate ? `${nextDate}T${nextHour ? `${nextHour}:${nextMinute}` : ""}` : "");
 
   return <div className="relative">
     {/* Keeps native required-field validation now that the visible control is a button. */}
-    <input tabIndex={-1} aria-hidden="true" required value={value} onChange={() => {}} className="pointer-events-none absolute inset-x-0 bottom-0 h-px opacity-0" />
-    <button ref={trigger} type="button" aria-haspopup="dialog" aria-expanded={open} aria-describedby={describedBy} aria-labelledby={labelledBy ? `${labelledBy} ${valueId}` : undefined}
+    <input name="departureLocal" tabIndex={-1} aria-hidden="true" aria-invalid={invalid || undefined} required disabled={disabled} value={complete ? value : ""} onChange={() => {}} onInvalid={(event) => { event.preventDefault(); setOpen(true); trigger.current?.focus(); }} className="pointer-events-none absolute inset-x-0 bottom-0 h-px opacity-0" />
+    <button ref={trigger} type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open && !disabled} aria-describedby={describedBy} aria-labelledby={labelledBy ? `${labelledBy} ${valueId}` : undefined}
       onClick={() => setOpen(!open)} className={`${className} flex items-center gap-3 text-left ${invalid ? "!border-red-600" : ""}`}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className="shrink-0 text-slate-500"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4m8-4v4M3 10h18" /></svg>
-      <span id={valueId} className={`flex-1 ${date ? "font-medium" : "text-slate-500"}`}>{date ? `${describeDate(date, today)} · ${hour}:${minute}` : "Choose date and time"}</span>
+      <span id={valueId} className={`flex-1 ${date ? "font-medium" : "text-slate-500"}`}>{date ? `${describeDate(date, today)} · ${hour ? `${hour}:${minute}` : "Choose time"}` : "Choose date and time"}</span>
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true" className={`shrink-0 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></svg>
     </button>
 
-    <Popover open={open} onClose={close} trigger={trigger} panel={panel} label="Choose departure date and time">
+    <Popover open={open && !disabled} onClose={close} trigger={trigger} panel={panel} label="Choose departure date and time">
       <ChipRow options={quickDatePicks(today)} value={date} onChoose={(next) => update(next)} />
       <div className="mt-4"><MonthCalendar value={date} onChoose={(next) => update(next)} today={today} /></div>
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#16201a]/8 pt-4">
         <span className="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-[#647063]">Time</span>
         <div className="flex items-center gap-1.5">
           <label><span className="sr-only">Hour</span>
-            <select value={hour} disabled={!date} onChange={(event) => update(date, event.target.value)} className={selectClass}>{hours.map((option) => <option key={option}>{option}</option>)}</select>
+            <select value={hour} disabled={!date} onChange={(event) => update(date, event.target.value)} className={selectClass}><option value="">Hour</option>{hours.map((option) => <option key={option}>{option}</option>)}</select>
           </label>
           <span className="font-display text-lg font-bold" aria-hidden="true">:</span>
           <label><span className="sr-only">Minute</span>
-            <select value={minute} disabled={!date} onChange={(event) => update(date, hour, event.target.value)} className={selectClass}>{minutes.map((option) => <option key={option}>{option}</option>)}</select>
+            <select value={minute} disabled={!date || !hour} onChange={(event) => update(date, hour, event.target.value)} className={selectClass}>{minutes.map((option) => <option key={option}>{option}</option>)}</select>
           </label>
         </div>
       </div>
-      <button type="button" disabled={!date} onClick={close} className="mt-4 w-full min-h-0 rounded-xl bg-[#16201a] py-2.5 text-sm font-semibold text-white hover:bg-[#2a3a30] disabled:opacity-40">{date ? "Done" : "Pick a day first"}</button>
+      <button type="button" disabled={!complete} onClick={close} className="mt-4 w-full min-h-0 rounded-xl bg-[#16201a] py-2.5 text-sm font-semibold text-white hover:bg-[#2a3a30] disabled:opacity-40">{complete ? "Done" : date ? "Choose a time" : "Pick a day first"}</button>
     </Popover>
   </div>;
 }

@@ -1,0 +1,167 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Standalone live verification script. */
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const { randomUUID } = require('node:crypto');
+const { createClient } = require('@supabase/supabase-js');
+const { chromium, expect } = require('@playwright/test');
+process.loadEnvFile(path.resolve(__dirname, '../.env'));
+const base = process.env.OFFERS_BASE_URL || 'http://localhost:3104';
+const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
+let actor, browser;
+async function checked(query) { const { data, error } = await query; if (error) throw new Error(error.message); return data; }
+async function main() {
+  const email = `offer-check-${randomUUID()}@${process.env.STUDENT_EMAIL_DOMAINS.split(',')[0].trim()}`;
+  actor = (await checked(admin.auth.admin.createUser({ email, email_confirm: true }))).user.id;
+  await checked(admin.from('profiles').insert({ id: actor, full_name: 'Offer Verification', university: 'Synthetic Verification', photo_url: `${base}/icon.svg` }));
+  const link = await checked(admin.auth.admin.generateLink({ type: 'magiclink', email }));
+  const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  await checked(client.auth.verifyOtp({ type: 'magiclink', token_hash: link.properties.hashed_token }));
+  const departureAt = new Date(Date.now() + 7 * 86400000).toISOString();
+  const offer = { source: 'native', importId: null, origin: { cityId: 1, pickupPointId: null, rawText: 'Skopje' }, destination: { cityId: 3, pickupPointId: null, rawText: 'Bitola' },
+    departureAt, distanceKm: null, seatsTotal: 3, pricePerSeatMkd: 400, notes: null, tags: [], genderPreference: 'any', car: null, carId: null, confidence: null, fieldConfidence: [], warnings: [] };
+  const vehicle = { mode: 'manual', make: 'Renault', model: 'Clio', fuelType: 'petrol', consumptionL100Km: 6, seatsTotal: 4 };
+  const firstId = randomUUID(), secondId = randomUUID();
+  const save = (id, car = vehicle) => checked(client.rpc('create_ride_offer', { p_offer: offer, p_vehicle: car, p_submission_id: id, p_publish: true }));
+  const [a, retry, sibling] = await Promise.all([save(firstId), save(firstId), save(secondId)]);
+  assert.equal(a.rideId, retry.rideId); assert.notEqual(a.rideId, sibling.rideId); assert.equal(a.carId, sibling.carId);
+  assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 2);
+  assert.equal((await checked(admin.from('cars').select('id').eq('owner_id', actor))).length, 1);
+  const other = await save(randomUUID(), { ...vehicle, model: 'Different vehicle' });
+  assert.notEqual(other.carId, a.carId);
+  const permits = await Promise.all(Array.from({ length: 6 }, () => checked(client.rpc('try_ride_routing_request'))));
+  assert.equal(permits.filter(Boolean).length, 1);
+  console.log('PASS concurrent duplicate publication, distinct drafts, shared/different vehicles and global routing permits');
+  if (process.argv.includes('--database-only')) return;
+
+  browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: 'America/Los_Angeles' });
+  const page = await context.newPage();
+  page.setDefaultTimeout(30000);
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto(`${base}/login`);
+  await page.getByLabel('Student email').fill(email);
+  await page.getByRole('button', { name: 'Development sign-in (no email)' }).click();
+  await page.waitForURL('**/rides', { timeout: 60000 });
+  await page.goto(`${base}/rides/new`);
+  const localParts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Skopje', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(departureAt)).map(p => [p.type, p.value]));
+  const dateLocal = `${localParts.year}-${localParts.month}-${localParts.day}`, timeLocal = `${localParts.hour}:${localParts.minute}`;
+  async function chooseDeparture(hour) {
+    await page.getByRole('button', { name: /^Departure/ }).click();
+    const dateLabel = new Date(`${dateLocal}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const day = page.getByRole('button', { name: dateLabel, exact: true });
+    if (!await day.count()) await page.getByRole('button', { name: 'Next month', exact: true }).click();
+    await day.click();
+    await page.getByRole('combobox', { name: /^Hour/ }).selectOption(hour);
+    await page.getByRole('combobox', { name: /^Minute/ }).selectOption('00');
+    if (process.env.OFFERS_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.OFFERS_SCREENSHOTS, 'merge-date-picker.png') });
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+  }
+  const trip = { draft: { ...offer, carId: a.carId }, mentioned: ['origin','destination','departureDate','departureTime','car','seatsTotal','pricePerSeatMkd'], dateLocal, timeLocal };
+  await page.route('**/api/rides/interpret', async route => {
+    const trips = [trip, { ...trip, draft: { ...trip.draft, origin: offer.destination, destination: offer.origin } }];
+    await route.fulfill({ json: { trips } });
+  });
+  await page.getByLabel('Describe your rides').fill('skp bt next week and back, Clio, 3 seats, 400 den');
+  await page.getByRole('button', { name: 'Fill form', exact: true }).click();
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^Departure/ })).toContainText(timeLocal);
+  await expect(page.getByLabel('Estimated route distance (km)')).not.toHaveValue('', { timeout: 30000 });
+  console.log('LIVE Skopje–Bitola km:', await page.getByLabel('Estimated route distance (km)').inputValue());
+  await page.getByLabel('Estimated route distance (km)').fill('180');
+  await page.getByLabel('Notes').fill('Preserve outbound notes');
+  await expect(page.getByLabel('Correct this ride')).toHaveCount(0);
+  await chooseDeparture('17');
+  await expect(page.getByRole('button', { name: /^Departure/ })).toContainText('17:00');
+  await page.reload();
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(page.getByLabel('Estimated route distance (km)')).toHaveValue('180');
+  await expect(page.getByLabel('Notes')).toHaveValue('Preserve outbound notes');
+  await page.getByRole('tab').first().focus(); await page.keyboard.press('ArrowRight');
+  await expect(page.getByLabel('From')).toHaveValue('3');
+  await page.keyboard.press('ArrowLeft');
+  await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  assert.equal(new URL(page.url()).pathname, '/rides/new');
+  await page.reload();
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Publish ride', exact: true })).toBeEnabled();
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile form must not overflow');
+  if (process.env.OFFERS_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.OFFERS_SCREENSHOTS, 'merge-offers-mobile.png'), fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Desktop form must not overflow');
+  if (process.env.OFFERS_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.OFFERS_SCREENSHOTS, 'merge-offers-desktop.png'), fullPage: true });
+  assert.deepEqual(errors, []);
+  assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 4);
+  assert.equal((await checked(admin.from('cars').select('id').eq('owner_id', actor))).length, 2);
+  console.log('PASS browser two-tab fill, city-first live routing, non-Skopje device timezone, direct form editing, refresh, separate publication, keyboard and mobile/desktop layout');
+  const imported = await checked(admin.from('imports').insert({ created_by: actor, raw_text: 'Synthetic imported offer',
+    parsed_json: { classification: 'offer', sourceLanguage: 'unknown', draft: { ...trip.draft, source: 'imported', distanceKm: 170 } } }).select('id').single());
+  await page.route('**/api/rides/distance', route => route.fulfill({ status: 502, json: { error: 'Provider unavailable for fallback verification' } }));
+  await page.goto(`${base}/rides/new?import=${imported.id}`);
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Retry distance' })).toBeVisible();
+  await expect(page.getByLabel('Estimated route distance (km)')).toHaveValue('');
+  await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
+  await page.waitForURL('**/dashboard/trips?view=driver');
+  const importedRide = await checked(admin.from('rides').select('source, import_id, details').eq('import_id', imported.id).single());
+  assert.equal(importedRide.source, 'imported'); assert.equal(importedRide.details.distance_km, null);
+  // Finish the remaining native tab using only manual edits, with providers unavailable.
+  await page.goto(`${base}/rides/new`);
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  await page.getByLabel('Estimated route distance (km)').fill('');
+  await page.getByLabel('Notes').fill('Manually completed after recovery');
+  await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
+  await page.waitForURL('**/dashboard/trips?view=driver');
+  assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 6);
+  assert.equal(await page.evaluate(key => sessionStorage.getItem(key), `ride-offers:v1:${actor}:native`), null);
+  console.log('PASS imported publication, closed published tabs, final My trips redirects, session cleanup and manual completion during routing failure');
+
+  await page.goto(`${base}/rides/new`);
+  await page.getByRole('button', { name: 'Enter manually' }).click();
+  await page.getByLabel('Make', { exact: true }).fill('Renault');
+  await page.getByLabel('Model', { exact: true }).fill('Inline save verification');
+  await page.locator('select[name="fuelType"]').selectOption('petrol');
+  await page.getByLabel('Consumption (L/100 km)').fill('6');
+  await page.getByLabel('Total passenger seats').fill('4');
+  await page.getByRole('button', { name: 'Save car', exact: true }).click();
+  await expect(page.getByText('Car saved. It’s ready for this ride and future rides.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toBeEnabled();
+  assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 6);
+  await page.locator('select[name="originCityId"]').selectOption('1');
+  await page.locator('select[name="destinationCityId"]').selectOption('3');
+  await chooseDeparture('18');
+  await page.getByLabel('Available seats', { exact: false }).fill('2');
+  await page.getByLabel('Price per seat (MKD)').fill('400');
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await page.waitForURL('**/dashboard/trips?view=driver');
+  const savedDrafts = await checked(admin.from('rides').select('id, car_id, seats_total').eq('driver_id', actor).eq('status', 'draft'));
+  assert.equal(savedDrafts.length, 1);
+  assert.equal(savedDrafts[0].seats_total, 2);
+  const savedCar = await checked(admin.from('cars').select('model').eq('id', savedDrafts[0].car_id).single());
+  assert.equal(savedCar.model, 'Inline save verification');
+  assert.deepEqual(errors, []);
+  console.log('PASS incoming inline car save without a ride, reuse for a private draft, explicit offered seats and driver dashboard navigation');
+  await page.goto(`${base}/rides/${a.rideId}`);
+  await expect(page.getByRole('link', { name: /^Open ride chat for/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ride Q&A', exact: true })).toBeVisible();
+  await page.getByLabel('Ask a question or answer').fill('Synthetic merge verification question');
+  await page.getByRole('button', { name: 'Post comment', exact: true }).click();
+  await expect(page.getByText('Synthetic merge verification question', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Delete my comment', exact: true }).click();
+  await expect(page.getByText('Synthetic merge verification question', { exact: true })).toHaveCount(0);
+  await page.getByRole('link', { name: /^Open ride chat for/ }).click();
+  await page.waitForURL(`**/rides/${a.rideId}/chat`);
+  assert.deepEqual(errors, []);
+  console.log('PASS public ride Q&A posting/deletion alongside the incoming ride chat entry point');
+}
+main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(async () => {
+  if (browser) await browser.close();
+  if (actor) {
+    await checked(admin.from('rides').delete().eq('driver_id', actor));
+    await checked(admin.from('cars').delete().eq('owner_id', actor));
+    await checked(admin.from('imports').delete().eq('created_by', actor));
+    await checked(admin.from('profiles').delete().eq('id', actor));
+    await checked(admin.auth.admin.deleteUser(actor));
+    console.log('Removed synthetic offer-verification records.');
+  }
+});

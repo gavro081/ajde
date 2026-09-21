@@ -1,70 +1,47 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const fixture = vi.hoisted(() => ({ userId: "driver" as string | null, rows: [] as Record<string, unknown>[], inserts: 0 }));
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
-    auth: { getUser: async () => ({ data: { user: fixture.userId ? { id: fixture.userId } : null } }) },
-    from: (table: string) => {
-      const filters: Array<[string, unknown]> = [];
-      let inserted: Record<string, unknown> | undefined;
-      const query = {
-        select: () => query,
-        eq: (key: string, value: unknown) => { filters.push([key, value]); return query; },
-        insert: (value: Record<string, unknown>) => { inserted = value; return query; },
-        single: async () => {
-          if (table !== "cars" || !inserted) throw new Error("Unexpected insert");
-          fixture.inserts++;
-          const row = { ...inserted, id: "92000000-0000-4000-8000-000000000001" };
-          fixture.rows.push(row);
-          return { data: row, error: null };
-        },
-        maybeSingle: async () => ({ data: fixture.rows.find((row) => filters.every(([key, value]) => row[key] === value)) ?? null, error: null }),
-      };
-      return query;
-    },
-  }),
-}));
-import { saveCar } from "./actions";
-
-function newCar() {
-  const form = new FormData();
-  Object.entries({ carMode: "manual", carMake: "Volkswagen", carModel: "Golf", fuelType: "petrol", consumptionL100Km: "6", carSeatsTotal: "4", plateLast3: "abc", owner_id: "someone-else" }).forEach(([key, value]) => form.set(key, value));
-  return form;
+import { beforeEach, expect, it, vi } from "vitest";
+const db = vi.hoisted(() => ({ userId: "20000000-0000-4000-8000-000000000001" as string | null, rpc: vi.fn() }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ auth: { getUser: async () => ({ data: { user: db.userId ? { id: db.userId } : null } }) }, rpc: db.rpc }) }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+import { createRide } from "./actions";
+const rideId = "30000000-0000-4000-8000-000000000001", carId = "40000000-0000-4000-8000-000000000001";
+const idle = { status: "idle" as const, message: "", fieldErrors: {} };
+function form() {
+  const data = new FormData();
+  const values = { source: "native", originCityId: "1", destinationCityId: "3", departureAt: "2099-09-26T14:00:00Z", seatsTotal: "3", carMode: "existing", carId,
+    pricePerSeatMkd: "400", genderPreference: "any", intent: "publish", submissionId: "50000000-0000-4000-8000-000000000001" };
+  Object.entries(values).forEach(([key, value]) => data.set(key, value)); return data;
 }
-beforeEach(() => { fixture.userId = "driver"; fixture.rows = []; fixture.inserts = 0; });
+beforeEach(() => { db.userId = "20000000-0000-4000-8000-000000000001"; db.rpc.mockReset().mockResolvedValue({ data: { rideId, carId, status: "published" }, error: null }); });
+it("publishes through the atomic operation and returns the saved ride without navigating", async () => {
+  const data = form(); data.set("driver_id", "forged-driver");
+  expect(await createRide(idle, data)).toMatchObject({ status: "success", rideId, carId });
+  const args = db.rpc.mock.calls[0][1];
+  expect(args.p_offer).not.toHaveProperty("driver_id");
+  expect(args.p_submission_id).toBe("50000000-0000-4000-8000-000000000001");
+});
 
-describe("saveCar", () => {
-  it("persists independently of a ride, assigns the signed-in owner, and reuses the saved record", async () => {
-    const result = await saveCar(newCar());
-    expect(result.ok).toBe(true);
-    expect(fixture.rows[0]).toMatchObject({ owner_id: "driver", make: "Volkswagen", plate_last3: "ABC" });
-    const selection = new FormData();
-    selection.set("carMode", "existing");
-    selection.set("carId", String(fixture.rows[0].id));
-    expect(await saveCar(selection)).toMatchObject({ ok: true, car: { id: fixture.rows[0].id } });
-    expect(fixture.inserts).toBe(1);
-  });
+it("saves a private draft through the same duplicate-safe operation", async () => {
+  const data = form(); data.set("intent", "save_draft");
+  db.rpc.mockResolvedValueOnce({ data: { rideId, carId, status: "draft" }, error: null });
+  expect(await createRide(idle, data)).toMatchObject({ status: "success", message: "Ride saved as a draft.", rideId });
+  expect(db.rpc.mock.calls[0][1].p_publish).toBe(false);
+});
 
-  it("rejects unauthenticated saves", async () => {
-    fixture.userId = null;
-    expect(await saveCar(newCar())).toMatchObject({ ok: false });
-    expect(fixture.inserts).toBe(0);
-  });
+it("rejects past departures and missing seats without writing a ride or car", async () => {
+  const data = form(); data.set("departureAt", "2020-01-01T10:00:00Z"); data.delete("seatsTotal");
+  expect(await createRide(idle, data)).toMatchObject({ status: "error", fieldErrors: { seatsTotal: expect.any(Array) } });
+  data.set("seatsTotal", "3");
+  expect(await createRide(idle, data)).toMatchObject({ status: "error", fieldErrors: { departureAt: expect.any(Array) } });
+  expect(db.rpc).not.toHaveBeenCalled();
+});
 
-  it("rejects invalid car details before writing", async () => {
-    const form = newCar();
-    form.set("carSeatsTotal", "99");
-    expect(await saveCar(form)).toMatchObject({ ok: false });
-    expect(fixture.inserts).toBe(0);
-  });
-
-  it("cannot select another driver's car", async () => {
-    await saveCar(newCar());
-    fixture.userId = "another-driver";
-    const form = new FormData();
-    form.set("carMode", "existing");
-    form.set("carId", String(fixture.rows[0].id));
-    expect(await saveCar(form)).toMatchObject({ ok: false });
-    expect(fixture.inserts).toBe(1);
-  });
+it("requires authentication, preserves database ownership denials and permits distance-free publishing", async () => {
+  db.userId = null;
+  expect((await createRide(idle, form())).status).toBe("error");
+  expect(db.rpc).not.toHaveBeenCalled();
+  db.userId = "20000000-0000-4000-8000-000000000001";
+  db.rpc.mockResolvedValueOnce({ error: { code: "42501" } });
+  expect((await createRide(idle, form())).status).toBe("error");
+  expect((await createRide(idle, form())).status).toBe("success");
+  expect(db.rpc.mock.calls[1][1].p_offer.distanceKm).toBeNull();
 });
