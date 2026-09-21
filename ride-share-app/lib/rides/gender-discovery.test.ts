@@ -1,0 +1,47 @@
+import { describe, expect, it } from "vitest";
+
+import { filterRidesByDriverGender, usableDiscoveryGender } from "./gender-discovery";
+
+const rides = [
+  { id: "matching-any", driver_id: "driver-woman", gender_preference: "any" },
+  {
+    id: "matching-restricted",
+    driver_id: "driver-woman-2",
+    gender_preference: "same_as_driver",
+  },
+  { id: "nonmatching", driver_id: "driver-man", gender_preference: "any" },
+  { id: "undisclosed", driver_id: "driver-private", gender_preference: "any" },
+  { id: "imported", driver_id: null, gender_preference: "any" },
+];
+
+const driverGenders = new Map([
+  ["driver-woman", "woman" as const],
+  ["driver-woman-2", "woman" as const],
+  ["driver-man", "man" as const],
+  ["driver-private", "prefer_not_to_say" as const],
+]);
+
+describe("same-gender discovery filtering", () => {
+  it("leaves every ride visible when the toggle is off", () => {
+    expect(filterRidesByDriverGender(rides, driverGenders, "woman", false)).toEqual(rides);
+  });
+
+  it("includes matching drivers regardless of their ride request restriction", () => {
+    expect(
+      filterRidesByDriverGender(rides, driverGenders, "woman", true).map((ride) => ride.id),
+    ).toEqual(["matching-any", "matching-restricted"]);
+  });
+
+  it("does not guess when the passenger gender is missing or undisclosed", () => {
+    expect(filterRidesByDriverGender(rides, driverGenders, null, true)).toEqual(rides);
+    expect(filterRidesByDriverGender(rides, driverGenders, "prefer_not_to_say", true)).toEqual(
+      rides,
+    );
+  });
+
+  it("treats only declared genders as usable", () => {
+    expect(usableDiscoveryGender("non_binary")).toBe("non_binary");
+    expect(usableDiscoveryGender("prefer_not_to_say")).toBeNull();
+    expect(usableDiscoveryGender(null)).toBeNull();
+  });
+});
