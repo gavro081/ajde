@@ -14,7 +14,8 @@ The executable source of truth remains `supabase/migrations/`; generated applica
   `ON DELETE CASCADE`; historical relationships that must remain valid use `ON DELETE RESTRICT`.
 - `cars` stores a snapshot of make, model, fuel type, and consumption even when it references a
   catalog entry. This preserves the actual vehicle details and permits manual entries.
-- Row-level security is not defined yet. Add its policies here when they are introduced.
+- Row-level security protects `messages` and `ratings`. Other application tables still lack RLS;
+  this is a known project-wide production limitation.
 
 ## Storage
 
@@ -134,15 +135,35 @@ Public Q&A on a ride. Each row links a ride and author profile, contains a trimm
 
 ### `messages`
 
-One direct message scoped to a ride. It links `sender_id` and `recipient_id` profiles, stores a
-trimmed 1–4000 character `body`, `created_at`, and optional `read_at`. Sender and recipient must
-differ. Deleting the ride or either participant cascades to the message.
+One shared room message scoped to `ride_id`. `recipient_id = null` identifies a room message;
+non-null recipients are deferred legacy DMs and are inaccessible through the new policies. Sender
+and non-null recipient must differ. Bodies permit 1–4000 trimmed characters in SQL (the chat app
+limits input to 2000). `created_at` is overwritten with the database statement timestamp on insert;
+`read_at` is reset to null. Clients cannot forge visibility dates, edit, delete, or mark messages read.
+
+Authenticated SELECT requires the current ride driver, or a currently accepted passenger whose
+`decided_at <= created_at`. Missing drivers deny access. INSERT additionally fixes `sender_id` to
+`auth.uid()`, requires a null recipient, a non-cancelled ride, and departure within the last 48 hours
+or in the future. Completed rides within that window can receive messages. Ride cancellation and
+expiry retain member read access; booking cancellation removes passenger access. Membership is
+checked on every query, including Realtime authorization. Previously delivered text cannot be recalled.
+
+`messages_room_cursor_idx (ride_id, created_at DESC, id DESC) WHERE recipient_id IS NULL` supports
+stable room pagination. The table is added idempotently to `supabase_realtime`; hosted Supabase
+Realtime must also be enabled. A plain PostgreSQL test database verifies policies, not WebSocket delivery.
 
 ### `ratings`
 
 A post-ride rating from `rater_id` to a different `ratee_id`, scoped to `ride_id`. `score` is 1–5,
 `note` is optional and at most 1000 characters, and `created_at` records submission. The tuple
 `(ride_id, rater_id, ratee_id)` is unique. Related ride/profile deletion cascades.
+
+Authenticated INSERT requires `rater_id = auth.uid()`, a completed ride, and an accepted passenger /
+driver counterpart pair. Passenger-to-passenger, self, unrelated, and non-completed submissions fail.
+Only the rater and ratee may SELECT raw rows. Clients cannot update or delete ratings. The existing
+unique tuple is the concurrency guard. `profile_rating_summary(target_profile_id)` exposes only
+`{average, count}` to anonymous and authenticated callers, filtering to completed rides and accepted
+counterpart pairs; empty history yields null average and zero count. It never returns notes or identities.
 
 ### `reports`
 
@@ -196,3 +217,20 @@ For every database change:
 2. Update this file's affected enum, table, relationship, and behavior sections.
 3. Regenerate `lib/supabase/database.types.ts` from the migrated database.
 4. Extend and run `supabase/tests/schema_smoke.sql` for new invariants.
+
+## Shared policy helpers and verification
+
+`can_read_ride_room(uuid, timestamptz)`, `can_send_ride_room(uuid)`, and
+`can_rate_ride(uuid, uuid)` derive the viewer from `auth.uid()`, have fixed empty search paths,
+and use SECURITY DEFINER to query membership without depending on caller table privileges. PUBLIC
+and anon execution is revoked; authenticated execution is granted only for policy checks. The narrow
+rating aggregate is also SECURITY DEFINER with explicit grants. No helper accepts a viewer identity.
+
+`schema_smoke.sql` includes `room_policies.sql`, which switches into real PostgreSQL roles and sets
+JWT subject claims. It tests driver/two passengers/new passengers, denial states, forged data,
+immutable rows, send expiry, cancellation, and aggregate privacy. Every fixture rolls back.
+
+Types were regenerated from the migrated local PostgreSQL catalog for this checkpoint. Supabase CLI
+Docker-based generation was unavailable on this host (Docker daemon absent). Use the usual
+`supabase gen types typescript --db-url ... --schema public` when Docker is available (the configured hosted SQL connection was also verified).
+

@@ -233,7 +233,7 @@ export type Database = {
           created_at: string
           id: string
           read_at: string | null
-          recipient_id: string
+          recipient_id: string | null
           ride_id: string
           sender_id: string
         }
@@ -242,7 +242,7 @@ export type Database = {
           created_at?: string
           id?: string
           read_at?: string | null
-          recipient_id: string
+          recipient_id?: string | null
           ride_id: string
           sender_id: string
         }
@@ -251,7 +251,7 @@ export type Database = {
           created_at?: string
           id?: string
           read_at?: string | null
-          recipient_id?: string
+          recipient_id?: string | null
           ride_id?: string
           sender_id?: string
         }
@@ -677,6 +677,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_rate_ride: {
+        Args: { target_ride_id: string; target_profile_id: string }
+        Returns: boolean
+      }
+      can_read_ride_room: {
+        Args: { target_ride_id: string; message_time: string }
+        Returns: boolean
+      }
+      can_send_ride_room: {
+        Args: { target_ride_id: string }
+        Returns: boolean
+      }
+      profile_rating_summary: {
+        Args: { target_profile_id: string }
+        Returns: { average: number; count: number }[]
+      }
       recalculate_ride_seats: {
         Args: { target_ride_id: string }
         Returns: undefined

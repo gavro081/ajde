@@ -253,3 +253,5 @@ end;
 $$;
 
 rollback;
+
+\ir room_policies.sql
