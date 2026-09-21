@@ -7,6 +7,7 @@ import type { Tables } from "@/lib/supabase/database.types";
 import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
 import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
+import { DateTimeField } from "@/components/date-time-field";
 
 import { createRide, saveCar, type CreateRideFormState } from "./actions";
 
@@ -294,20 +295,18 @@ export function RideForm({
           </label>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <label className="font-medium text-slate-800 col-span-2">
-            Departure
-            <input
+          <div className="font-medium text-slate-800 col-span-2">
+            <span id="departure-label">Departure</span>
+            <DateTimeField
+              labelledBy="departure-label"
               className={inputClass}
-              name="departureLocal"
-              aria-invalid={Boolean(state.fieldErrors.departureAt) || undefined}
-              aria-describedby={state.fieldErrors.departureAt ? "departure-error" : undefined}
-              type="datetime-local"
-              required
+              invalid={Boolean(state.fieldErrors.departureAt)}
+              describedBy={state.fieldErrors.departureAt ? "departure-error" : undefined}
               value={departureLocal}
-              onChange={(event) => setDepartureLocal(event.target.value)}
+              onChange={setDepartureLocal}
             />
             <FieldError id="departure-error" errors={state.fieldErrors.departureAt} />
-          </label>
+          </div>
           <label className="font-medium text-slate-800">
             Available seats
             <input
