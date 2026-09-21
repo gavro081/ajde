@@ -1,0 +1,42 @@
+[
+  {
+    "name": "English destination and after time",
+    "text": "Bitola Friday after 4",
+    "expected": { "originId": null, "destinationId": 3, "requestedSeats": null, "departureAfter": "2026-09-25T14:00:00.000Z" }
+  },
+  {
+    "name": "Macedonian Cyrillic destination",
+    "text": "До Битола во петок после 16 часот",
+    "expected": { "originId": null, "destinationId": 3, "requestedSeats": null, "departureAfter": "2026-09-25T14:00:00.000Z" }
+  },
+  {
+    "name": "Macedonian Latin relative date and seats",
+    "text": "Do Stip utre posle 16 za 2 mesta",
+    "expected": { "originId": null, "destinationId": 6, "requestedSeats": 2, "departureAfter": "2026-09-22T14:00:00.000Z" }
+  },
+  {
+    "name": "Albanian destination and seats",
+    "text": "Për Tetovë të premten pas orës 16, për 2 persona",
+    "expected": { "originId": null, "destinationId": 5, "requestedSeats": 2, "departureAfter": "2026-09-25T14:00:00.000Z" }
+  },
+  {
+    "name": "Landmark origin and date only",
+    "text": "Од кај Мавровка до Битола во петок",
+    "expected": { "originId": 1, "destinationId": 3, "requestedSeats": null, "departureAfter": "2026-09-24T22:00:00.000Z" }
+  },
+  {
+    "name": "Missing date and seats",
+    "text": "Барам превоз до Охрид",
+    "expected": { "originId": null, "destinationId": 8, "requestedSeats": null, "departureAfter": null }
+  },
+  {
+    "name": "Unknown canonical place",
+    "text": "До Берово утре",
+    "expected": { "originId": null, "destinationId": null, "requestedSeats": null, "departureAfter": "2026-09-21T22:00:00.000Z" }
+  },
+  {
+    "name": "Unsupported passenger preference",
+    "text": "Bitola Friday, women drivers only",
+    "expected": { "originId": null, "destinationId": 3, "requestedSeats": null, "departureAfter": "2026-09-24T22:00:00.000Z" }
+  }
+]
