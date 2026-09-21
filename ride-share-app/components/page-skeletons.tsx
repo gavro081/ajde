@@ -30,16 +30,10 @@ export function RideCardSkeleton() {
   </div>;
 }
 
-export function PageSkeleton() {
-  return <SkeletonMain label="Loading…" className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
-    <Heading />
-    <div className="mt-10 grid gap-6 sm:grid-cols-2"><Bone className="h-52 rounded-3xl" /><Bone className="h-52 rounded-3xl" /></div>
-  </SkeletonMain>;
-}
-
 export function RideFeedSkeleton() {
   return <SkeletonMain label="Loading rides…" className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-14">
-    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div className="flex-1"><Heading /></div><Bone className="h-[52px] w-36 rounded-[.9rem]" /></div>
+    <h1 className="page-heading">Find a ride</h1>
+    <p className="mt-4 text-slate-500">A seat, some company, and a way home.</p>
     <Bone className="mt-10 h-5 w-64" />
     <div className="mt-4 flex gap-4"><Bone className="h-[52px] flex-1 rounded-xl" /><Bone className="h-[52px] w-28 rounded-[.9rem]" /></div>
     <Bone className="mt-6 h-16 rounded-[1.25rem]" />
@@ -67,24 +61,16 @@ export function RideDetailSkeleton() {
   </SkeletonMain>;
 }
 
-export function FormPageSkeleton({ width = "max-w-4xl", fields = 6 }: { width?: string; fields?: number }) {
+export function FormPageSkeleton({ width = "max-w-4xl", fields = 6, title, subtitle }: { width?: string; fields?: number; title?: string; subtitle?: string }) {
   return <SkeletonMain label="Loading form…" className="px-4 py-10 sm:px-6">
     <div className={`mx-auto ${width}`}>
       <Bone className="h-4 w-24" />
-      <div className="mt-8"><Heading /></div>
+      <div className="mt-8">{title ? <><h1 className="page-heading">{title}</h1>{subtitle ? <p className="mt-3 max-w-2xl text-slate-600">{subtitle}</p> : null}</> : <Heading />}</div>
       <div className="surface-card mt-8 p-5 sm:p-8">
         {Array.from({ length: fields }, (_, index) => <div key={index} className={index ? "mt-6" : ""}><Bone className="h-4 w-32" /><Bone className="mt-2 h-[52px] rounded-[.9rem]" /></div>)}
         <Bone className="mt-8 h-[52px] w-44 rounded-[.9rem]" />
       </div>
     </div>
-  </SkeletonMain>;
-}
-
-export function TripsPageSkeleton() {
-  return <SkeletonMain label="Loading trips…" className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
-    <div className="flex flex-wrap items-end justify-between gap-6"><div><Heading /></div><Bone className="h-[52px] w-36 rounded-[.9rem]" /></div>
-    <Bone className="mt-8 h-[52px] w-80 max-w-full rounded-2xl" />
-    <div className="dashboard-grid">{[0, 1, 2].map((card) => <div key={card} className="journey-card"><div className="flex justify-between"><Bone className="h-4 w-36" /><Bone className="h-7 w-24 rounded-full" /></div><Bone className="mt-7 h-8 w-3/4" /><Bone className="mt-6 h-5 w-1/2" /><Bone className="mt-8 h-12 rounded-xl" /></div>)}</div>
   </SkeletonMain>;
 }
 

@@ -13,6 +13,13 @@ function Counter({ title, total }: { title: string; total: ImpactTotal }) {
   </div>;
 }
 
+export function ImpactSummarySkeleton() {
+  return <div aria-busy="true" className="mt-14">
+    <p role="status" className="sr-only">Loading impact summary…</p>
+    <div aria-hidden="true"><div className="skeleton h-8 w-64" /><div className="mt-6 grid gap-6 sm:grid-cols-2"><div className="skeleton h-40 rounded-3xl" /><div className="skeleton h-40 rounded-3xl" /></div></div>
+  </div>;
+}
+
 export async function ImpactSummaryPanel() {
   let summary: ImpactSummary;
   try {

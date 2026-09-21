@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { ImpactSummaryPanel } from "@/components/impact-summary";
+import { ImpactSummaryPanel, ImpactSummarySkeleton } from "@/components/impact-summary";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { DriverRides } from "./driver-trips";
 import { PassengerTrips } from "./passenger-trips";
@@ -26,7 +26,7 @@ export default async function TripsDashboard({ searchParams }: {
           {isDriver ? <DriverRides userId={user.id} /> : <PassengerTrips userId={user.id} />}
         </Suspense>
       </TripViews>
-      <Suspense fallback={<div aria-busy="true" className="mt-14"><p role="status" className="sr-only">Loading impact summary…</p><div aria-hidden="true"><div className="skeleton h-8 w-64" /><div className="mt-6 grid gap-6 sm:grid-cols-2"><div className="skeleton h-40 rounded-3xl" /><div className="skeleton h-40 rounded-3xl" /></div></div></div>}>
+      <Suspense fallback={<ImpactSummarySkeleton />}>
         <ImpactSummaryPanel />
       </Suspense>
     </main>
