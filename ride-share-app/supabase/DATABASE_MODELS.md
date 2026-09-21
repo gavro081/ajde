@@ -145,14 +145,15 @@ Only the driver and currently accepted passengers can read room messages. Passen
 created at or after their accepted booking's `decided_at`; the driver sees the whole room history.
 Cancelled bookings lose access immediately. Cancelled rides retain authorized read-only history.
 Sends require the authenticated sender, a real driver, null recipient, a non-cancelled ride, and
-`statement_timestamp() < departure_at + interval '48 hours'` (closed at the exact boundary).
-Clients can insert only ride/sender/recipient/body: timestamps and IDs cannot be forged, and
-updates/deletes are revoked. `messages_stamp` stamps authenticated sends with the database clock.
+`statement_timestamp() <= departure_at + interval '48 hours'` (inclusive, matching chat).
+Updates/deletes are revoked. `messages_stamp` overwrites creation timestamps with the database
+clock and clears read receipts on every insert, including privileged inserts.
 
 `messages` is added idempotently to `supabase_realtime`. Postgres Changes applies SELECT RLS to
 each recipient. Chat history must filter `ride_id` and `recipient_id IS NULL`, order by
 `created_at DESC, id DESC`, and use both columns in the older-page cursor. The partial
-`messages_room_cursor_idx` supports that exact query; Realtime is a refresh signal, not authority.
+`messages_room_cursor_idx` supports that exact query and replaces the original conversation index;
+Realtime is a refresh signal, not authority. Previously delivered messages cannot be recalled.
 
 ### `ratings`
 
@@ -230,3 +231,20 @@ For every database change:
 2. Update this file's affected enum, table, relationship, and behavior sections.
 3. Regenerate `lib/supabase/database.types.ts` from the migrated database.
 4. Extend and run `supabase/tests/schema_smoke.sql` for new invariants.
+
+## Shared policy helpers and verification
+
+`can_read_ride_room(uuid, timestamptz)`, `can_send_ride_room(uuid)`, and
+`can_rate_ride(uuid, uuid)` derive the viewer from `auth.uid()`, have fixed empty search paths,
+and use SECURITY DEFINER to query membership without depending on caller table privileges. PUBLIC
+and anon execution is revoked; authenticated execution is granted only for policy checks. The narrow
+rating aggregate is also SECURITY DEFINER with explicit grants. No helper accepts a viewer identity.
+
+`schema_smoke.sql` includes `room_policies.sql`, which switches into real PostgreSQL roles and sets
+JWT subject claims. It tests driver/two passengers/new passengers, denial states, forged data,
+immutable rows, send expiry, cancellation, and aggregate privacy. Every fixture rolls back.
+
+Types were regenerated from the migrated hosted PostgreSQL catalog using Supabase's
+`@supabase/postgrest-typegen` through a rollback-only transaction. The ratings follow-up migration
+restricts writable columns and private-note input without changing the room contract.
+

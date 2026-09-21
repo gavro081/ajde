@@ -255,3 +255,5 @@ $$;
 \ir communication_reputation.sql
 
 rollback;
+
+\ir room_policies.sql
