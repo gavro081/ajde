@@ -45,7 +45,7 @@ Apply these migrations before running the new publication/routing endpoints:
 Interpretation uses the existing server-only `OPENAI_API_KEY` and `OPENAI_MODEL`. Routing needs
 no additional credentials. Existing student-account and onboarding restrictions apply to both APIs.
 
-- `npm test`: full Vitest suite (385 tests passed on 21 September 2026).
+- `npm test`: full Vitest suite (393 tests passed on 21 September 2026).
 - `npm run lint` and `npx tsc --noEmit`: lint/type verification.
 - `npx next build --webpack`: production build.
 - `npx tsx scripts/evaluate-offers.ts`: four live multilingual/return-trip examples, fixed clock;
@@ -59,6 +59,13 @@ no additional credentials. Existing student-account and onboarding restrictions 
   responses plus real database publication and real OSRM distance, a Los Angeles browser
   timezone, correction/Undo, refresh, keyboard tabs and mobile/desktop layouts. Requires the
   configured Supabase admin credential and an installed Playwright Chromium browser.
+
+All listed checks passed on 21 September 2026. Both migrations were applied to the configured
+development database and its types regenerated. Live city-to-city routing returned 174.3 km
+for Skopje to Bitola; the test intentionally does not assert a permanent provider distance.
+Browser verification also published an imported draft and manually completed a recovered native
+draft during simulated routing failure. Synthetic verification records were removed afterward.
+Review findings and their fixes are recorded in `../docs/verification/ride-offers.md`.
 
 Regular tests mock external providers; live evaluations are explicit opt-in commands. The live
 verification script must only target a development/test project. It never edits real users' records.

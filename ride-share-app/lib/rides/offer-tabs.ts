@@ -9,8 +9,10 @@ export type OfferTab = {
   publishedId: string | null;
 };
 export function createOfferTab(draft: RideDraft, id: string): OfferTab {
-  return { id, source: draft.source, importId: draft.importId, values: valuesFromDraft(draft), warnings: draft.warnings,
-    revision: 0, distanceEpoch: 0, distanceMode: draft.distanceKm === null ? "auto" : "manual", distanceMessage: "", publishedId: null };
+  // A newly imported/model-provided distance is not a driver's manual form override.
+  // All new routes start the same city-fields-first lookup; recovery preserves true overrides.
+  return { id, source: draft.source, importId: draft.importId, values: { ...valuesFromDraft(draft), distanceKm: "" }, warnings: draft.warnings,
+    revision: 0, distanceEpoch: 0, distanceMode: "auto", distanceMessage: "", publishedId: null };
 }
 export function editOfferTab(tab: OfferTab, values: OfferValues): OfferTab {
   const changedRoute = values.originCityId !== tab.values.originCityId || values.destinationCityId !== tab.values.destinationCityId;

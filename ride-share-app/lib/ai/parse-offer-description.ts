@@ -3,7 +3,8 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { offerTripSchema, offerRequestSchema, emptyOfferDraft, localDateSchema, localTimeSchema, type OfferRequest } from "@/lib/rides/offer-interpretation";
 import { departureInstant, skopjeLocal } from "@/lib/rides/offer-values";
-import { normalizeLocation, resolveLocation } from "./resolve-location";
+import { normalizeLocation } from "./resolve-location";
+import { resolveLocationFromRawText } from "./parse-ride-post";
 import type { Tables } from "@/lib/supabase/database.types";
 import type { RideDraft, RideDraftField } from "@/lib/rides/ride-draft";
 
@@ -61,12 +62,13 @@ export async function parseOfferDescription(input: OfferRequest, context: Contex
       aliases: [...city.aliases, ...(city.name_en.toLowerCase() === "skopje" ? ["skp"] : city.name_en.toLowerCase() === "bitola" ? ["bt"] : [])] })),
     ...context.pickupPoints.map(point => ({ kind: "pickup_point" as const, id: point.id, nameMk: point.name_mk, nameEn: point.name_en, aliases: point.aliases })),
   ];
+  const pickupById = new Map(context.pickupPoints.map(point => [point.id, { id: point.id, cityId: point.city_id, nameMk: point.name_mk, nameEn: point.name_en, aliases: point.aliases }]));
   return { trips: await Promise.all(result.trips.map(async trip => {
     const draft: RideDraft = { ...trip.draft, source: "native", importId: null, distanceKm: null, carId: null };
     const warn = (field: RideDraftField, message: string) => { draft.warnings.push({ field, code: "needs_review", message }); };
     for (const key of ["origin", "destination"] as const) {
       const raw = trip.mentioned.includes(key) ? draft[key].rawText : null;
-      const resolved = raw ? await resolveLocation(raw, candidates) : null;
+      const resolved = raw ? await resolveLocationFromRawText(raw, candidates, pickupById) : null;
       const pickup = resolved?.kind === "pickup_point" ? context.pickupPoints.find(p => p.id === resolved.id) : null;
       draft[key] = { rawText: raw, cityId: resolved?.kind === "city" ? resolved.id : pickup?.city_id ?? null, pickupPointId: pickup?.id ?? null };
       if (trip.mentioned.includes(key) && !draft[key].cityId) warn(key, "Choose a supported city or pickup point.");
@@ -93,33 +95,44 @@ export async function parseOfferDescription(input: OfferRequest, context: Contex
     }
     draft.departureAt = date && time ? departureInstant(`${date}T${time}`) || null : null;
     if (draft.departureAt && Date.parse(draft.departureAt) <= now.getTime()) warn("departureAt", "Departure is in the past. Choose a future date.");
-    if (trip.mentioned.includes("car")) resolveCar(draft, trip.carText, context, warn);
+    if (trip.mentioned.includes("car")) resolveCar(draft, trip.carText, request.text, context, warn);
     else draft.car = null;
     return offerTripSchema.parse({ draft, mentioned: trip.mentioned, dateLocal: date, timeLocal: time });
   })) };
 }
 
 function explicitTime(value: string) {
+  const normalized = normalizeLocation(value);
+  const qualifiedHour = /\b(?:0?[1-9]|1[0-2]|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|eden|dva|tri|chetiri|pet|shest|sedum|osum|devet|deset|edinaeset|dvanaeset)\b/.test(normalized)
+    && /\b(?:morning|afternoon|evening|night|nautro|utro|popladne|navecer|navecher|nokj)\b/.test(normalized);
   return /\b(?:1[0-2]|0?[1-9])(?::[0-5]\d)?\s*[ap]\.?m\.?\b/i.test(value)
     || /\b(?:[01]?\d|2[0-3]):[0-5]\d\b/.test(value)
     || /\b(?:1[3-9]|2[0-3])\b/.test(value)
-    || /midnight|noon|полноќ|polnokj|пладне|pladne/i.test(value);
+    || /\b(?:midnight|noon|polnokj|polnok|pladne)\b/.test(normalized)
+    || qualifiedHour;
 }
 
-function resolveCar(draft: RideDraft, raw: string | null, context: OfferCatalog, warn: (field: RideDraftField, message: string) => void) {
+function resolveCar(draft: RideDraft, raw: string | null, text: string, context: OfferCatalog, warn: (field: RideDraftField, message: string) => void) {
+  const fuelWords = { petrol: ["petrol", "benzin", "gasoline"], diesel: ["diesel", "dizel"], hybrid: ["hybrid", "hibrid"], electric: ["electric", "elektricna", "elektrichen"], lpg: ["lpg", "plin"], other: ["other", "drugo"] };
+  const fuel = draft.car?.fuelType;
+  const explicitFuel = fuel && fuelWords[fuel].some(word => ` ${normalizeLocation(text)} `.includes(` ${word} `)) ? fuel : null;
+  const consumption = draft.car?.consumptionL100Km;
+  const consumptionPattern = consumption == null ? null : new RegExp(`(?:^|[^\\d.])${String(consumption).replace(".", "\\.")}\\s*(?:l|л|liters?|litres?|litri|литри)\\s*(?:/|per|на|na)?\\s*100`, "i");
+  const explicitConsumption = consumptionPattern?.test(text.replaceAll(",", ".")) ? consumption ?? null : null;
   const words = normalizeLocation(raw ?? "").split(" ").map(w => w === "klio" ? "clio" : w).filter(w => w && !["with", "a", "an", "so"].includes(w));
   const matches = (car: { make: string; model: string; fuel_type: string }) => words.length > 0 && words.every(word => normalizeLocation(`${car.make} ${car.model} ${car.fuel_type}`).split(" ").includes(word));
-  const saved = context.cars.filter(matches);
+  const saved = context.cars.filter(car => matches(car) && (!explicitFuel || car.fuel_type === explicitFuel));
   if (saved.length === 1) { draft.carId = saved[0].id; draft.car = null; return; }
-  const models = context.carModels.filter(matches);
-  const exact = models.length === 1 && normalizeLocation(raw ?? "").includes(normalizeLocation(models[0].model));
+  const models = context.carModels.filter(car => matches(car) && (!explicitFuel || car.fuel_type === explicitFuel));
+  const exact = models.length === 1 && normalizeLocation(raw ?? "").includes(normalizeLocation(models[0].model))
+    && (explicitFuel !== null || normalizeLocation(models[0].model).split(" ").length > 1);
   if (exact) {
     const model = models[0];
     draft.car = { ...draft.car, carModelId: model.id, make: model.make, model: model.model, fuelType: model.fuel_type,
-      consumptionL100Km: model.consumption_l_100km, color: draft.car?.color ?? null, plateLast3: draft.car?.plateLast3 ?? null, seatsTotal: draft.car?.seatsTotal ?? null };
+      consumptionL100Km: explicitConsumption ?? model.consumption_l_100km, color: draft.car?.color ?? null, plateLast3: draft.car?.plateLast3 ?? null, seatsTotal: draft.car?.seatsTotal ?? null };
   } else {
     draft.car = { carModelId: null, make: draft.car?.make ?? models[0]?.make ?? null, model: draft.car?.model ?? raw,
-      fuelType: null, consumptionL100Km: null, color: draft.car?.color ?? null, plateLast3: draft.car?.plateLast3 ?? null, seatsTotal: draft.car?.seatsTotal ?? null };
-    warn("car", "Choose your car's exact variant, fuel and consumption; the description is incomplete or ambiguous.");
+      fuelType: explicitFuel, consumptionL100Km: explicitConsumption, color: draft.car?.color ?? null, plateLast3: draft.car?.plateLast3 ?? null, seatsTotal: draft.car?.seatsTotal ?? null };
+    if (!explicitFuel || !explicitConsumption) warn("car", "Choose your car's exact variant, fuel and consumption; the description is incomplete or ambiguous.");
   }
 }

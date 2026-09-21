@@ -23,8 +23,8 @@ begin
   if found then return jsonb_build_object('rideId', saved.id, 'carId', saved.car_id, 'status', saved.status); end if;
 
   if offered_seats is null or offered_seats not between 1 and 8 or price is null or price < 0
-     or departure is null or departure <= clock_timestamp()
-     or (distance is not null and (distance <= 0 or distance = 'NaN'::numeric))
+     or departure is null or not isfinite(departure) or departure <= clock_timestamp()
+     or (distance is not null and (distance <= 0 or distance in ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)))
      or coalesce(length(p_offer ->> 'notes'), 0) > 2000
      or p_offer ->> 'source' is null or p_offer ->> 'source' not in ('native', 'imported')
      or p_offer ->> 'genderPreference' is null or p_offer ->> 'genderPreference' not in ('any', 'same_as_driver') then
@@ -59,6 +59,7 @@ begin
     if candidate.make is null or length(candidate.make) not between 1 and 80
       or candidate.model is null or length(candidate.model) not between 1 and 120
       or candidate.fuel_type is null or candidate.consumption_l_100km is null or candidate.consumption_l_100km <= 0
+      or candidate.consumption_l_100km in ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)
       or candidate.seats_total is null or candidate.seats_total not between 1 and 8 then
       raise exception 'Complete the vehicle details' using errcode = '23514';
     end if;

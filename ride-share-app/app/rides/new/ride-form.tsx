@@ -232,7 +232,7 @@ export function RideForm({
       </section>
 
       <section className="form-section grid gap-5 md:grid-cols-2" aria-labelledby={`${scope}-timing-heading`}>
-        <div className="md:col-span-2"><h2 id={`${scope}-timing-heading`} className="text-lg font-semibold">2. Time, seats & price</h2><p className="mt-1 text-sm text-slate-500">Enter departure in your device’s local time. Rides display in Skopje time.</p></div>
+        <div className="md:col-span-2"><h2 id={`${scope}-timing-heading`} className="text-lg font-semibold">2. Time, seats & price</h2><p className="mt-1 text-sm text-slate-500">Enter departure in Skopje local time, wherever your device is located.</p></div>
         <label className="font-medium text-slate-800">
           Departure
           <input

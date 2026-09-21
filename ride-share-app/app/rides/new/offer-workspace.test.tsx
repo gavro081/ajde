@@ -127,7 +127,7 @@ it("does not overwrite edits made while interpretation was in flight", async () 
 it("routes an imported draft, ignores pickup edits, and allows manual km after provider failure", async () => {
   const fetcher = vi.fn(async () => Response.json({ error: "Road distance is unavailable." }, { status: 502 }));
   vi.stubGlobal("fetch", fetcher);
-  render(<OfferWorkspace {...props} initialDraft={{ ...trip.draft, source: "imported", importId: "40000000-0000-4000-8000-000000000001" }} isImportedDraft
+  render(<OfferWorkspace {...props} initialDraft={{ ...trip.draft, distanceKm: 170, source: "imported", importId: "40000000-0000-4000-8000-000000000001" }} isImportedDraft
     pickupPoints={[{ id: 11, city_id: 1, name_en: "Mavrovka", name_mk: "Мавровка" }]} />);
   await screen.findByRole("button", { name: "Retry distance" });
   fireEvent.change(screen.getByLabelText("Estimated route distance (km)"), { target: { value: "180" } });

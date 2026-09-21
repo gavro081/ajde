@@ -84,12 +84,33 @@ async function main() {
   assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 4);
   assert.equal((await checked(admin.from('cars').select('id').eq('owner_id', actor))).length, 2);
   console.log('PASS browser two-tab fill, city-first live routing, non-Skopje device timezone, correction/Undo, refresh, separate publication, keyboard and mobile/desktop layout');
+  const imported = await checked(admin.from('imports').insert({ created_by: actor, raw_text: 'Synthetic imported offer',
+    parsed_json: { classification: 'offer', sourceLanguage: 'unknown', draft: { ...trip.draft, source: 'imported', distanceKm: 170 } } }).select('id').single());
+  await page.route('**/api/rides/distance', route => route.fulfill({ status: 502, json: { error: 'Provider unavailable for fallback verification' } }));
+  await page.goto(`${base}/rides/new?import=${imported.id}`);
+  await expect(page.getByRole('tab')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Retry distance' })).toBeVisible();
+  await expect(page.getByLabel('Estimated route distance (km)')).toHaveValue('');
+  await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'View ride', exact: true })).toBeVisible();
+  const importedRide = await checked(admin.from('rides').select('source, import_id, details').eq('import_id', imported.id).single());
+  assert.equal(importedRide.source, 'imported'); assert.equal(importedRide.details.distance_km, null);
+  // Finish the remaining native tab using only manual edits, with providers unavailable.
+  await page.goto(`${base}/rides/new`);
+  await page.getByRole('tab').nth(1).click();
+  await page.getByLabel('Estimated route distance (km)').fill('');
+  await page.getByLabel('Notes').fill('Manually completed after recovery');
+  await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'View ride', exact: true })).toBeVisible();
+  assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 6);
+  console.log('PASS imported single-draft publication and manual completion during routing failure');
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(async () => {
   if (browser) await browser.close();
   if (actor) {
     await checked(admin.from('rides').delete().eq('driver_id', actor));
     await checked(admin.from('cars').delete().eq('owner_id', actor));
+    await checked(admin.from('imports').delete().eq('created_by', actor));
     await checked(admin.from('profiles').delete().eq('id', actor));
     await checked(admin.auth.admin.deleteUser(actor));
     console.log('Removed synthetic offer-verification records.');

@@ -81,3 +81,34 @@ it("retains an explicit weekday evidenced by the model even if its mention list 
   });
   expect(result.trips[0].draft.departureAt).toBe("2026-09-26T14:00:00.000Z");
 });
+
+it("resolves a city plus its landmark but rejects conflicting city/landmark pairs", async () => {
+  const parse = (rawText: string) => parseOfferDescription({ text: rawText, mode: "create" }, { ...context,
+    pickupPoints: [{ id: 11, city_id: 1, name_en: "Mavrovka", name_mk: "Мавровка", aliases: [] }],
+    modelRunner: async () => ({ recurring: false, trips: [{ ...raw.trips[0], mentioned: ["origin"], draft: { ...emptyOfferDraft(), origin: { cityId: 999, pickupPointId: 999, rawText } } }] }),
+  });
+  expect((await parse("Skopje Mavrovka")).trips[0].draft.origin).toMatchObject({ cityId: 1, pickupPointId: 11 });
+  expect((await parse("Bitola Mavrovka")).trips[0].draft.origin.cityId).toBeNull();
+});
+
+it("preserves explicitly supplied fuel and consumption for a manual car", async () => {
+  const result = await parseOfferDescription({ text: "with a Wartburg petrol consuming 8 L/100km", mode: "create" }, { ...context,
+    modelRunner: async () => ({ recurring: false, trips: [{ ...raw.trips[0], mentioned: ["car"], carText: "Wartburg", draft: { ...emptyOfferDraft(),
+      car: { carModelId: null, make: "Wartburg", model: "353", fuelType: "petrol", consumptionL100Km: 8, color: null, plateLast3: null, seatsTotal: null } } }] }),
+  });
+  expect(result.trips[0].draft.car).toMatchObject({ fuelType: "petrol", consumptionL100Km: 8 });
+});
+
+it.each(["4 in the morning", "4 nautro", "4 наутро"])("accepts explicit day-period wording: %s", async text => {
+  const result = await parseOfferDescription({ text, mode: "create" }, { ...context,
+    modelRunner: async () => ({ recurring: false, trips: [{ ...raw.trips[0], mentioned: ["departureTime"], timeLocal: "04:00", timeEvidence: text }] }),
+  });
+  expect(result.trips[0].timeLocal).toBe("04:00");
+});
+
+it.each(["morning", "afternoon", "попладне"])("does not invent an exact hour from %s alone", async text => {
+  const result = await parseOfferDescription({ text: `saturday ${text}`, mode: "create" }, { ...context,
+    modelRunner: async () => ({ recurring: false, trips: [{ ...raw.trips[0], mentioned: ["departureDate", "departureTime"], timeLocal: "09:00", timeEvidence: text }] }),
+  });
+  expect(result.trips[0].timeLocal).toBeNull();
+});

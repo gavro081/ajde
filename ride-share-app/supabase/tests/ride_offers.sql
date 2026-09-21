@@ -14,6 +14,7 @@ declare
   first_result jsonb;
   retry_result jsonb;
   sibling jsonb;
+  bad_value jsonb;
 begin
   first_result := public.create_ride_offer(offer,vehicle,'94000000-0000-4000-8000-000000000001');
   retry_result := public.create_ride_offer(offer,vehicle,'94000000-0000-4000-8000-000000000001');
@@ -21,6 +22,16 @@ begin
   if first_result <> retry_result then raise exception 'Retry created a different result'; end if;
   if first_result->>'rideId' = sibling->>'rideId' then raise exception 'Sibling lost its identity'; end if;
   if first_result->>'carId' <> sibling->>'carId' then raise exception 'Sibling duplicated the same car'; end if;
+  for bad_value in select value from jsonb_array_elements('[{"departureAt":"infinity"},{"distanceKm":"Infinity"},{"distanceKm":"NaN"}]'::jsonb) loop
+    begin
+      perform public.create_ride_offer(offer || bad_value,vehicle,gen_random_uuid());
+      raise exception 'Non-finite ride value accepted';
+    exception when check_violation then null; end;
+  end loop;
+  begin
+    perform public.create_ride_offer(offer,vehicle || '{"consumptionL100Km":"NaN"}',gen_random_uuid());
+    raise exception 'Non-finite consumption accepted';
+  exception when check_violation then null; end;
   begin
     perform public.create_ride_offer(offer || '{"source":"imported","importId":"95000000-0000-4000-8000-000000000001"}',vehicle,'94000000-0000-4000-8000-000000000003');
     raise exception 'Unowned import accepted';
