@@ -511,6 +511,21 @@ export type Database = {
           },
         ]
       }
+      ride_routing_gate: {
+        Row: {
+          id: boolean
+          last_request_at: string
+        }
+        Insert: {
+          id?: boolean
+          last_request_at?: string
+        }
+        Update: {
+          id?: boolean
+          last_request_at?: string
+        }
+        Relationships: []
+      }
       rides: {
         Row: {
           car_id: string | null
@@ -686,6 +701,15 @@ export type Database = {
         Returns: boolean
       }
       can_send_ride_room: { Args: { target_ride_id: string }; Returns: boolean }
+      create_ride_offer: {
+        Args: {
+          p_offer: Json
+          p_publish?: boolean
+          p_submission_id: string
+          p_vehicle: Json
+        }
+        Returns: Json
+      }
       profile_rating_summary: {
         Args: { target_profile_id: string }
         Returns: {
@@ -696,6 +720,10 @@ export type Database = {
       recalculate_ride_seats: {
         Args: { target_ride_id: string }
         Returns: undefined
+      }
+      try_ride_routing_request: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
     }
     Enums: {

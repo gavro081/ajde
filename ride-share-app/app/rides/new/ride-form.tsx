@@ -1,14 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useId, type FormEvent } from "react";
+import { departureInstant, type OfferValues } from "@/lib/rides/offer-values";
 
 import type { Tables } from "@/lib/supabase/database.types";
 import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
 import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
 
-import { createRide, type CreateRideFormState } from "./actions";
+import { type CreateRideFormState } from "./actions";
 
 type City = Pick<Tables<"cities">, "id" | "name_en" | "name_mk">;
 type PickupPoint = Pick<Tables<"pickup_points">, "id" | "city_id" | "name_en" | "name_mk">;
@@ -33,7 +33,7 @@ type CarModel = Pick<
   | "release_year"
 >;
 
-type RideFormProps = {
+export type RideFormProps = {
   cars: Car[];
   carModels: CarModel[];
   cities: City[];
@@ -42,12 +42,11 @@ type RideFormProps = {
   initialDraft: RideDraft;
   submissionId: string;
   isImportedDraft: boolean;
-};
-
-const initialState: CreateRideFormState = {
-  status: "idle",
-  message: "",
-  fieldErrors: {},
+  values: OfferValues;
+  onChange: (values: OfferValues) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  state: CreateRideFormState;
+  pending: boolean;
 };
 
 const inputClass =
@@ -61,10 +60,6 @@ const tagLabels: Record<(typeof RIDE_TAGS)[number], string> = {
   pets_allowed: "Pets allowed",
   quiet_ride: "Quiet ride",
 };
-
-function dateTimeLocalValue(value: string | null) {
-  return value?.slice(0, 16) ?? "";
-}
 
 function FieldError({ errors, id }: { errors?: string[]; id?: string }) {
   if (!errors?.length) return null;
@@ -80,62 +75,21 @@ export function RideForm({
   initialDraft,
   submissionId,
   isImportedDraft,
+  values, onChange, onSubmit, state, pending,
 }: RideFormProps) {
-  const [state, formAction, pending] = useActionState(createRide, initialState);
-  const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (state.status === "success" && state.rideId) {
-      router.replace(`/rides/${state.rideId}?success=${encodeURIComponent(state.message)}`);
-      router.refresh();
-    }
-    if (state.status === "error") {
-      formRef.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();
-    }
-  }, [state, router]);
-  const [originCityId, setOriginCityId] = useState(initialDraft.origin.cityId?.toString() ?? "");
-  const [destinationCityId, setDestinationCityId] = useState(
-    initialDraft.destination.cityId?.toString() ?? "",
-  );
-  const [originPickupId, setOriginPickupId] = useState(
-    initialDraft.origin.pickupPointId?.toString() ?? "",
-  );
-  const [destinationPickupId, setDestinationPickupId] = useState(
-    initialDraft.destination.pickupPointId?.toString() ?? "",
-  );
-  const [departureLocal, setDepartureLocal] = useState(
-    dateTimeLocalValue(initialDraft.departureAt),
-  );
-  const [distanceKm, setDistanceKm] = useState(initialDraft.distanceKm?.toString() ?? "");
-  const [seatsTotal, setSeatsTotal] = useState(initialDraft.seatsTotal?.toString() ?? "");
-  const [pricePerSeatMkd, setPricePerSeatMkd] = useState(
-    initialDraft.pricePerSeatMkd?.toString() ?? "",
-  );
-  const [carMode, setCarMode] = useState<"existing" | "catalog" | "manual">(
-    initialDraft.carId && cars.some((car) => car.id === initialDraft.carId)
-      ? "existing"
-      : initialDraft.car?.carModelId
-        ? "catalog"
-        : cars.length > 0
-          ? "existing"
-          : "catalog",
-  );
-  const [catalogQuery, setCatalogQuery] = useState("");
-  const [catalogModelId, setCatalogModelId] = useState(
-    initialDraft.car?.carModelId?.toString() ?? "",
-  );
-  const initialCatalogModel = carModels.find(
-    (model) => model.id === initialDraft.car?.carModelId,
-  );
-  const [consumption, setConsumption] = useState(
-    initialDraft.car?.consumptionL100Km?.toString() ??
-      initialCatalogModel?.consumption_l_100km.toString() ??
-      "",
-  );
-  const [existingCarId, setExistingCarId] = useState(initialDraft.carId ?? "");
-  const [manualFuelType, setManualFuelType] = useState<string>(
-    initialDraft.car?.fuelType ?? "petrol",
-  );
+  const scope = useId();
+  const { originCityId, destinationCityId, originPickupId, destinationPickupId, departureLocal, distanceKm, seatsTotal, pricePerSeatMkd, carMode, catalogQuery, catalogModelId, consumption, existingCarId, manualFuelType } = values;
+  const setOriginPickupId = (value: OfferValues["originPickupId"]) => onChange({ ...values, originPickupId: value });
+  const setDestinationPickupId = (value: OfferValues["destinationPickupId"]) => onChange({ ...values, destinationPickupId: value });
+  const setDepartureLocal = (value: OfferValues["departureLocal"]) => onChange({ ...values, departureLocal: value });
+  const setDistanceKm = (value: OfferValues["distanceKm"]) => onChange({ ...values, distanceKm: value });
+  const setSeatsTotal = (value: OfferValues["seatsTotal"]) => onChange({ ...values, seatsTotal: value });
+  const setPricePerSeatMkd = (value: OfferValues["pricePerSeatMkd"]) => onChange({ ...values, pricePerSeatMkd: value });
+  const setCarMode = (value: OfferValues["carMode"]) => onChange({ ...values, carMode: value });
+  const setCatalogQuery = (value: OfferValues["catalogQuery"]) => onChange({ ...values, catalogQuery: value });
+  const setConsumption = (value: OfferValues["consumption"]) => onChange({ ...values, consumption: value });
+  const setExistingCarId = (value: OfferValues["existingCarId"]) => onChange({ ...values, existingCarId: value });
+  const setManualFuelType = (value: OfferValues["manualFuelType"]) => onChange({ ...values, manualFuelType: value });
 
   const originPickupPoints = useMemo(
     () => pickupPoints.filter((point) => point.city_id.toString() === originCityId),
@@ -171,16 +125,11 @@ export function RideForm({
       ? selectedExistingCar?.consumption_l_100km.toString() ?? ""
       : consumption;
 
-  let departureAt = "";
-  if (departureLocal) {
-    const parsedDeparture = new Date(departureLocal);
-    if (!Number.isNaN(parsedDeparture.getTime())) departureAt = parsedDeparture.toISOString();
-  }
+  const departureAt = departureInstant(departureLocal);
 
   return (
     <form
-      ref={formRef}
-      action={formAction}
+      onSubmit={onSubmit}
       // React resets forms after a resolved action, including validation failures.
       // Keep every entered value until the successful save navigates away.
       onReset={(event) => event.preventDefault()}
@@ -199,20 +148,19 @@ export function RideForm({
         </div>
       ) : null}
 
-      <section className="grid gap-5 md:grid-cols-2" aria-labelledby="route-heading">
-        <div className="md:col-span-2"><h2 id="route-heading" className="text-lg font-semibold">1. Your route</h2><p className="mt-1 text-sm text-slate-500">Choose both cities and, if you know them, the meeting points.</p></div>
+      <section className="grid gap-5 md:grid-cols-2" aria-labelledby={`${scope}-route-heading`}>
+        <div className="md:col-span-2"><h2 id={`${scope}-route-heading`} className="text-lg font-semibold">1. Your route</h2><p className="mt-1 text-sm text-slate-500">Choose both cities and, if you know them, the meeting points.</p></div>
         <label className="font-medium text-slate-800">
           Departure city
           <select
             className={inputClass}
             name="originCityId"
             aria-invalid={Boolean(state.fieldErrors["origin.cityId"]) || undefined}
-            aria-describedby={state.fieldErrors["origin.cityId"] ? "origin-error" : undefined}
+            aria-describedby={state.fieldErrors["origin.cityId"] ? `${scope}-origin-error` : undefined}
             required
             value={originCityId}
             onChange={(event) => {
-              setOriginCityId(event.target.value);
-              setOriginPickupId("");
+              onChange({ ...values, originCityId: event.target.value, originPickupId: "" });
             }}
           >
             <option value="">Choose a city</option>
@@ -222,7 +170,7 @@ export function RideForm({
               </option>
             ))}
           </select>
-          <FieldError id="origin-error" errors={state.fieldErrors["origin.cityId"]} />
+          <FieldError id={`${scope}-origin-error`} errors={state.fieldErrors["origin.cityId"]} />
         </label>
 
         <label className="font-medium text-slate-800">
@@ -248,12 +196,11 @@ export function RideForm({
             className={inputClass}
             name="destinationCityId"
             aria-invalid={Boolean(state.fieldErrors["destination.cityId"]) || undefined}
-            aria-describedby={state.fieldErrors["destination.cityId"] ? "destination-error" : undefined}
+            aria-describedby={state.fieldErrors["destination.cityId"] ? `${scope}-destination-error` : undefined}
             required
             value={destinationCityId}
             onChange={(event) => {
-              setDestinationCityId(event.target.value);
-              setDestinationPickupId("");
+              onChange({ ...values, destinationCityId: event.target.value, destinationPickupId: "" });
             }}
           >
             <option value="">Choose a city</option>
@@ -263,7 +210,7 @@ export function RideForm({
               </option>
             ))}
           </select>
-          <FieldError id="destination-error" errors={state.fieldErrors["destination.cityId"]} />
+          <FieldError id={`${scope}-destination-error`} errors={state.fieldErrors["destination.cityId"]} />
         </label>
 
         <label className="font-medium text-slate-800">
@@ -284,21 +231,22 @@ export function RideForm({
         </label>
       </section>
 
-      <section className="form-section grid gap-5 md:grid-cols-2" aria-labelledby="timing-heading">
-        <div className="md:col-span-2"><h2 id="timing-heading" className="text-lg font-semibold">2. Time, seats & price</h2><p className="mt-1 text-sm text-slate-500">Enter departure in your device’s local time. Rides display in Skopje time.</p></div>
+      <section className="form-section grid gap-5 md:grid-cols-2" aria-labelledby={`${scope}-timing-heading`}>
+        <div className="md:col-span-2"><h2 id={`${scope}-timing-heading`} className="text-lg font-semibold">2. Time, seats & price</h2><p className="mt-1 text-sm text-slate-500">Enter departure in your device’s local time. Rides display in Skopje time.</p></div>
         <label className="font-medium text-slate-800">
           Departure
           <input
             className={inputClass}
             name="departureLocal"
             aria-invalid={Boolean(state.fieldErrors.departureAt) || undefined}
-            aria-describedby={state.fieldErrors.departureAt ? "departure-error" : undefined}
+            aria-describedby={state.fieldErrors.departureAt ? `${scope}-departure-error` : undefined}
             type="datetime-local"
             required
-            value={departureLocal}
+            value={/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(departureLocal) ? departureLocal : ""}
             onChange={(event) => setDepartureLocal(event.target.value)}
           />
-          <FieldError id="departure-error" errors={state.fieldErrors.departureAt} />
+          <FieldError id={`${scope}-departure-error`} errors={state.fieldErrors.departureAt} />
+          {departureLocal && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(departureLocal) && <p className="mt-2 text-sm text-amber-800">Recognized {departureLocal.split("T").filter(Boolean).join(" ")}. Complete the departure date and time.</p>}
         </label>
 
         <label className="font-medium text-slate-800">
@@ -309,13 +257,13 @@ export function RideForm({
             min={1}
             name="seatsTotal"
             aria-invalid={Boolean(state.fieldErrors.seatsTotal) || undefined}
-            aria-describedby={state.fieldErrors.seatsTotal ? "seats-error" : undefined}
+            aria-describedby={state.fieldErrors.seatsTotal ? `${scope}-seats-error` : undefined}
             onChange={(event) => setSeatsTotal(event.target.value)}
             required
             type="number"
             value={seatsTotal}
           />
-          <FieldError id="seats-error" errors={state.fieldErrors.seatsTotal} />
+          <FieldError id={`${scope}-seats-error`} errors={state.fieldErrors.seatsTotal} />
         </label>
 
         <label className="font-medium text-slate-800">
@@ -325,14 +273,14 @@ export function RideForm({
             min={0}
             name="pricePerSeatMkd"
             aria-invalid={Boolean(state.fieldErrors.pricePerSeatMkd) || undefined}
-            aria-describedby={state.fieldErrors.pricePerSeatMkd ? "price-error" : undefined}
+            aria-describedby={state.fieldErrors.pricePerSeatMkd ? `${scope}-price-error` : undefined}
             onChange={(event) => setPricePerSeatMkd(event.target.value)}
             required
             step={1}
             type="number"
             value={pricePerSeatMkd}
           />
-          <FieldError id="price-error" errors={state.fieldErrors.pricePerSeatMkd} />
+          <FieldError id={`${scope}-price-error`} errors={state.fieldErrors.pricePerSeatMkd} />
         </label>
       </section>
 
@@ -422,9 +370,8 @@ export function RideForm({
                 name="carModelId"
                 onChange={(event) => {
                   const nextId = event.target.value;
-                  setCatalogModelId(nextId);
                   const model = carModels.find((item) => item.id.toString() === nextId);
-                  setConsumption(model?.consumption_l_100km.toString() ?? "");
+                  onChange({ ...values, catalogModelId: nextId, consumption: model?.consumption_l_100km.toString() ?? "" });
                 }}
                 required
                 value={catalogModelId}
@@ -446,7 +393,8 @@ export function RideForm({
             </label>
             <NewCarFields
               consumption={consumption}
-              initialDraft={initialDraft}
+              values={values}
+              onChange={onChange}
               onConsumptionChange={setConsumption}
             />
           </div>
@@ -458,7 +406,8 @@ export function RideForm({
               Make
               <input
                 className={inputClass}
-                defaultValue={initialDraft.car?.make ?? ""}
+                value={values.carMake}
+                onChange={(event) => onChange({ ...values, carMake: event.target.value })}
                 maxLength={80}
                 name="carMake"
                 required
@@ -468,7 +417,8 @@ export function RideForm({
               Model
               <input
                 className={inputClass}
-                defaultValue={initialDraft.car?.model ?? ""}
+                value={values.carModel}
+                onChange={(event) => onChange({ ...values, carModel: event.target.value })}
                 maxLength={120}
                 name="carModel"
                 required
@@ -483,6 +433,7 @@ export function RideForm({
                 required
                 value={manualFuelType}
               >
+                <option value="">Choose fuel</option>
                 <option value="petrol">Petrol</option>
                 <option value="diesel">Diesel</option>
                 <option value="hybrid">Hybrid</option>
@@ -493,7 +444,8 @@ export function RideForm({
             </label>
             <NewCarFields
               consumption={consumption}
-              initialDraft={initialDraft}
+              values={values}
+              onChange={onChange}
               onConsumptionChange={setConsumption}
             />
           </div>
@@ -501,7 +453,7 @@ export function RideForm({
         <FieldError errors={state.fieldErrors.carId} />
       </fieldset>
 
-      <details className="card-options" open={Boolean(initialDraft.distanceKm || state.fieldErrors.distanceKm?.length)}>
+      <details className="card-options" open>
       <summary>Estimate fuel costs & CO₂ savings</summary>
       <RideEstimatePanel
         consumption={estimateConsumption}
@@ -523,7 +475,8 @@ export function RideForm({
               key={tag}
             >
               <input
-                defaultChecked={initialDraft.tags.includes(tag)}
+                checked={values.tags.includes(tag)}
+                onChange={(event) => onChange({ ...values, tags: event.target.checked ? [...values.tags, tag] : values.tags.filter(t => t !== tag) })}
                 name="tags"
                 type="checkbox"
                 value={tag}
@@ -539,7 +492,8 @@ export function RideForm({
         Passenger preference
         <select
           className={inputClass}
-          defaultValue={initialDraft.genderPreference ?? "any"}
+          value={values.genderPreference}
+          onChange={(event) => onChange({ ...values, genderPreference: event.target.value === "same_as_driver" ? "same_as_driver" : "any" })}
           name="genderPreference"
           required
         >
@@ -553,7 +507,8 @@ export function RideForm({
         Notes
         <textarea
           className={`${inputClass} min-h-28 resize-y`}
-          defaultValue={initialDraft.notes ?? ""}
+          value={values.notes}
+          onChange={(event) => onChange({ ...values, notes: event.target.value })}
           maxLength={2_000}
           name="notes"
           placeholder="Luggage, timing, or pickup details passengers should know"
@@ -579,16 +534,7 @@ export function RideForm({
       ) : null}
 
       <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
-        <p className="text-sm text-slate-500 sm:mr-auto sm:max-w-xs">Drafts are private. Published rides are visible to students, and you approve each seat request.</p>
-        <button
-          className="btn-secondary disabled:opacity-50"
-          disabled={pending || state.status === "success"}
-          name="intent"
-          type="submit"
-          value="save_draft"
-        >
-          {pending ? "Saving…" : "Save draft"}
-        </button>
+        <p className="text-sm text-slate-500 sm:mr-auto sm:max-w-xs">Published rides are visible to students. Review every field before publishing.</p>
         <button
           className="btn-primary disabled:opacity-50"
           disabled={pending || state.status === "success"}
@@ -718,13 +664,14 @@ function EstimateValue({ label, value }: { label: string; value: string }) {
 
 type NewCarFieldsProps = {
   consumption: string;
-  initialDraft: RideDraft;
+  values: OfferValues;
+  onChange: (values: OfferValues) => void;
   onConsumptionChange: (value: string) => void;
 };
 
 function NewCarFields({
   consumption,
-  initialDraft,
+  values, onChange,
   onConsumptionChange,
 }: NewCarFieldsProps) {
   return (
@@ -746,7 +693,8 @@ function NewCarFields({
         Total passenger seats
         <input
           className={inputClass}
-          defaultValue={initialDraft.car?.seatsTotal ?? 4}
+          value={values.carSeatsTotal}
+          onChange={(event) => onChange({ ...values, carSeatsTotal: event.target.value })}
           max={8}
           min={1}
           name="carSeatsTotal"
@@ -758,7 +706,8 @@ function NewCarFields({
         Color (optional)
         <input
           className={inputClass}
-          defaultValue={initialDraft.car?.color ?? ""}
+          value={values.carColor}
+          onChange={(event) => onChange({ ...values, carColor: event.target.value })}
           name="carColor"
         />
       </label>
@@ -766,7 +715,8 @@ function NewCarFields({
         Last 3 plate characters (optional)
         <input
           className={inputClass}
-          defaultValue={initialDraft.car?.plateLast3 ?? ""}
+          value={values.plateLast3}
+          onChange={(event) => onChange({ ...values, plateLast3: event.target.value })}
           maxLength={3}
           name="plateLast3"
           placeholder="123"
