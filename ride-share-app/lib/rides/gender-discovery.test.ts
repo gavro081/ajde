@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canRequestSameGenderRide,
   filterRidesByDriverGender,
+  shouldFilterRidesByDriverGender,
   usableDiscoveryGender,
 } from "./gender-discovery";
 
@@ -54,5 +55,12 @@ describe("same-gender discovery filtering", () => {
     expect(canRequestSameGenderRide("woman", "man")).toBe(false);
     expect(canRequestSameGenderRide("prefer_not_to_say", "prefer_not_to_say")).toBe(false);
     expect(canRequestSameGenderRide(null, null)).toBe(false);
+  });
+
+  it("only expands the feed query when gender filtering can be applied", () => {
+    expect(shouldFilterRidesByDriverGender(true, "woman")).toBe(true);
+    expect(shouldFilterRidesByDriverGender(true, "prefer_not_to_say")).toBe(false);
+    expect(shouldFilterRidesByDriverGender(true, null)).toBe(false);
+    expect(shouldFilterRidesByDriverGender(false, "woman")).toBe(false);
   });
 });

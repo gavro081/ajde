@@ -7,6 +7,7 @@ import {
 } from "@/lib/rides/ride-filters";
 import {
   filterRidesByDriverGender,
+  shouldFilterRidesByDriverGender,
   type DiscoveryGender,
 } from "@/lib/rides/gender-discovery";
 import { createClient } from "@/lib/supabase/server";
@@ -31,6 +32,10 @@ export async function getRideFeed(
 ): Promise<RideView[]> {
   const supabase = await createClient();
   const bounds = departureBoundsForFilters(filters, now);
+  const applyGenderFilter = shouldFilterRidesByDriverGender(
+    filters.sameGenderOnly,
+    passengerGender,
+  );
   let query = supabase
     .from("rides")
     .select("*")
@@ -42,13 +47,13 @@ export async function getRideFeed(
   if (filters.origin) query = query.eq("origin_city_id", filters.origin);
   if (filters.destination) query = query.eq("dest_city_id", filters.destination);
   if (bounds.before) query = query.lt("departure_at", bounds.before);
-  if (!filters.sameGenderOnly) query = query.limit(100);
+  if (!applyGenderFilter) query = query.limit(100);
 
   const { data, error } = await query;
   if (error) throw new Error("Unable to load rides.");
 
   let eligibleRides = data;
-  if (filters.sameGenderOnly && data.length > 0) {
+  if (applyGenderFilter && data.length > 0) {
     const driverIds = [
       ...new Set(data.map((ride) => ride.driver_id).filter((id): id is string => id !== null)),
     ];

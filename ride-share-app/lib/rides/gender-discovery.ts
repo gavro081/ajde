@@ -17,6 +17,13 @@ export function canRequestSameGenderRide(
   return usableDriverGender !== null && usableDriverGender === usablePassengerGender;
 }
 
+export function shouldFilterRidesByDriverGender(
+  enabled: boolean,
+  passengerGender: DiscoveryGender | undefined,
+) {
+  return enabled && usableDiscoveryGender(passengerGender) !== null;
+}
+
 export function filterRidesByDriverGender<T extends { driver_id: string | null }>(
   rides: readonly T[],
   driverGenders: ReadonlyMap<string, DiscoveryGender>,
