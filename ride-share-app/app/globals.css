@@ -89,6 +89,10 @@
   :root { --header-h: 4.5rem; }
   .site-header { padding: 1rem 1.5rem 0; }
 }
+@media (min-width: 1024px) {
+  .site-nav-links { position: absolute; left: 50%; transform: translateX(-50%); margin-inline: 0; }
+  .site-nav-account { margin-left: auto; }
+}
 @media (max-width: 1023px) {
   .site-menu-button { display: inline-flex; }
   .site-header[data-scrolled] .site-header-bar { max-width: 19rem; }
