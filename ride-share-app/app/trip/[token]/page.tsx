@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Brand } from "@/components/brand";
 import { getSharedItinerary } from "@/lib/sharing/queries";
 
 export const dynamic = "force-dynamic";
@@ -13,19 +12,17 @@ export const metadata: Metadata = {
 export default async function SharedTripPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const itinerary = await getSharedItinerary(token);
-  if (!itinerary) return <main className="mx-auto w-full max-w-xl px-4 py-12">
-    <Brand />
-    <h1 className="mt-8 text-2xl font-bold">Itinerary unavailable</h1>
+  if (!itinerary) return <main id="main-content" className="mx-auto w-full max-w-xl px-4 py-12">
+    <h1 className="font-display text-3xl font-extrabold tracking-[-.035em]">Itinerary unavailable</h1>
     <p className="mt-3 text-slate-600">This link may have expired or been revoked, or the trip is no longer confirmed. Ask the passenger for an updated itinerary.</p>
     <Link href="/" className="btn-secondary mt-6">Back to home</Link>
   </main>;
 
-  return <main className="mx-auto w-full max-w-xl px-4 py-12 text-slate-950">
-    <Brand />
-    <h1 className="mt-8 text-3xl font-semibold">Shared itinerary</h1>
+  return <main id="main-content" className="mx-auto w-full max-w-xl px-4 py-12 text-slate-950">
+    <h1 className="font-display text-4xl font-extrabold tracking-[-.04em]">Shared itinerary</h1>
     <p className="mt-3 text-slate-600">This is a planned itinerary, not live tracking. It does not confirm the traveller’s current location.</p>
-    <section className="mt-6 rounded-3xl border border-white bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-bold">{itinerary.origin} → {itinerary.destination}</h2>
+    <section className="mt-6 surface-card p-6">
+      <h2 className="font-display text-2xl font-bold tracking-tight">{itinerary.origin} → {itinerary.destination}</h2>
       <dl className="mt-4 space-y-3 text-sm">
         <div><dt className="font-semibold">Departure (Skopje time)</dt><dd>{new Date(itinerary.departureAt).toLocaleString("en-GB", { timeZone: "Europe/Skopje", dateStyle: "full", timeStyle: "short" })}</dd></div>
         <div><dt className="font-semibold">Pickup</dt><dd>{itinerary.pickup ?? "Not specified"}</dd></div>

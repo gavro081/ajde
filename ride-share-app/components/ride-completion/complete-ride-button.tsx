@@ -24,7 +24,7 @@ export function CompleteRideButton({ rideId }: { rideId: string }) {
       >
         {pending ? "Marking completed…" : "Mark completed"}
       </button>
-      {result ? <p role={result.success ? "status" : "alert"} className="mt-2 text-sm text-coral-700">{result.message}</p> : null}
+      {result ? <p role={result.success ? "status" : "alert"} className="mt-2 text-sm text-brand-700">{result.message}</p> : null}
     </div>
   );
 }

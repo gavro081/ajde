@@ -26,7 +26,7 @@ export function RideCard({ ride, explanation }: { ride: RideView; explanation?: 
       <div className="flex flex-1 flex-col p-5 sm:p-6">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-coral-700">{formatDeparture(ride.departure_at)}</p>
+            <p className="text-sm font-semibold text-brand-700">{formatDeparture(ride.departure_at)}</p>
             <p className="mt-1 text-xs text-slate-500">Skopje time</p>
           </div>
           <div className="text-right">

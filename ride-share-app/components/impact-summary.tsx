@@ -1,9 +1,9 @@
 import { getImpactSummary, type ImpactSummary, type ImpactTotal } from "@/lib/impact/queries";
 
 function Counter({ title, total }: { title: string; total: ImpactTotal }) {
-  return <div className="rounded-3xl bg-white p-7">
-    <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
-    <p className="mt-2 break-words text-3xl font-bold text-emerald-800">
+  return <div className="surface-card p-7">
+    <h3 className="eyebrow">{title}</h3>
+    <p className="mt-3 break-words font-display text-4xl font-extrabold tracking-[-.04em] text-brand-700">
       {new Intl.NumberFormat("en-GB", { maximumFractionDigits: 2 }).format(total.savedCo2Kg)}
       <span className="ml-2 text-base font-medium">kg CO₂</span>
     </p>
@@ -24,7 +24,7 @@ export async function ImpactSummaryPanel() {
     </section>;
   }
   return <section aria-labelledby="impact-heading" className="mt-14">
-    <h2 id="impact-heading" className="text-2xl font-medium">Estimated CO₂ savings</h2>
+    <h2 id="impact-heading" className="font-display text-2xl font-bold tracking-[-.03em]">Estimated CO₂ savings</h2>
     <div className="mt-6 grid gap-6 sm:grid-cols-2">
       <Counter title="Your passenger savings" total={summary.personal} />
       <Counter title="Platform passenger savings" total={summary.platform} />

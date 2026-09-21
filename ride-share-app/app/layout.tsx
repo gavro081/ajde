@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
+import { Geist_Mono, Inter, Inter_Tight } from "next/font/google";
+import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin", "latin-ext"], variable: "--font-inter" });
+const interTight = Inter_Tight({ subsets: ["latin", "latin-ext"], weight: ["600", "700", "800"], variable: "--font-inter-tight" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
   title: {
@@ -11,8 +17,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${inter.variable} ${interTight.variable} ${geistMono.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col">
+        <SiteHeader />
+        {children}
+      </body>
     </html>
   );
 }

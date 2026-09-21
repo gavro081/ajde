@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { AppHeader } from "@/components/app-header";
 import { NaturalLanguageSearch } from "@/components/discovery/natural-language-search";
 import { RideResults } from "@/components/discovery/ride-results";
 import { SearchInterpretation } from "@/components/discovery/search-interpretation";
@@ -38,8 +37,7 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
   const cityNames = new Map((cities ?? []).map((city) => [city.id, city.name_en]));
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
-      <AppHeader />
+    <div className="text-slate-950">
       <main id="main-content" className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-14">
         {firstParam(rawParams.welcome) === "1" ? <p role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">Your profile is ready. Welcome aboard — find your first ride below.</p> : null}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -110,13 +108,13 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
         ) : null}
 
         <div className="mt-8 flex items-center justify-between">
-          <div><h2 className="text-2xl font-normal tracking-tight">Your next ride</h2><p className="mt-1 text-sm text-slate-500">{rides.length} matching ride{rides.length === 1 ? "" : "s"} · Soonest departures first</p></div>
+          <div><h2 className="font-display text-2xl font-bold tracking-[-.03em]">Your next ride</h2><p className="mt-1 text-sm text-slate-500">{rides.length} matching ride{rides.length === 1 ? "" : "s"} · Soonest departures first</p></div>
         </div>
         {rides.length ? (
           <RideResults rides={rides} searchContext={interpretation} />
         ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center">
-            <h2 className="text-xl font-bold">No rides match yet</h2>
+          <div className="mt-4 rounded-3xl border-2 border-dashed border-slate-200 bg-white/60 px-6 py-16 text-center">
+            <h2 className="font-display text-2xl font-bold tracking-[-.03em]">No rides match yet</h2>
             <p className="mt-2 text-slate-600">Try a wider search or offer the first ride on this route.</p>
             <div className="mt-5 flex flex-wrap justify-center gap-3"><Link href="/rides" className="btn-secondary">Show all rides</Link><Link href="/rides/new" className="btn-primary">Offer a ride</Link></div>
           </div>

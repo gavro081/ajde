@@ -76,7 +76,7 @@ export function NaturalLanguageSearch({
           onChange={(event) => setQuery(event.target.value)}
           maxLength={300}
           placeholder="Try “Skopje to Bitola tomorrow”"
-          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none focus:border-coral-600 focus:ring-2 focus:ring-coral-100"
+          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
         />
         <button
           type="submit"
@@ -95,7 +95,7 @@ export function NaturalLanguageSearch({
           </button>
         ) : null}
       </form>
-      {error ? <p role="alert" className="mt-3 rounded-xl bg-white px-4 py-3 text-sm text-coral-700">{error}</p> : null}
+      {error ? <p role="alert" className="mt-3 rounded-xl bg-white px-4 py-3 text-sm text-brand-700">{error}</p> : null}
     </section>
   );
 }
