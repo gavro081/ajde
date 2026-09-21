@@ -25,6 +25,7 @@ function databaseMessage(error: PostgrestError) {
 }
 
 const NEW_CAR_VALIDATION_ID = "00000000-0000-4000-8000-000000000000";
+const savedCarColumns = "id, make, model, fuel_type, consumption_l_100km, color, plate_last3, seats_total";
 
 async function resolveCar(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -34,7 +35,7 @@ async function resolveCar(
   if (selection.mode === "existing") {
     const { data, error } = await supabase
       .from("cars")
-      .select("id, seats_total")
+      .select(savedCarColumns)
       .eq("id", selection.carId)
       .eq("owner_id", userId)
       .maybeSingle();
@@ -43,6 +44,7 @@ async function resolveCar(
       carId: data?.id ?? null,
       seatsTotal: data?.seats_total ?? null,
       created: false,
+      car: data,
       error,
     };
   }
@@ -85,13 +87,33 @@ async function resolveCar(
     };
   }
 
-  const { data, error } = await supabase.from("cars").insert(car).select("id").single();
+  const { data, error } = await supabase.from("cars").insert(car).select(savedCarColumns).single();
   return {
     carId: data?.id ?? null,
     seatsTotal: selection.seatsTotal,
     created: Boolean(data),
+    car: data,
     error,
   };
+}
+
+export async function saveCar(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false as const, message: "Your session has expired. Sign in and try again." };
+  }
+
+  const selection = readCarSelection(formData);
+  if (!selection.success) {
+    return { ok: false as const, message: selection.error.issues.map((issue) => issue.message).join(" ") };
+  }
+
+  const result = await resolveCar(supabase, user.id, selection.data);
+  if (result.error || !result.car) {
+    return { ok: false as const, message: "We could not save this car. Review its details and try again." };
+  }
+  return { ok: true as const, car: result.car };
 }
 
 export async function createRide(

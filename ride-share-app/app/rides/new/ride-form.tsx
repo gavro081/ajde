@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import type { Tables } from "@/lib/supabase/database.types";
@@ -8,7 +8,7 @@ import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
 import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
 
-import { createRide, type CreateRideFormState } from "./actions";
+import { createRide, saveCar, type CreateRideFormState } from "./actions";
 
 type City = Pick<Tables<"cities">, "id" | "name_en" | "name_mk">;
 type PickupPoint = Pick<Tables<"pickup_points">, "id" | "city_id" | "name_en" | "name_mk">;
@@ -21,6 +21,7 @@ type Car = Pick<
   | "consumption_l_100km"
   | "color"
   | "plate_last3"
+  | "seats_total"
 >;
 type CarModel = Pick<
   Tables<"car_models">,
@@ -72,7 +73,7 @@ function FieldError({ errors, id }: { errors?: string[]; id?: string }) {
 }
 
 export function RideForm({
-  cars,
+  cars: initialCars,
   carModels,
   cities,
   fuelPrices,
@@ -81,6 +82,12 @@ export function RideForm({
   submissionId,
   isImportedDraft,
 }: RideFormProps) {
+  const [cars, setCars] = useState(initialCars);
+  const [savingCar, startSavingCar] = useTransition();
+  const [carMessage, setCarMessage] = useState("");
+  const [carSaveError, setCarSaveError] = useState(false);
+  const carFieldsRef = useRef<HTMLFieldSetElement>(null);
+  const carChangeRef = useRef<HTMLButtonElement>(null);
   const [state, formAction, pending] = useActionState(createRide, initialState);
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -107,7 +114,7 @@ export function RideForm({
     dateTimeLocalValue(initialDraft.departureAt),
   );
   const [distanceKm, setDistanceKm] = useState(initialDraft.distanceKm?.toString() ?? "");
-  const [seatsTotal, setSeatsTotal] = useState(initialDraft.seatsTotal?.toString() ?? "");
+  const [rideSeatsOverride, setRideSeatsOverride] = useState<string | null>(initialDraft.seatsTotal?.toString() ?? null);
   const [pricePerSeatMkd, setPricePerSeatMkd] = useState(
     initialDraft.pricePerSeatMkd?.toString() ?? "",
   );
@@ -132,7 +139,12 @@ export function RideForm({
       initialCatalogModel?.consumption_l_100km.toString() ??
       "",
   );
-  const [existingCarId, setExistingCarId] = useState(initialDraft.carId ?? "");
+  const [existingCarId, setExistingCarId] = useState(
+    cars.some((car) => car.id === initialDraft.carId)
+      ? initialDraft.carId!
+      : cars.length === 1 ? cars[0].id : "",
+  );
+  const [choosingCar, setChoosingCar] = useState(false);
   const [manualFuelType, setManualFuelType] = useState<string>(
     initialDraft.car?.fuelType ?? "petrol",
   );
@@ -160,6 +172,8 @@ export function RideForm({
     (model) => model.id.toString() === catalogModelId,
   );
   const selectedExistingCar = cars.find((car) => car.id === existingCarId);
+  const selectedCarCapacity = carMode === "existing" ? selectedExistingCar?.seats_total : undefined;
+  const seatsTotal = rideSeatsOverride ?? selectedCarCapacity?.toString() ?? "";
   const estimateFuelType =
     carMode === "existing"
       ? selectedExistingCar?.fuel_type
@@ -170,6 +184,36 @@ export function RideForm({
     carMode === "existing"
       ? selectedExistingCar?.consumption_l_100km.toString() ?? ""
       : consumption;
+
+  function handleSaveCar() {
+    if (!formRef.current || savingCar) return;
+    const fields = carFieldsRef.current?.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select");
+    for (const field of fields ?? []) {
+      if (!field.reportValidity()) return;
+    }
+    const data = new FormData(formRef.current);
+    setCarMessage("");
+    startSavingCar(async () => {
+      try {
+        const result = await saveCar(data);
+        if (!result.ok) {
+          setCarSaveError(true);
+          setCarMessage(result.message);
+          return;
+        }
+        setCars((current) => [...current.filter((car) => car.id !== result.car.id), result.car]);
+        setExistingCarId(result.car.id);
+        setCarMode("existing");
+        setChoosingCar(false);
+        setCarSaveError(false);
+        setCarMessage("Car saved. It’s ready for this ride and future rides.");
+        requestAnimationFrame(() => carChangeRef.current?.focus());
+      } catch {
+        setCarSaveError(true);
+        setCarMessage("We could not save your car. Please try again.");
+      }
+    });
+  }
 
   let departureAt = "";
   if (departureLocal) {
@@ -185,7 +229,7 @@ export function RideForm({
       // Keep every entered value until the successful save navigates away.
       onReset={(event) => event.preventDefault()}
       className="ride-form space-y-8"
-      aria-busy={pending}
+      aria-busy={pending || savingCar}
     >
       <input type="hidden" name="source" value={initialDraft.source} />
       <input type="hidden" name="importId" value={initialDraft.importId ?? ""} />
@@ -199,305 +243,334 @@ export function RideForm({
         </div>
       ) : null}
 
-      <section className="grid gap-5 md:grid-cols-2" aria-labelledby="route-heading">
-        <div className="md:col-span-2"><h2 id="route-heading" className="text-lg font-semibold">1. Your route</h2><p className="mt-1 text-sm text-slate-500">Choose both cities and, if you know them, the meeting points.</p></div>
-        <label className="font-medium text-slate-800">
-          Departure city
-          <select
-            className={inputClass}
-            name="originCityId"
-            aria-invalid={Boolean(state.fieldErrors["origin.cityId"]) || undefined}
-            aria-describedby={state.fieldErrors["origin.cityId"] ? "origin-error" : undefined}
-            required
-            value={originCityId}
-            onChange={(event) => {
-              setOriginCityId(event.target.value);
-              setOriginPickupId("");
-            }}
-          >
-            <option value="">Choose a city</option>
-            {cities.map((city) => (
-              <option key={city.id} value={city.id}>
-                {city.name_en} / {city.name_mk}
-              </option>
-            ))}
-          </select>
-          <FieldError id="origin-error" errors={state.fieldErrors["origin.cityId"]} />
-        </label>
-
-        <label className="font-medium text-slate-800">
-          Pickup point
-          <select
-            className={inputClass}
-            name="originPickupPointId"
-            value={originPickupId}
-            onChange={(event) => setOriginPickupId(event.target.value)}
-          >
-            <option value="">Decide with passengers</option>
-            {originPickupPoints.map((point) => (
-              <option key={point.id} value={point.id}>
-                {point.name_en} / {point.name_mk}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="font-medium text-slate-800">
-          Destination city
-          <select
-            className={inputClass}
-            name="destinationCityId"
-            aria-invalid={Boolean(state.fieldErrors["destination.cityId"]) || undefined}
-            aria-describedby={state.fieldErrors["destination.cityId"] ? "destination-error" : undefined}
-            required
-            value={destinationCityId}
-            onChange={(event) => {
-              setDestinationCityId(event.target.value);
-              setDestinationPickupId("");
-            }}
-          >
-            <option value="">Choose a city</option>
-            {cities.map((city) => (
-              <option key={city.id} value={city.id}>
-                {city.name_en} / {city.name_mk}
-              </option>
-            ))}
-          </select>
-          <FieldError id="destination-error" errors={state.fieldErrors["destination.cityId"]} />
-        </label>
-
-        <label className="font-medium text-slate-800">
-          Drop-off point
-          <select
-            className={inputClass}
-            name="destinationPickupPointId"
-            value={destinationPickupId}
-            onChange={(event) => setDestinationPickupId(event.target.value)}
-          >
-            <option value="">Decide with passengers</option>
-            {destinationPickupPoints.map((point) => (
-              <option key={point.id} value={point.id}>
-                {point.name_en} / {point.name_mk}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
-
-      <section className="form-section grid gap-5 md:grid-cols-2" aria-labelledby="timing-heading">
-        <div className="md:col-span-2"><h2 id="timing-heading" className="text-lg font-semibold">2. Time, seats & price</h2><p className="mt-1 text-sm text-slate-500">Enter departure in your device’s local time. Rides display in Skopje time.</p></div>
-        <label className="font-medium text-slate-800">
-          Departure
-          <input
-            className={inputClass}
-            name="departureLocal"
-            aria-invalid={Boolean(state.fieldErrors.departureAt) || undefined}
-            aria-describedby={state.fieldErrors.departureAt ? "departure-error" : undefined}
-            type="datetime-local"
-            required
-            value={departureLocal}
-            onChange={(event) => setDepartureLocal(event.target.value)}
-          />
-          <FieldError id="departure-error" errors={state.fieldErrors.departureAt} />
-        </label>
-
-        <label className="font-medium text-slate-800">
-          Available seats
-          <input
-            className={inputClass}
-            max={8}
-            min={1}
-            name="seatsTotal"
-            aria-invalid={Boolean(state.fieldErrors.seatsTotal) || undefined}
-            aria-describedby={state.fieldErrors.seatsTotal ? "seats-error" : undefined}
-            onChange={(event) => setSeatsTotal(event.target.value)}
-            required
-            type="number"
-            value={seatsTotal}
-          />
-          <FieldError id="seats-error" errors={state.fieldErrors.seatsTotal} />
-        </label>
-
-        <label className="font-medium text-slate-800">
-          Price per seat (MKD)
-          <input
-            className={inputClass}
-            min={0}
-            name="pricePerSeatMkd"
-            aria-invalid={Boolean(state.fieldErrors.pricePerSeatMkd) || undefined}
-            aria-describedby={state.fieldErrors.pricePerSeatMkd ? "price-error" : undefined}
-            onChange={(event) => setPricePerSeatMkd(event.target.value)}
-            required
-            step={1}
-            type="number"
-            value={pricePerSeatMkd}
-          />
-          <FieldError id="price-error" errors={state.fieldErrors.pricePerSeatMkd} />
-        </label>
-      </section>
-
-      <fieldset className="form-section">
-        <legend className="pr-3 text-lg font-semibold text-slate-900">3. Your car</legend>
-        <div className="flex flex-wrap gap-2">
-          {cars.length > 0 ? (
-            <button
-              className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                carMode === "existing"
-                  ? "bg-coral-600 text-white"
-                  : "bg-slate-100 text-slate-700"
-              }`}
-              onClick={() => setCarMode("existing")}
-              aria-pressed={carMode === "existing"}
-              type="button"
-            >
-              Saved car
-            </button>
-          ) : null}
-          <button
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              carMode === "catalog"
-                ? "bg-coral-600 text-white"
-                : "bg-slate-100 text-slate-700"
-            }`}
-            onClick={() => setCarMode("catalog")}
-            aria-pressed={carMode === "catalog"}
-            type="button"
-          >
-            Find model
-          </button>
-          <button
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              carMode === "manual"
-                ? "bg-coral-600 text-white"
-                : "bg-slate-100 text-slate-700"
-            }`}
-            onClick={() => setCarMode("manual")}
-            aria-pressed={carMode === "manual"}
-            type="button"
-          >
-            Enter manually
-          </button>
-        </div>
-
-        <input name="carMode" type="hidden" value={carMode} />
-
-        {carMode === "existing" ? (
-          <label className="mt-5 block font-medium text-slate-800">
-            Your saved cars
+      <section className="space-y-4" aria-labelledby="route-heading">
+        <h2 id="route-heading" className="font-semibold">Your ride</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="font-medium text-slate-800">
+            From
             <select
               className={inputClass}
-              name="carId"
-              onChange={(event) => setExistingCarId(event.target.value)}
+              name="originCityId"
+              aria-invalid={Boolean(state.fieldErrors["origin.cityId"]) || undefined}
+              aria-describedby={state.fieldErrors["origin.cityId"] ? "origin-error" : undefined}
               required
-              value={existingCarId}
+              value={originCityId}
+              onChange={(event) => {
+                setOriginCityId(event.target.value);
+                setOriginPickupId("");
+              }}
             >
-              <option value="">Choose a car</option>
-              {cars.map((car) => (
-                <option key={car.id} value={car.id}>
-                  {car.make} {car.model}
-                  {car.color ? ` · ${car.color}` : ""}
-                  {car.plate_last3 ? ` · •••${car.plate_last3}` : ""}
+              <option value="">Choose a city</option>
+              {cities.map((city) => (
+                <option key={city.id} value={city.id}>
+                  {city.name_en} / {city.name_mk}
+                </option>
+              ))}
+            </select>
+            <FieldError id="origin-error" errors={state.fieldErrors["origin.cityId"]} />
+          </label>
+          <label className="font-medium text-slate-800">
+            To
+            <select
+              className={inputClass}
+              name="destinationCityId"
+              aria-invalid={Boolean(state.fieldErrors["destination.cityId"]) || undefined}
+              aria-describedby={state.fieldErrors["destination.cityId"] ? "destination-error" : undefined}
+              required
+              value={destinationCityId}
+              onChange={(event) => {
+                setDestinationCityId(event.target.value);
+                setDestinationPickupId("");
+              }}
+            >
+              <option value="">Choose a city</option>
+              {cities.map((city) => (
+                <option key={city.id} value={city.id}>
+                  {city.name_en} / {city.name_mk}
+                </option>
+              ))}
+            </select>
+            <FieldError id="destination-error" errors={state.fieldErrors["destination.cityId"]} />
+          </label>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <label className="font-medium text-slate-800 col-span-2">
+            Departure
+            <input
+              className={inputClass}
+              name="departureLocal"
+              aria-invalid={Boolean(state.fieldErrors.departureAt) || undefined}
+              aria-describedby={state.fieldErrors.departureAt ? "departure-error" : undefined}
+              type="datetime-local"
+              required
+              value={departureLocal}
+              onChange={(event) => setDepartureLocal(event.target.value)}
+            />
+            <FieldError id="departure-error" errors={state.fieldErrors.departureAt} />
+          </label>
+          <label className="font-medium text-slate-800">
+            Available seats
+            <input
+              className={inputClass}
+              max={selectedCarCapacity ?? 8}
+              min={1}
+              name="seatsTotal"
+              aria-invalid={Boolean(state.fieldErrors.seatsTotal) || undefined}
+              aria-describedby={state.fieldErrors.seatsTotal ? "seats-hint seats-error" : "seats-hint"}
+              onChange={(event) => setRideSeatsOverride(event.target.value)}
+              required
+              type="number"
+              value={seatsTotal}
+            />
+            <span id="seats-hint" className="mt-1 block text-xs font-normal text-slate-500">For this ride only</span>
+            <FieldError id="seats-error" errors={state.fieldErrors.seatsTotal} />
+          </label>
+          <label className="font-medium text-slate-800">
+            Price per seat (MKD)
+            <input
+              className={inputClass}
+              min={0}
+              name="pricePerSeatMkd"
+              aria-invalid={Boolean(state.fieldErrors.pricePerSeatMkd) || undefined}
+              aria-describedby={state.fieldErrors.pricePerSeatMkd ? "price-error" : undefined}
+              onChange={(event) => setPricePerSeatMkd(event.target.value)}
+              required
+              step={1}
+              type="number"
+              value={pricePerSeatMkd}
+            />
+            <FieldError id="price-error" errors={state.fieldErrors.pricePerSeatMkd} />
+          </label>
+        </div>
+        <p className="text-xs text-slate-500">Enter departure in your local time. Rides display in Skopje time.</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="font-medium text-slate-800">
+            Pickup point
+            <select
+              className={inputClass}
+              name="originPickupPointId"
+              value={originPickupId}
+              onChange={(event) => setOriginPickupId(event.target.value)}
+            >
+              <option value="">Decide with passengers</option>
+              {originPickupPoints.map((point) => (
+                <option key={point.id} value={point.id}>
+                  {point.name_en} / {point.name_mk}
                 </option>
               ))}
             </select>
           </label>
-        ) : null}
+          <label className="font-medium text-slate-800">
+            Drop-off point
+            <select
+              className={inputClass}
+              name="destinationPickupPointId"
+              value={destinationPickupId}
+              onChange={(event) => setDestinationPickupId(event.target.value)}
+            >
+              <option value="">Decide with passengers</option>
+              {destinationPickupPoints.map((point) => (
+                <option key={point.id} value={point.id}>
+                  {point.name_en} / {point.name_mk}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
 
-        {carMode === "catalog" ? (
-          <div className="mt-5 grid gap-5 md:grid-cols-2">
-            <label className="font-medium text-slate-800 md:col-span-2">
-              Search models
-              <input
-                className={inputClass}
-                onChange={(event) => setCatalogQuery(event.target.value)}
-                placeholder="Golf, Astra, Clio…"
-                type="search"
-                value={catalogQuery}
-              />
-            </label>
-            <label className="font-medium text-slate-800 md:col-span-2">
-              Model
-              <select
-                className={inputClass}
-                name="carModelId"
-                onChange={(event) => {
-                  const nextId = event.target.value;
-                  setCatalogModelId(nextId);
-                  const model = carModels.find((item) => item.id.toString() === nextId);
-                  setConsumption(model?.consumption_l_100km.toString() ?? "");
-                }}
-                required
-                value={catalogModelId}
-              >
-                <option value="">Choose a model</option>
-                {filteredCarModels.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.make} {model.model} · {model.engine_size_l}L {model.fuel_type}
-                    {model.release_year ? ` · ${model.release_year}` : ""}
-                  </option>
-                ))}
-              </select>
-              {selectedCatalogModel ? (
-                <p className="mt-2 text-sm text-slate-600">
-                  Catalog estimate: {selectedCatalogModel.consumption_l_100km} L/100 km. Change it
-                  below if you know your car&apos;s real consumption.
-                </p>
+      <fieldset ref={carFieldsRef} disabled={pending || savingCar} className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+        <legend className="px-2 font-semibold text-slate-900">Your car</legend>
+        {carMode === "existing" && selectedExistingCar && !choosingCar ? (
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-slate-900">{selectedExistingCar.make} {selectedExistingCar.model}</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Saved car{selectedExistingCar.color ? ` · ${selectedExistingCar.color}` : ""}
+                {selectedExistingCar.plate_last3 ? ` · •••${selectedExistingCar.plate_last3}` : ""}
+              </p>
+            </div>
+            <button ref={carChangeRef} type="button" className="rounded-lg px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50" onClick={() => setChoosingCar(true)}>Change</button>
+            <input type="hidden" name="carId" value={existingCarId} />
+          </div>
+        ) : (
+          <div>
+            <div className="flex flex-wrap gap-2">
+              {cars.length > 0 ? (
+                <button
+                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                    carMode === "existing"
+                      ? "bg-brand-600 text-white"
+                      : "bg-slate-100 text-slate-700"
+                  }`}
+                  onClick={() => setCarMode("existing")}
+                  aria-pressed={carMode === "existing"}
+                  type="button"
+                >
+                  Saved car
+                </button>
               ) : null}
-            </label>
-            <NewCarFields
-              consumption={consumption}
-              initialDraft={initialDraft}
-              onConsumptionChange={setConsumption}
-            />
-          </div>
-        ) : null}
-
-        {carMode === "manual" ? (
-          <div className="mt-5 grid gap-5 md:grid-cols-2">
-            <label className="font-medium text-slate-800">
-              Make
-              <input
-                className={inputClass}
-                defaultValue={initialDraft.car?.make ?? ""}
-                maxLength={80}
-                name="carMake"
-                required
-              />
-            </label>
-            <label className="font-medium text-slate-800">
-              Model
-              <input
-                className={inputClass}
-                defaultValue={initialDraft.car?.model ?? ""}
-                maxLength={120}
-                name="carModel"
-                required
-              />
-            </label>
-            <label className="font-medium text-slate-800">
-              Fuel
-              <select
-                className={inputClass}
-                name="fuelType"
-                onChange={(event) => setManualFuelType(event.target.value)}
-                required
-                value={manualFuelType}
+              <button
+                className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                  carMode === "catalog"
+                    ? "bg-brand-600 text-white"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+                onClick={() => setCarMode("catalog")}
+                aria-pressed={carMode === "catalog"}
+                type="button"
               >
-                <option value="petrol">Petrol</option>
-                <option value="diesel">Diesel</option>
-                <option value="hybrid">Hybrid</option>
-                <option value="electric">Electric</option>
-                <option value="lpg">LPG</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
-            <NewCarFields
-              consumption={consumption}
-              initialDraft={initialDraft}
-              onConsumptionChange={setConsumption}
-            />
+                Find model
+              </button>
+              <button
+                className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                  carMode === "manual"
+                    ? "bg-brand-600 text-white"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+                onClick={() => setCarMode("manual")}
+                aria-pressed={carMode === "manual"}
+                type="button"
+              >
+                Enter manually
+              </button>
+            </div>
+
+            {carMode === "existing" ? (
+              <label className="mt-5 block font-medium text-slate-800">
+                Your saved cars
+                <select
+                  className={inputClass}
+                  name="carId"
+                  onChange={(event) => {
+                    setExistingCarId(event.target.value);
+                    if (event.target.value) setChoosingCar(false);
+                    setCarMessage("");
+                  }}
+                  required
+                  value={existingCarId}
+                >
+                  <option value="">Choose a car</option>
+                  {cars.map((car) => (
+                    <option key={car.id} value={car.id}>
+                      {car.make} {car.model}
+                      {car.color ? ` · ${car.color}` : ""}
+                      {car.plate_last3 ? ` · •••${car.plate_last3}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            {carMode === "catalog" ? (
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <label className="font-medium text-slate-800 md:col-span-2">
+                  Search models
+                  <input
+                    className={inputClass}
+                    onChange={(event) => setCatalogQuery(event.target.value)}
+                    placeholder="Golf, Astra, Clio…"
+                    type="search"
+                    value={catalogQuery}
+                  />
+                </label>
+                <label className="font-medium text-slate-800 md:col-span-2">
+                  Model
+                  <select
+                    className={inputClass}
+                    name="carModelId"
+                    onChange={(event) => {
+                      const nextId = event.target.value;
+                      setCatalogModelId(nextId);
+                      const model = carModels.find((item) => item.id.toString() === nextId);
+                      setConsumption(model?.consumption_l_100km.toString() ?? "");
+                    }}
+                    required
+                    value={catalogModelId}
+                  >
+                    <option value="">Choose a model</option>
+                    {filteredCarModels.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.make} {model.model} · {model.engine_size_l}L {model.fuel_type}
+                        {model.release_year ? ` · ${model.release_year}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedCatalogModel ? (
+                    <p className="mt-2 text-sm text-slate-600">
+                      Catalog estimate: {selectedCatalogModel.consumption_l_100km} L/100 km. Change it
+                      below if you know your car&apos;s real consumption.
+                    </p>
+                  ) : null}
+                </label>
+                <NewCarFields
+                  consumption={consumption}
+                  initialDraft={initialDraft}
+                  onConsumptionChange={setConsumption}
+                />
+              </div>
+            ) : null}
+
+            {carMode === "manual" ? (
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <label className="font-medium text-slate-800">
+                  Make
+                  <input
+                    className={inputClass}
+                    defaultValue={initialDraft.car?.make ?? ""}
+                    maxLength={80}
+                    name="carMake"
+                    required
+                  />
+                </label>
+                <label className="font-medium text-slate-800">
+                  Model
+                  <input
+                    className={inputClass}
+                    defaultValue={initialDraft.car?.model ?? ""}
+                    maxLength={120}
+                    name="carModel"
+                    required
+                  />
+                </label>
+                <label className="font-medium text-slate-800">
+                  Fuel
+                  <select
+                    className={inputClass}
+                    name="fuelType"
+                    onChange={(event) => setManualFuelType(event.target.value)}
+                    required
+                    value={manualFuelType}
+                  >
+                    <option value="petrol">Petrol</option>
+                    <option value="diesel">Diesel</option>
+                    <option value="hybrid">Hybrid</option>
+                    <option value="electric">Electric</option>
+                    <option value="lpg">LPG</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <NewCarFields
+                  consumption={consumption}
+                  initialDraft={initialDraft}
+                  onConsumptionChange={setConsumption}
+                />
+              </div>
+            ) : null}
+            {carMode !== "existing" ? (
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <button className="btn-secondary disabled:opacity-50" type="button" onClick={handleSaveCar} disabled={savingCar || pending}>
+                  {savingCar ? "Saving car…" : "Save car"}
+                </button>
+                <p className="text-sm text-slate-500">Save once and reuse on future rides.</p>
+              </div>
+            ) : selectedExistingCar ? (
+              <button className="mt-4 text-sm font-semibold text-emerald-700" type="button" onClick={() => setChoosingCar(false)}>Done</button>
+            ) : null}
           </div>
-        ) : null}
+        )}
+        <input name="carMode" type="hidden" value={carMode} />
+        {carMessage ? <p role={carSaveError ? "alert" : "status"} className={`mt-3 text-sm ${carSaveError ? "text-red-700" : "text-emerald-700"}`}>{carMessage}</p> : null}
         <FieldError errors={state.fieldErrors.carId} />
       </fieldset>
 
@@ -515,7 +588,7 @@ export function RideForm({
       </details>
 
       <fieldset className="form-section">
-        <legend className="pr-3 text-lg font-semibold text-slate-800">4. Ride preferences</legend>
+        <legend className="pr-3 text-lg font-semibold text-slate-800">Ride preferences</legend>
         <div className="mt-3 flex flex-wrap gap-3">
           {RIDE_TAGS.map((tag) => (
             <label
@@ -582,7 +655,7 @@ export function RideForm({
         <p className="text-sm text-slate-500 sm:mr-auto sm:max-w-xs">Drafts are private. Published rides are visible to students, and you approve each seat request.</p>
         <button
           className="btn-secondary disabled:opacity-50"
-          disabled={pending || state.status === "success"}
+          disabled={pending || savingCar || state.status === "success"}
           name="intent"
           type="submit"
           value="save_draft"
@@ -591,7 +664,7 @@ export function RideForm({
         </button>
         <button
           className="btn-primary disabled:opacity-50"
-          disabled={pending || state.status === "success"}
+          disabled={pending || savingCar || state.status === "success"}
           name="intent"
           type="submit"
           value="publish"
