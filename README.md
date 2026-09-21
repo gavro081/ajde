@@ -8,8 +8,8 @@ The most distinctive workflow turns an informal Macedonian, mixed-script, or Alb
 into a structured **draft**. The driver reviews and edits every extracted field before anything can
 be saved or published.
 
-> This repository is under active hackathon development. The complete Tier 1 journey—from student
-> sign-in through discovery, booking approval, and confirmed contact exchange—is implemented.
+> This repository is under active hackathon development. The Tier 1 journey and all planned Tier 2
+> features are implemented; production authorization remains intentionally unfinished.
 
 ## Feature status
 
@@ -25,7 +25,12 @@ be saved or published.
 | Location normalization | Implemented | Deterministic name/alias matching first, structured model fallback on misses, and canonical-ID validation |
 | Feed and ride detail | Implemented | Authenticated route/date/seat filters, ride cards, seat fullness, driver/car context, and responsive detail pages |
 | Booking lifecycle | Implemented | Request, approve, decline, cancel, concurrency-safe seat holding, driver dashboard, passenger dashboard, and post-approval contact reveal |
-| Natural-language search and sharing | Planned | Search, match explanations, and public trip links are not implemented |
+| Natural-language search | Implemented | Structured OpenAI interpretation produces canonical route/time/seat filters; manual filters remain usable when the provider fails |
+| AI match explanations | Implemented | Explanations are batched over server-reloaded visible rides and fall back to deterministic ride facts |
+| Same-gender discovery | Implemented | Optional declared-gender filter is independent from AI search and does not expose gender on ride cards |
+| Public ride Q&A | Implemented | Authenticated students can post on future published/full rides and delete their own comments |
+| Share my trip | Implemented | Accepted passengers can create and revoke signed-out itinerary links that expire 24 hours after departure |
+| Ride completion and CO2 impact | Implemented | Drivers complete/cancel rides; passenger and platform estimates count completed shared trips with explicit assumptions |
 | Production authorization | Planned | Row-level security policies are intentionally deferred and must be added before deployment |
 
 ## Architecture
@@ -43,8 +48,8 @@ flowchart LR
   Next --> Auth
   Next --> DB
   Next --> Storage
-  Next -->|server-only /api/parse| OpenAI
-  OpenAI -->|schema-constrained draft| Next
+  Next -->|server-only parse, search, explain| OpenAI
+  OpenAI -->|schema-constrained output| Next
   Next -->|raw post + parsed result| DB
 ```
 
@@ -81,7 +86,7 @@ More detail:
 - npm with lockfile-v3 support
 - A Supabase project
 - PostgreSQL `psql` for the documented migration and smoke-test commands
-- An OpenAI API key to use post import or the live parser evaluation
+- An OpenAI API key to use post import, AI search/explanations, or live evaluations
 
 The repository does not yet pin a specific Node/npm version. The latest verified environment used
 Node.js 23.7.0 and npm 11.2.0.
@@ -110,9 +115,11 @@ Fill in `.env.local` without committing it:
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase access | Browser-visible public key; legacy projects may use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead |
 | `DATABASE_URL` | Migrations and schema smoke test | Use the session-pooler PostgreSQL URL on port 5432 |
 | `STUDENT_EMAIL_DOMAINS` | Student access policy | Server-only comma-separated exact domains |
-| `OPENAI_API_KEY` | `/api/parse`, location fallback, and parser evaluation | Server-only; never prefix it with `NEXT_PUBLIC_` |
+| `OPENAI_API_KEY` | Post parsing, location fallback, natural-language search, match explanations, and live evaluations | Server-only; never prefix it with `NEXT_PUBLIC_` |
 | `OPENAI_MODEL` | Optional ride-post parser override | Defaults to `gpt-5.4-mini` |
 | `OPENAI_LOCATION_MODEL` | Optional location-fallback override | Defaults to `gpt-5-mini` |
+| `OPENAI_SEARCH_MODEL` | Optional natural-language search override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
+| `OPENAI_EXPLAIN_MODEL` | Optional match-explanation override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
 | `FUEL_PRICE_PETROL_MKD_L` | Petrol cost estimate | Optional at startup; verify the current MKD/L value before a demo |
 | `FUEL_PRICE_DIESEL_MKD_L` | Diesel cost estimate | Optional at startup; verify the current MKD/L value before a demo |
 | `DEV_AUTH_BYPASS` | Local sign-in without sending email | Optional; honored only when exactly `true` outside production |
@@ -189,9 +196,9 @@ npx tsc --noEmit
 npx next build --webpack
 ```
 
-The current suite contains 54 focused tests covering location resolution, ride-draft validation,
-form parsing, car selection, price/CO2 calculations, feed filters, booking eligibility, canonical
-parser guards, and fixture behavior.
+The focused suite covers location resolution, ride-draft validation, form parsing, car selection,
+price/CO2 calculations, feed filters, booking eligibility, search and explanation contracts,
+sharing, comments, ride completion, impact queries, canonical parser guards, and fixture behavior.
 Run only the 13 location-resolver tests with `npm run test:locations`.
 
 The live parser evaluator makes real OpenAI requests:
@@ -204,18 +211,34 @@ It fixes the evaluation timestamp for repeatable relative-date expectations and 
 classification, route, departure, seats, and price. The latest recorded result is 5/5 in each field
 on five curated fixtures; that is a regression signal, not a production-accuracy claim.
 
+Natural-language search has a separate live evaluator:
+
+```sh
+npm run eval:search
+```
+
+Its eight fixtures cover English, Macedonian Cyrillic and transliteration, Albanian, landmarks,
+unknown places, missing fields, relative dates, and unsupported preference wording. See
+[the recorded search evaluation](ride-share-app/fixtures/search/README.md). Normal `npm test` runs
+use mocked model responses and consume no OpenAI credits; both live evaluators do consume credits.
+
 ## Current implemented flow
 
-The implemented Tier 1 flow is:
+The implemented product flow is:
 
 1. Sign in with an allowed student-domain address and complete the required profile onboarding.
-2. Browse `/rides`, filter by route, date, and required seats, then open a ride detail page.
+2. Browse `/rides`; use manual route/date/seat filters, optional same-gender discovery, or an
+   AI-interpreted natural-language query. Match explanations degrade safely if OpenAI is unavailable.
 3. Request one or more available seats. The passenger sees a pending request in `/dashboard/trips`.
 4. The driver accepts or declines from `/dashboard/driver`; accepted seats are held atomically.
 5. Accepted drivers and passengers can see each other's contact details. A passenger cancellation
    releases the seats and reopens a full ride automatically.
 6. Drivers can create a ride manually, or paste a Viber/Facebook post into `/rides/import`, review
    the structured draft, choose a car, check the estimate, and explicitly publish it.
+7. Students can use the public Q&A on an upcoming ride. Accepted passengers can create a limited
+   itinerary link for family, revoke it, or let it expire automatically 24 hours after departure.
+8. The driver completes or cancels the ride. Completed shared rides contribute to the personal and
+   platform estimated CO2 counters in the passenger dashboard.
 
 ## How AI is used
 
@@ -237,6 +260,13 @@ Pickup matches derive their city from the database vocabulary, fabricated IDs ar
 unresolved place clears model IDs and forces manual review. Additional guards clear invented
 departure times and flag low-confidence output. The raw post and structured result are stored
 together for the review step.
+
+`parseSearchQuery` separately turns a short search such as “Bitola Friday after 4” into nullable,
+schema-validated origin, destination, time-bound, and seat fields. Canonical locations are resolved
+against the same database vocabulary, unsupported criteria remain warnings, and only validated URL
+filters reach the feed query. `explainMatch` receives a bounded batch of server-reloaded matching
+ride facts and the parsed search context. Invalid, timed-out, missing-key, or unsupported responses
+fall back to deterministic explanations; AI failure never removes the underlying ride results.
 
 The fair-price and CO2 calculator is intentionally **not AI**. It uses transparent arithmetic:
 
@@ -262,31 +292,47 @@ Implemented protections:
   capacity; the database trigger is the final concurrency guard against overbooking.
 - Applicants and public feed users never receive contact fields. Contacts are queried and shown
   only for accepted bookings to the participating driver and passenger.
+- Same-gender discovery and booking restrictions require both people to have a declared usable
+  gender; undisclosed or missing values are never guessed or treated as a match.
+- Ride Q&A requires an authenticated complete student profile, accepts posts only before departure
+  on published/full rides, and lets authors delete only their own comments.
+- Share links use random bearer tokens, are available only for accepted bookings, can be revoked,
+  and stop resolving after cancellation, booking-status changes, or 24 hours after departure. The
+  public projection contains itinerary, driver name/photo, and car details—not contacts, booking
+  messages, passenger identities, or live location.
 - Imported records and saved cars are checked against the authenticated user's ID.
 - Form input is validated in the UI contract and again in the Server Action.
 - Duplicate submissions are detected through a submission UUID.
 - Imported model output always goes through human review.
 - Public Supabase keys are separated from server-only secrets.
 
-The product plan's later tiers still call for a feed-level same-gender filter, trip-share links,
-reports, comments, and chat. Supporting columns exist for several of these, but they are outside
-the completed Tier 1 scope.
+### CO2 impact assumptions
+
+- Each accepted passenger seat is assumed to replace a separate car making the same trip with the
+  shared car's recorded consumption. These are estimates, not measured emissions.
+- Personal savings belong to accepted passengers; drivers receive no extra credit. Each eligible
+  ride contributes once to the platform total.
+- Only departed rides explicitly marked completed and containing accepted seats qualify. Petrol
+  and diesel use the factors above; missing/invalid distance, car, or consumption data and other
+  fuels are counted as excluded rather than estimated.
+- Totals use the currently stored ride, booking, and car data rather than an immutable historical
+  snapshot, so later booking changes can alter the totals.
 
 ## Known issues and limitations
 
 - Row-level security policies are absent. Do not deploy the current database as a production system.
-- Natural-language search, comments, chat, ratings, public trip sharing, and feed-level
-  same-gender filtering are not implemented because they belong to later tiers.
+- Chat, ratings, unclaimed imported-ride ownership, reports, recurring rides, payments, and live
+  location tracking are not implemented.
 - The local auth bypass requires a server admin key; it is guarded from production but should remain
   disabled during normal testing.
-- Parser accuracy has only been measured on five curated fixtures and model output can vary.
+- Parser accuracy has only been measured on five curated post fixtures, and search on eight curated
+  fixtures; model output can vary and both paths require user-visible review/fallback behavior.
 - Date-only posts deliberately leave departure empty for manual review; “after 6” uses 18:00 as an
   earliest boundary and adds a warning.
 - Distance is entered manually; no routing/distance provider is integrated.
 - Fuel-price environment values are manual assumptions and must be verified before presenting them.
 - Automatic CO2 estimates currently cover petrol and diesel only.
 - Migration execution and generated-type refresh are not wrapped in project scripts.
-- The service-role variable is reserved but unused.
 
 ## Repository map
 
@@ -297,13 +343,17 @@ the completed Tier 1 scope.
 └── ride-share-app/
     ├── app/                        Next.js routes, Server Actions, and Route Handlers
     ├── fixtures/posts/             anonymized parser fixtures and evaluation notes
-    ├── lib/ai/                     structured post parser and canonical location resolution
+    ├── fixtures/search/            multilingual search fixtures and recorded live results
+    ├── lib/ai/                     structured parsing, location resolution, search, explanations
     ├── lib/auth/                   domain policy and session/profile-completion guards
     ├── lib/bookings/               booking input and eligibility validation
+    ├── lib/comments/               public ride Q&A access, queries, and mutations
+    ├── lib/impact/                 personal and platform CO2 impact queries
     ├── lib/profiles/               deliberately limited public-profile query
     ├── lib/rides/                  ride contracts, form validation, car and estimate logic
+    ├── lib/sharing/                expiring public itinerary links and safe projections
     ├── lib/supabase/               browser/server clients and generated database types
-    ├── scripts/                    live parser evaluator
+    ├── scripts/                    live parser and search evaluators
     └── supabase/                   migrations, seeds, model documentation, and smoke test
 ```
 
