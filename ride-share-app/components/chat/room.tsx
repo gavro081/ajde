@@ -243,11 +243,11 @@ export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPag
       <form className="shrink-0 space-y-2 border-t border-slate-100 p-3 sm:p-4" onSubmit={event => { event.preventDefault(); send(); }}>
         {!membership.canSend ? <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm">This room is read-only. Sending closes when the ride is cancelled or 48 hours after departure.</p> : null}
         <label htmlFor="room-message" className="sr-only">Message to the ride group</label>
-        <div className="flex items-end gap-2">
+        <div className="flex items-stretch gap-2">
           <textarea id="room-message" ref={textarea} value={body} onChange={event => setBody(event.target.value)} maxLength={2000} rows={2} placeholder="Message the ride group…"
             disabled={pending || !membership.canSend} aria-describedby="room-keyboard" className="field max-h-40 min-h-[52px] flex-1 resize-none disabled:bg-slate-100"
             onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(); } }} />
-          <button disabled={pending || !body.trim() || !membership.canSend} className="btn-primary shrink-0 disabled:opacity-50">{pending ? "Sending…" : "Send message"}</button>
+          <button disabled={pending || !body.trim() || !membership.canSend} className="btn-primary w-[9.5rem] shrink-0 whitespace-nowrap px-0 disabled:opacity-50">{pending ? "Sending…" : "Send message"}</button>
         </div>
         <p id="room-keyboard" className="text-xs text-slate-500">Enter to send · Shift+Enter for a new line · {body.length}/2000</p>
         {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
