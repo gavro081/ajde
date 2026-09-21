@@ -5,7 +5,7 @@ import { CommentForm, DeleteCommentForm } from "./comment-forms";
 export async function RideComments({ rideId }: { rideId: string }) {
   const thread = await getRideComments(rideId);
   return (
-    <section aria-labelledby="ride-questions" className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+    <section aria-labelledby="ride-questions" className="mt-6 rounded-3xl border border-white bg-white p-6 shadow-sm sm:p-8">
       <h2 id="ride-questions" className="text-xl font-bold">Ride Q&amp;A</h2>
       {"error" in thread ? <p role="alert" className="mt-4 text-sm text-red-700">{thread.error}</p> : <>
         {thread.comments.length === 0 ? <p className="mt-4 text-sm text-slate-600">No questions yet. Start the conversation about this ride.</p> : (

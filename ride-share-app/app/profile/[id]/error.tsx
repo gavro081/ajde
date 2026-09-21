@@ -12,7 +12,7 @@ export default function ProfileError({ reset }: { error: Error; reset: () => voi
         <button
           type="button"
           onClick={reset}
-          className="mt-7 rounded-2xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800"
+          className="mt-7 rounded-2xl bg-coral-600 px-5 py-3 font-semibold text-white hover:bg-coral-700"
         >
           Try again
         </button>

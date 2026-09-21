@@ -20,11 +20,11 @@ export function CompleteRideButton({ rideId }: { rideId: string }) {
             setResult({ success: false, message: "Could not complete the ride. Please try again." });
           }
         })}
-        className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+        className="btn-primary disabled:opacity-60"
       >
         {pending ? "Marking completed…" : "Mark completed"}
       </button>
-      {result ? <p role={result.success ? "status" : "alert"} className={`mt-2 text-sm ${result.success ? "text-emerald-800" : "text-red-700"}`}>{result.message}</p> : null}
+      {result ? <p role={result.success ? "status" : "alert"} className="mt-2 text-sm text-coral-700">{result.message}</p> : null}
     </div>
   );
 }

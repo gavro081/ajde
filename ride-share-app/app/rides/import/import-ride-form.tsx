@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 import { parsedRidePostSchema, type ParsedRidePost } from "@/lib/ai/parsed-ride-post";
+import { formatDeparture } from "@/lib/rides/ride-presentation";
 
 type ParseResponse = {
   importId: string;
@@ -13,7 +14,7 @@ type ParseResponse = {
 const inputClass =
   "mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 
-export function ImportRideForm() {
+export function ImportRideForm({ cities }: { cities: { id: number; name_en: string }[] }) {
   const [text, setText] = useState("");
   const [sourceHint, setSourceHint] = useState<"viber" | "facebook" | "other">("viber");
   const [result, setResult] = useState<ParseResponse | null>(null);
@@ -74,7 +75,8 @@ export function ImportRideForm() {
 
   return (
     <div className="space-y-7">
-      <form className="space-y-5" onSubmit={submit}>
+      <form className="space-y-5" onSubmit={submit} aria-busy={pending}>
+        <p className="eyebrow">1. Paste post · 2. Review · 3. Publish</p>
         <label className="block font-medium text-slate-800">
           Source
           <select
@@ -103,7 +105,7 @@ export function ImportRideForm() {
           <span className="mt-1 block text-right text-xs text-slate-500">{text.length}/5000</span>
         </label>
         <button
-          className="rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+          className="btn-primary disabled:opacity-50"
           disabled={pending}
           type="submit"
         >
@@ -112,25 +114,26 @@ export function ImportRideForm() {
       </form>
 
       {error ? (
-        <p aria-live="polite" className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-900">
+        <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-900">
           {error}
+          <Link href="/rides/new" className="mt-2 block font-semibold underline">Enter the ride manually</Link>
         </p>
       ) : null}
 
-      {result ? <ParsedReview result={result} /> : null}
+      {result ? <ParsedReview result={result} cities={cities} /> : null}
     </div>
   );
 }
 
-function ParsedReview({ result }: { result: ParseResponse }) {
+function ParsedReview({ result, cities }: { result: ParseResponse; cities: { id: number; name_en: string }[] }) {
   const { parsed } = result;
   const fields = [
     ["Classification", parsed.classification],
-    ["Origin city ID", parsed.draft.origin.cityId ?? "Needs review"],
-    ["Destination city ID", parsed.draft.destination.cityId ?? "Needs review"],
-    ["Departure", parsed.draft.departureAt ?? "Needs review"],
+    ["Departure city", cities.find(city => city.id === parsed.draft.origin.cityId)?.name_en ?? parsed.draft.origin.rawText ?? "Needs review"],
+    ["Destination city", cities.find(city => city.id === parsed.draft.destination.cityId)?.name_en ?? parsed.draft.destination.rawText ?? "Needs review"],
+    ["Departure (Skopje time)", parsed.draft.departureAt ? formatDeparture(parsed.draft.departureAt) : "Needs review"],
     ["Seats", parsed.draft.seatsTotal ?? "Needs review"],
-    ["Price per seat", parsed.draft.pricePerSeatMkd ?? "Needs review"],
+    ["Price per seat", parsed.draft.pricePerSeatMkd !== null ? `${parsed.draft.pricePerSeatMkd} MKD` : "Needs review"],
   ];
 
   return (
@@ -173,7 +176,7 @@ function ParsedReview({ result }: { result: ParseResponse }) {
       ) : null}
 
       <Link
-        className="mt-5 inline-flex rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800"
+        className="mt-5 inline-flex btn-primary"
         href={`/rides/new?import=${result.importId}`}
       >
         Continue to editable ride form

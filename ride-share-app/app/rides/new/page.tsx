@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { AppHeader } from "@/components/app-header";
 
 import { parsedRidePostSchema } from "@/lib/ai/parsed-ride-post";
 import type { RideDraft } from "@/lib/rides/ride-draft";
@@ -121,22 +123,20 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950 sm:px-6">
+    <><AppHeader /><main id="main-content" className="bg-slate-50 px-4 py-10 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-4xl">
         <div className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
-            Offer a ride
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
+          <Link href="/dashboard/driver" className="mb-5 inline-flex text-sm font-semibold text-emerald-700 hover:underline">← My rides</Link>
+          <h1 className="page-heading mt-3">
             Where are you headed?
           </h1>
           <p className="mt-3 max-w-2xl text-slate-600">
-            Add the trip details now. You can save a private draft or publish it to the student
-            feed.
+            Set your route, choose your car, and offer a seat.
           </p>
+          <Link href="/rides/import" className="mt-4 inline-flex text-sm font-semibold text-emerald-700 hover:underline">Already posted in a group? Import your post →</Link>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+        <div className="rounded-3xl border border-white bg-white p-5 shadow-sm sm:p-8">
           <RideForm
             carModels={carModelsResult.data}
             cars={carsResult.data}
@@ -149,6 +149,6 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
           />
         </div>
       </div>
-    </main>
+    </main></>
   );
 }
