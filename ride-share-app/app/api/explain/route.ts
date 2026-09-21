@@ -2,7 +2,10 @@ import {
   explainMatch,
   type ExplainRideFact,
 } from "@/lib/ai/explain-match";
-import { explainRequestSchema } from "@/lib/ai/explain-match-schema";
+import {
+  explainRequestSchema,
+  explanationRideMatchesContext,
+} from "@/lib/ai/explain-match-schema";
 import { isAllowedStudentEmail } from "@/lib/auth/email-domain";
 import { createClient } from "@/lib/supabase/server";
 
@@ -44,7 +47,7 @@ export async function POST(request: Request) {
     .gte("departure_at", new Date().toISOString());
   if (rideError) return Response.json({ error: "Ride facts could not be loaded." }, { status: 500 });
 
-  const eligible = rides.filter((ride) => matchesContext(ride, input.data.context));
+  const eligible = rides.filter((ride) => explanationRideMatchesContext(ride, input.data.context));
   const cityIds = [...new Set(eligible.flatMap((ride) => [ride.origin_city_id, ride.dest_city_id]))];
   const { data: cities, error: cityError } = cityIds.length
     ? await supabase.from("cities").select("id, name_en").in("id", cityIds)
@@ -72,27 +75,4 @@ export async function POST(request: Request) {
   });
 
   return Response.json({ explanations: await explainMatch(facts, input.data.context) });
-}
-
-function matchesContext(
-  ride: {
-    origin_city_id: number;
-    dest_city_id: number;
-    departure_at: string;
-    seats_available: number;
-  },
-  context: {
-    originId: number | null;
-    destinationId: number | null;
-    departureAfter: string | null;
-    departureBefore: string | null;
-    requestedSeats: number | null;
-  },
-) {
-  if (context.originId !== null && ride.origin_city_id !== context.originId) return false;
-  if (context.destinationId !== null && ride.dest_city_id !== context.destinationId) return false;
-  if (context.departureAfter !== null && ride.departure_at < context.departureAfter) return false;
-  if (context.departureBefore !== null && ride.departure_at >= context.departureBefore) return false;
-  if (context.requestedSeats !== null && ride.seats_available < context.requestedSeats) return false;
-  return true;
 }
