@@ -1,3 +1,4 @@
+import { phoneSchema } from '@/lib/profiles/contact'
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -67,17 +68,14 @@ export async function proxy(request: NextRequest) {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('full_name, photo_url, university')
+      .select('full_name, photo_url, university, phone')
       .eq('id', user.id)
       .maybeSingle()
 
     const profileComplete = Boolean(
-      profile?.full_name.trim() && profile.photo_url.trim() && profile.university.trim(),
+      profile?.full_name.trim() && profile.photo_url.trim() && profile.university.trim() && phoneSchema.safeParse(profile.phone).success,
     )
 
-    if (pathname === '/onboarding' && profileComplete) {
-      return redirectWithCookies(new URL('/rides', request.url), response)
-    }
 
     if (pathname !== '/onboarding' && !profileComplete) {
       return redirectWithCookies(new URL('/onboarding', request.url), response)

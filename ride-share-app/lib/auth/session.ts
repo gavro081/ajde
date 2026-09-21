@@ -1,4 +1,5 @@
 import 'server-only'
+import { phoneSchema } from '@/lib/profiles/contact'
 
 import type { User } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
@@ -22,7 +23,7 @@ export async function getProfileCompletion(userId: string): Promise<ProfileCompl
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, photo_url, university')
+    .select('id, full_name, photo_url, university, phone')
     .eq('id', userId)
     .maybeSingle()
 
@@ -30,7 +31,7 @@ export async function getProfileCompletion(userId: string): Promise<ProfileCompl
 
   return {
     complete: Boolean(
-      data.full_name.trim() && data.photo_url.trim() && data.university.trim(),
+      data.full_name.trim() && data.photo_url.trim() && data.university.trim() && phoneSchema.safeParse(data.phone).success,
     ),
     profileId: data.id,
   }

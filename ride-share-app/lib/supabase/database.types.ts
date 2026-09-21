@@ -331,6 +331,7 @@ export type Database = {
           instagram: string | null
           phone: string | null
           photo_url: string
+          social_url: string | null
           university: string
           updated_at: string
           verified_at: string | null
@@ -345,6 +346,7 @@ export type Database = {
           instagram?: string | null
           phone?: string | null
           photo_url: string
+          social_url?: string | null
           university: string
           updated_at?: string
           verified_at?: string | null
@@ -359,6 +361,7 @@ export type Database = {
           instagram?: string | null
           phone?: string | null
           photo_url?: string
+          social_url?: string | null
           university?: string
           updated_at?: string
           verified_at?: string | null
