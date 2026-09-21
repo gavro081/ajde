@@ -1,7 +1,10 @@
 import "server-only";
 
 import type { Tables } from "@/lib/supabase/database.types";
-import type { RideFilters } from "@/lib/rides/ride-filters";
+import {
+  departureBoundsForFilters,
+  type RideFilters,
+} from "@/lib/rides/ride-filters";
 import { createClient } from "@/lib/supabase/server";
 
 export type RideView = Tables<"rides"> & {
@@ -13,26 +16,24 @@ export type RideView = Tables<"rides"> & {
   car: Pick<Tables<"cars">, "id" | "make" | "model" | "color"> | null;
 };
 
-function nextDay(date: string) {
-  const result = new Date(`${date}T00:00:00+02:00`);
-  result.setDate(result.getDate() + 1);
-  return result.toISOString();
-}
-
-export async function getRideFeed(filters: RideFilters): Promise<RideView[]> {
+export async function getRideFeed(
+  filters: RideFilters,
+  { now = new Date() }: { now?: Date } = {},
+): Promise<RideView[]> {
   const supabase = await createClient();
+  const bounds = departureBoundsForFilters(filters, now);
   let query = supabase
     .from("rides")
     .select("*")
     .in("status", ["published", "full"])
-    .gte("departure_at", filters.date ? `${filters.date}T00:00:00+02:00` : new Date().toISOString())
+    .gte("departure_at", bounds.after)
     .gte("seats_available", filters.seats)
     .order("departure_at")
     .limit(100);
 
   if (filters.origin) query = query.eq("origin_city_id", filters.origin);
   if (filters.destination) query = query.eq("dest_city_id", filters.destination);
-  if (filters.date) query = query.lt("departure_at", nextDay(filters.date));
+  if (bounds.before) query = query.lt("departure_at", bounds.before);
 
   const { data, error } = await query;
   if (error) throw new Error("Unable to load rides.");
