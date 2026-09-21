@@ -11,6 +11,8 @@ import {
 } from "@/lib/rides/gender-discovery";
 import { createClient } from "@/lib/supabase/server";
 
+export { formatDeparture } from "./ride-presentation";
+
 export type RideView = Tables<"rides"> & {
   originCity: Pick<Tables<"cities">, "id" | "name_en" | "name_mk">;
   destinationCity: Pick<Tables<"cities">, "id" | "name_en" | "name_mk">;
@@ -65,7 +67,6 @@ export async function getRideFeed(
 
   return hydrateRides(eligibleRides.slice(0, 100));
 }
-
 export async function getRide(rideId: string): Promise<RideView | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("rides").select("*").eq("id", rideId).maybeSingle();
@@ -118,12 +119,4 @@ async function hydrateRides(rides: Tables<"rides">[]): Promise<RideView[]> {
       car: ride.car_id ? cars.get(ride.car_id) ?? null : null,
     }];
   });
-}
-
-export function formatDeparture(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Skopje",
-  }).format(new Date(value));
 }

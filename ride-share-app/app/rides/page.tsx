@@ -3,8 +3,8 @@ import Link from "next/link";
 
 import { AppHeader } from "@/components/app-header";
 import { NaturalLanguageSearch } from "@/components/discovery/natural-language-search";
+import { RideResults } from "@/components/discovery/ride-results";
 import { SearchInterpretation } from "@/components/discovery/search-interpretation";
-import { RideCard } from "@/components/ride-card";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { usableDiscoveryGender } from "@/lib/rides/gender-discovery";
 import { decodeSearchInterpretation, parseRideFilters } from "@/lib/rides/ride-filters";
@@ -111,7 +111,7 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
           <Link href="/rides" className="text-sm font-semibold text-emerald-700 hover:underline">Clear filters</Link>
         </div>
         {rides.length ? (
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">{rides.map((ride) => <RideCard key={ride.id} ride={ride} />)}</div>
+          <RideResults rides={rides} searchContext={interpretation} />
         ) : (
           <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
             <h2 className="text-xl font-bold">No rides match yet</h2>
