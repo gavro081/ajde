@@ -27,10 +27,13 @@ export async function decideBooking(bookingId: string, decision: "accepted" | "d
 
   const { data: ride } = await supabase
     .from("rides")
-    .select("id, driver_id, seats_available")
+    .select("id, driver_id, seats_available, status, departure_at")
     .eq("id", booking.ride_id)
     .maybeSingle();
   if (!ride || ride.driver_id !== user.id) redirect(dashboardUrl("driver", "error", "You cannot manage this request."));
+  if (!["published", "full"].includes(ride.status) || Date.parse(ride.departure_at) <= Date.now()) {
+    redirect(dashboardUrl("driver", "error", "This ride is no longer accepting booking decisions."));
+  }
   if (booking.status !== "requested") redirect(dashboardUrl("driver", "error", "This request was already decided."));
   if (decision === "accepted" && booking.seats > ride.seats_available) {
     redirect(dashboardUrl("driver", "error", "The ride no longer has enough available seats."));
