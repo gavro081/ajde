@@ -12,8 +12,7 @@ export function SearchInterpretation({
   const criteria = [
     result.originId ? `From ${cityNames.get(result.originId) ?? "unknown city"}` : null,
     result.destinationId ? `To ${cityNames.get(result.destinationId) ?? "unknown city"}` : null,
-    formatBounds(result.departureAfter, result.departureBefore),
-    result.requestedSeats ? `${result.requestedSeats}+ seat${result.requestedSeats === 1 ? "" : "s"}` : null,
+    formatBounds(result.departureAfter, result.departureBefore) ?? "Any upcoming date",
   ].filter((value): value is string => Boolean(value));
 
   return (

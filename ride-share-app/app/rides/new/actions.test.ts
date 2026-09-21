@@ -20,6 +20,13 @@ it("publishes through the atomic operation and returns the saved ride without na
   expect(args.p_submission_id).toBe("50000000-0000-4000-8000-000000000001");
 });
 
+it("saves a private draft through the same duplicate-safe operation", async () => {
+  const data = form(); data.set("intent", "save_draft");
+  db.rpc.mockResolvedValueOnce({ data: { rideId, carId, status: "draft" }, error: null });
+  expect(await createRide(idle, data)).toMatchObject({ status: "success", message: "Ride saved as a draft.", rideId });
+  expect(db.rpc.mock.calls[0][1].p_publish).toBe(false);
+});
+
 it("rejects past departures and missing seats without writing a ride or car", async () => {
   const data = form(); data.set("departureAt", "2020-01-01T10:00:00Z"); data.delete("seatsTotal");
   expect(await createRide(idle, data)).toMatchObject({ status: "error", fieldErrors: { seatsTotal: expect.any(Array) } });

@@ -12,7 +12,7 @@ import {
 import { localDayUtcBounds } from "./skopje-time";
 
 describe("ride feed filters", () => {
-  it("preserves existing origin, destination, date, and seat URLs", () => {
+  it("preserves origin, destination and date, and ignores legacy seat URLs", () => {
     expect(
       parseRideFilters({ origin: "1", destination: "3", date: "2026-09-21", seats: "2" }),
     ).toEqual({
@@ -21,7 +21,6 @@ describe("ride feed filters", () => {
       date: "2026-09-21",
       departureAfter: null,
       departureBefore: null,
-      seats: 2,
       sameGenderOnly: false,
     });
   });
@@ -57,9 +56,15 @@ describe("ride feed filters", () => {
       date: null,
       departureAfter: null,
       departureBefore: null,
-      seats: 1,
       sameGenderOnly: false,
     });
+  });
+
+  it("treats a missing date as every upcoming departure", () => {
+    const now = new Date("2026-09-21T10:00:00Z");
+    const filters = parseRideFilters({ origin: "1", date: "" });
+    expect(filters.date).toBeNull();
+    expect(departureBoundsForFilters(filters, now)).toEqual({ after: now.toISOString(), before: null });
   });
 
   it("never includes departed rides when a past date is supplied", () => {
@@ -110,7 +115,7 @@ describe("search precedence", () => {
     warnings: [],
   });
 
-  it("replaces route, time, and seat filters while preserving same-gender choice", () => {
+  it("replaces route and time filters, drops legacy seats, and preserves same-gender choice", () => {
     const params = searchResultParams(
       new URLSearchParams("origin=1&destination=2&date=2026-09-22&seats=4&sameGender=1"),
       "Bitola Friday after 4",
@@ -120,7 +125,7 @@ describe("search precedence", () => {
     expect(params.get("destination")).toBe("3");
     expect(params.get("date")).toBeNull();
     expect(params.get("after")).toBe("2026-09-25T14:00:00Z");
-    expect(params.get("seats")).toBe("2");
+    expect(params.get("seats")).toBeNull();
     expect(params.get("sameGender")).toBe("1");
     expect(params.get("q")).toBe("Bitola Friday after 4");
   });
@@ -131,7 +136,6 @@ describe("search precedence", () => {
       origin: 1,
       destination: 3,
       date: "2026-09-27",
-      seats: 4,
       sameGenderOnly: true,
     });
     expect(manual.get("date")).toBe("2026-09-27");

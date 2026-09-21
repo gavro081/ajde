@@ -1,11 +1,14 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import { Brand } from '@/components/brand'
 import { getCurrentUser, getProfileCompletion, safeNextPath } from '@/lib/auth/session'
 import { LoginForm } from './login-form'
 
 export const metadata = { title: 'Sign in or sign up' }
+const perks = [
+  { title: 'Students only', body: 'Every account is verified with a university email.' },
+  { title: 'Split the real cost', body: 'Share fuel fairly instead of paying for empty seats.' },
+  { title: 'Lighter on the planet', body: 'One shared car keeps up to three others off the road.' },
+]
 const messages: Record<string, string> = {
   'invalid-link': 'That sign-in link is invalid or has expired. Request a new one below.',
   'signed-out': 'You have been signed out safely.',
@@ -24,19 +27,24 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
     redirect(profile.complete ? next : '/onboarding')
   }
 
-  return <div className="min-h-screen">
-    <header className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6"><Brand /><Link href="/" className="btn-quiet">Home</Link></header>
+  return <div>
     <main id="main-content" className="mx-auto grid max-w-5xl gap-10 px-4 py-8 sm:px-6 sm:py-14 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-16">
       <aside className="max-w-md">
-        <h2 className="mt-4 text-4xl font-normal leading-tight tracking-[-.05em] sm:text-5xl">The journey is better<br className="hidden sm:block" /> with good company.</h2>
-        <Image src="/images/shared-journey.png" width={1254} height={1254} alt="A coral car ready for a shared journey" sizes="(max-width: 1023px) 0px, 420px" className="hidden w-full mix-blend-darken lg:block" />
+        <p className="eyebrow">Student Ride Share</p>
+        <h2 className="mt-3 font-display text-4xl font-extrabold leading-[1.02] tracking-[-.045em] sm:text-5xl">The journey is better<br className="hidden sm:block" /> with good company.</h2>
+        <ul className="mt-8 hidden space-y-4 lg:block">
+          {perks.map((perk) => <li key={perk.title} className="flex gap-3.5">
+            <span aria-hidden="true" className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-brand-100 text-brand-700">✓</span>
+            <span><span className="block font-semibold">{perk.title}</span><span className="text-slate-500">{perk.body}</span></span>
+          </li>)}
+        </ul>
       </aside>
       <section className="surface-card p-6 sm:p-9">
         <div className="mb-7 flex rounded-full bg-slate-50 p-1 text-sm font-medium" aria-label="Account access">
           <Link href={`/login?next=${encodeURIComponent(next)}`} aria-current={!signingUp ? 'page' : undefined} className={`flex min-h-11 flex-1 items-center justify-center rounded-full ${!signingUp ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500'}`}>Sign in</Link>
           <Link href={`/login?mode=signup&next=${encodeURIComponent(next)}`} aria-current={signingUp ? 'page' : undefined} className={`flex min-h-11 flex-1 items-center justify-center rounded-full ${signingUp ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500'}`}>Sign up</Link>
         </div>
-        <h1 className="text-3xl font-medium tracking-tight">{signingUp ? 'Your next ride starts here' : 'Welcome back'}</h1>
+        <h1 className="font-display text-3xl font-extrabold tracking-[-.035em]">{signingUp ? 'Your next ride starts here' : 'Welcome back'}</h1>
         <p className="mb-8 mt-4 leading-7 text-slate-500">{signingUp ? 'Start with your student email. We’ll help you set up the rest.' : 'We’ll email you a sign-in link. No password needed.'}</p>
         {messages[status] ? <p role="status" className={`mb-5 rounded-xl px-4 py-3 text-sm ${status === 'signed-out' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>{messages[status]}</p> : null}
         <LoginForm next={next} devBypassEnabled={devBypassEnabled} />

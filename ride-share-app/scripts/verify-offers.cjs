@@ -66,7 +66,7 @@ async function main() {
   await expect(page.getByLabel('Estimated route distance (km)')).toHaveValue('180');
   await expect(page.getByLabel('Notes')).toHaveValue('Preserve outbound notes');
   await page.getByRole('tab').first().focus(); await page.keyboard.press('ArrowRight');
-  await expect(page.getByLabel('Departure city')).toHaveValue('3');
+  await expect(page.getByLabel('From')).toHaveValue('3');
   await page.keyboard.press('ArrowLeft');
   await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
   await expect(page.getByRole('tab')).toHaveCount(1);
@@ -75,8 +75,10 @@ async function main() {
   await expect(page.getByRole('tab')).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Publish ride', exact: true })).toBeEnabled();
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile form must not overflow');
+  if (process.env.OFFERS_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.OFFERS_SCREENSHOTS, 'merge-offers-mobile.png'), fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Desktop form must not overflow');
+  if (process.env.OFFERS_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.OFFERS_SCREENSHOTS, 'merge-offers-desktop.png'), fullPage: true });
   assert.deepEqual(errors, []);
   assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 4);
   assert.equal((await checked(admin.from('cars').select('id').eq('owner_id', actor))).length, 2);
@@ -89,7 +91,7 @@ async function main() {
   await expect(page.getByRole('button', { name: 'Retry distance' })).toBeVisible();
   await expect(page.getByLabel('Estimated route distance (km)')).toHaveValue('');
   await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
-  await page.waitForURL('**/dashboard/trips');
+  await page.waitForURL('**/dashboard/trips?view=driver');
   const importedRide = await checked(admin.from('rides').select('source, import_id, details').eq('import_id', imported.id).single());
   assert.equal(importedRide.source, 'imported'); assert.equal(importedRide.details.distance_km, null);
   // Finish the remaining native tab using only manual edits, with providers unavailable.
@@ -98,10 +100,36 @@ async function main() {
   await page.getByLabel('Estimated route distance (km)').fill('');
   await page.getByLabel('Notes').fill('Manually completed after recovery');
   await page.getByRole('button', { name: 'Publish ride', exact: true }).click();
-  await page.waitForURL('**/dashboard/trips');
+  await page.waitForURL('**/dashboard/trips?view=driver');
   assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 6);
   assert.equal(await page.evaluate(key => sessionStorage.getItem(key), `ride-offers:v1:${actor}:native`), null);
   console.log('PASS imported publication, closed published tabs, final My trips redirects, session cleanup and manual completion during routing failure');
+
+  await page.goto(`${base}/rides/new`);
+  await page.getByRole('button', { name: 'Enter manually' }).click();
+  await page.getByLabel('Make', { exact: true }).fill('Renault');
+  await page.getByLabel('Model', { exact: true }).fill('Inline save verification');
+  await page.locator('select[name="fuelType"]').selectOption('petrol');
+  await page.getByLabel('Consumption (L/100 km)').fill('6');
+  await page.getByLabel('Total passenger seats').fill('4');
+  await page.getByRole('button', { name: 'Save car', exact: true }).click();
+  await expect(page.getByText('Car saved. It’s ready for this ride and future rides.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save draft', exact: true })).toBeEnabled();
+  assert.equal((await checked(admin.from('rides').select('id').eq('driver_id', actor))).length, 6);
+  await page.locator('select[name="originCityId"]').selectOption('1');
+  await page.locator('select[name="destinationCityId"]').selectOption('3');
+  await page.getByLabel('Departure', { exact: true }).fill(`${dateLocal}T18:00`);
+  await page.getByLabel('Available seats', { exact: false }).fill('2');
+  await page.getByLabel('Price per seat (MKD)').fill('400');
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await page.waitForURL('**/dashboard/trips?view=driver');
+  const savedDrafts = await checked(admin.from('rides').select('id, car_id, seats_total').eq('driver_id', actor).eq('status', 'draft'));
+  assert.equal(savedDrafts.length, 1);
+  assert.equal(savedDrafts[0].seats_total, 2);
+  const savedCar = await checked(admin.from('cars').select('model').eq('id', savedDrafts[0].car_id).single());
+  assert.equal(savedCar.model, 'Inline save verification');
+  assert.deepEqual(errors, []);
+  console.log('PASS incoming inline car save without a ride, reuse for a private draft, explicit offered seats and driver dashboard navigation');
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(async () => {
   if (browser) await browser.close();

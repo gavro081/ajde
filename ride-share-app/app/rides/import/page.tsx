@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { AppHeader } from "@/components/app-header";
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,9 +15,9 @@ export default async function ImportRidePage() {
   const { data: cities } = await supabase.from("cities").select("id, name_en");
 
   return (
-    <><AppHeader /><main id="main-content" className="bg-slate-50 px-4 py-10 text-slate-950 sm:px-6">
+    <><main id="main-content" className="px-4 py-10 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-3xl">
-        <Link href="/rides/new" className="mb-5 inline-flex text-sm font-semibold text-emerald-700 hover:underline">← Create a ride manually</Link>
+        <Link href="/rides/new" className="mb-5 inline-flex text-sm font-semibold text-brand-700 hover:underline">Create a ride manually</Link>
         <h1 className="page-heading mt-3">
           Import a ride post
         </h1>
@@ -26,7 +25,7 @@ export default async function ImportRidePage() {
           Paste your post. Review the details before publishing.
         </p>
 
-        <div className="mt-8 rounded-3xl border border-white bg-white p-5 shadow-sm sm:p-8">
+        <div className="mt-8 surface-card p-5 sm:p-8">
           <ImportRideForm cities={cities ?? []} />
         </div>
       </div>

@@ -7,7 +7,7 @@ import { bookingCancelSchema, bookingDecisionSchema } from "@/lib/bookings/valid
 import { createClient } from "@/lib/supabase/server";
 
 function dashboardUrl(path: "driver" | "trips", type: "success" | "error", message: string) {
-  return `/dashboard/${path}?${type}=${encodeURIComponent(message)}`;
+  return `/dashboard/trips?${path === "driver" ? "view=driver&" : ""}${type}=${encodeURIComponent(message)}`;
 }
 
 export async function decideBooking(bookingId: string, decision: "accepted" | "declined") {
@@ -16,7 +16,7 @@ export async function decideBooking(bookingId: string, decision: "accepted" | "d
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login?next=/dashboard/driver");
+  if (!user) redirect("/login?next=%2Fdashboard%2Ftrips%3Fview%3Ddriver");
 
   const { data: booking, error } = await supabase
     .from("bookings")

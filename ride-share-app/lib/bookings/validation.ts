@@ -1,8 +1,10 @@
 import { z } from "zod";
 
+/** Every booking reserves exactly one seat; a passenger books for themselves only. */
+export const BOOKING_SEATS = 1;
+
 export const bookingRequestSchema = z.object({
   rideId: z.string().uuid(),
-  seats: z.coerce.number().int().min(1).max(8),
   message: z.string().trim().max(1000).transform((value) => value || null),
 });
 

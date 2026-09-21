@@ -1,9 +1,10 @@
 "use server";
 
+import type { TablesInsert } from "@/lib/supabase/database.types";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
-import { readCarSelection } from "@/lib/rides/car-selection";
+import { readCarSelection, type CarSelection } from "@/lib/rides/car-selection";
 import { createClient } from "@/lib/supabase/server";
 import { issuesByPath, validateRideSubmission } from "@/lib/rides/ride-form";
 
@@ -17,6 +18,97 @@ export type CreateRideFormState = {
 };
 
 const NEW_CAR_VALIDATION_ID = "00000000-0000-4000-8000-000000000000";
+
+const savedCarColumns = "id, make, model, fuel_type, consumption_l_100km, color, plate_last3, seats_total";
+
+async function resolveCar(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  selection: CarSelection,
+) {
+  if (selection.mode === "existing") {
+    const { data, error } = await supabase
+      .from("cars")
+      .select(savedCarColumns)
+      .eq("id", selection.carId)
+      .eq("owner_id", userId)
+      .maybeSingle();
+
+    return {
+      carId: data?.id ?? null,
+      seatsTotal: data?.seats_total ?? null,
+      created: false,
+      car: data,
+      error,
+    };
+  }
+
+  let car: TablesInsert<"cars">;
+
+  if (selection.mode === "catalog") {
+    const { data: model, error } = await supabase
+      .from("car_models")
+      .select("id, make, model, fuel_type")
+      .eq("id", selection.carModelId)
+      .maybeSingle();
+
+    if (error || !model) {
+      return { carId: null, seatsTotal: null, created: false, error };
+    }
+
+    car = {
+      owner_id: userId,
+      car_model_id: model.id,
+      make: model.make,
+      model: model.model,
+      fuel_type: model.fuel_type,
+      consumption_l_100km: selection.consumptionL100Km,
+      color: selection.color,
+      plate_last3: selection.plateLast3,
+      seats_total: selection.seatsTotal,
+    };
+  } else {
+    car = {
+      owner_id: userId,
+      car_model_id: null,
+      make: selection.make,
+      model: selection.model,
+      fuel_type: selection.fuelType,
+      consumption_l_100km: selection.consumptionL100Km,
+      color: selection.color,
+      plate_last3: selection.plateLast3,
+      seats_total: selection.seatsTotal,
+    };
+  }
+
+  const { data, error } = await supabase.from("cars").insert(car).select(savedCarColumns).single();
+  return {
+    carId: data?.id ?? null,
+    seatsTotal: selection.seatsTotal,
+    created: Boolean(data),
+    car: data,
+    error,
+  };
+}
+
+export async function saveCar(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false as const, message: "Your session has expired. Sign in and try again." };
+  }
+
+  const selection = readCarSelection(formData);
+  if (!selection.success) {
+    return { ok: false as const, message: selection.error.issues.map((issue) => issue.message).join(" ") };
+  }
+
+  const result = await resolveCar(supabase, user.id, selection.data);
+  if (result.error || !result.car) {
+    return { ok: false as const, message: "We could not save this car. Review its details and try again." };
+  }
+  return { ok: true as const, car: result.car };
+}
 
 export async function createRide(
   _previousState: CreateRideFormState,
@@ -73,6 +165,7 @@ export async function createRide(
   if (!saved.success) return { status: "error", fieldErrors: {}, message: "The publication result could not be confirmed. Retry this draft." };
   revalidatePath("/rides");
   revalidatePath("/dashboard/driver");
+  revalidatePath("/dashboard/trips");
   return { status: "success", fieldErrors: {}, rideId: saved.data.rideId, carId: saved.data.carId,
     message: saved.data.status === "draft" ? "Ride saved as a draft." : "Ride published." };
 }

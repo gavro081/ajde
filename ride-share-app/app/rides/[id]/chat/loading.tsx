@@ -1,1 +1,5 @@
-export default function LoadingRoom() { return <p role="status" className="mx-auto max-w-3xl p-8">Loading ride room…</p>; }
+import { ChatSkeleton } from "@/components/page-skeletons";
+
+export default function LoadingRoom() {
+  return <ChatSkeleton />;
+}

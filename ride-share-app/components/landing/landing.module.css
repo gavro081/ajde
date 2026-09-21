@@ -1,0 +1,13 @@
+.routeFlow { stroke-dasharray: 2 14; animation: flow 1.6s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -16; } }
+
+.float { animation: float 5s ease-in-out infinite; }
+.floatSlow { animation: float 7s ease-in-out infinite reverse; }
+@keyframes float { 50% { transform: translateY(-8px); } }
+
+.pulse { transform-box: fill-box; transform-origin: center; animation: pulse 2.4s ease-out infinite; }
+@keyframes pulse { from { transform: scale(.6); opacity: .7; } to { transform: scale(2.2); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .routeFlow, .float, .floatSlow, .pulse { animation: none; }
+}

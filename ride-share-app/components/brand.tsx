@@ -1,10 +1,10 @@
 import Link from "next/link";
 
 export function Brand() {
-  return <Link href="/" className="brand inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-lg text-base font-bold tracking-tight" aria-label="Student Ride Share home">
-    <span className="brand-mark grid size-9 place-items-center rounded-xl" aria-hidden="true">
-      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m5 10 2-5h10l2 5M4 10h16v8H4zM7 18v2m10-2v2M7 13h1m8 0h1M9 16h6" /></svg>
+  return <Link href="/" className="brand inline-flex min-h-11 shrink-0 items-center gap-2.5 rounded-full pr-2 font-display text-[17px] font-extrabold tracking-tight" aria-label="Student Ride Share home">
+    <span className="brand-mark grid size-9 place-items-center rounded-full" aria-hidden="true">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4c-9 0-15 4-15 11 0 1.6.5 3 1.3 4.2C8 15 11 12 15 10c-3.4 2.6-6 5.9-7.3 9.6.9.3 1.8.4 2.8.4C17 20 20 14 20 4Z" /></svg>
     </span>
-    <span>Student Ride Share</span>
+    <span className="brand-label">Student Ride Share</span>
   </Link>;
 }

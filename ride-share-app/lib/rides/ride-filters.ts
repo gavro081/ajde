@@ -13,7 +13,6 @@ export type RideFilters = {
   date: string | null;
   departureAfter: string | null;
   departureBefore: string | null;
-  seats: number;
   sameGenderOnly: boolean;
 };
 
@@ -28,9 +27,9 @@ function first(value: SearchValue) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function positiveInteger(value: SearchValue, fallback: number, maximum = Number.MAX_SAFE_INTEGER) {
+function positiveInteger(value: SearchValue) {
   const parsed = Number(first(value));
-  return Number.isInteger(parsed) && parsed > 0 && parsed <= maximum ? parsed : fallback;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 export function parseRideFilters(params: Record<string, SearchValue>): RideFilters {
@@ -48,12 +47,11 @@ export function parseRideFilters(params: Record<string, SearchValue>): RideFilte
   }
 
   return {
-    origin: positiveInteger(params.origin, 0) || null,
-    destination: positiveInteger(params.destination, 0) || null,
+    origin: positiveInteger(params.origin),
+    destination: positiveInteger(params.destination),
     date,
     departureAfter,
     departureBefore,
-    seats: positiveInteger(params.seats, 1, 8),
     sameGenderOnly: boolean(params.sameGender),
   };
 }
@@ -91,6 +89,7 @@ export function departureBoundsForFilters(
   let requestedBefore = filters.departureBefore;
 
   // A manually selected calendar date takes precedence over AI-produced bounds.
+  // Without any date, every upcoming departure matches.
   if (filters.date) {
     const day = localDayUtcBounds(filters.date, DISCOVERY_TIME_ZONE);
     requestedAfter = day.start;
@@ -104,6 +103,7 @@ export function departureBoundsForFilters(
   };
 }
 
+// "seats" is legacy (bookings are always one seat) but still stripped from old URLs.
 const REPLACED_BY_SEARCH = ["origin", "destination", "date", "seats", "after", "before"];
 const SEARCH_STATE = ["q", "search", "interpretation", "manual"];
 
@@ -122,24 +122,22 @@ export function searchResultParams(
   if (result.destinationId !== null) next.set("destination", String(result.destinationId));
   if (result.departureAfter !== null) next.set("after", result.departureAfter);
   if (result.departureBefore !== null) next.set("before", result.departureBefore);
-  if (result.requestedSeats !== null) next.set("seats", String(result.requestedSeats));
   next.set("interpretation", JSON.stringify(result));
   return next;
 }
 
 export function manualFilterParams(
   current: URLSearchParams,
-  manual: Pick<RideFilters, "origin" | "destination" | "date" | "seats" | "sameGenderOnly">,
+  manual: Pick<RideFilters, "origin" | "destination" | "date" | "sameGenderOnly">,
 ) {
   const next = new URLSearchParams(current);
-  for (const key of ["origin", "destination", "date", "seats", "after", "before"]) {
+  for (const key of REPLACED_BY_SEARCH) {
     next.delete(key);
   }
 
   if (manual.origin !== null) next.set("origin", String(manual.origin));
   if (manual.destination !== null) next.set("destination", String(manual.destination));
   if (manual.date !== null) next.set("date", manual.date);
-  if (manual.seats !== 1) next.set("seats", String(manual.seats));
   if (manual.sameGenderOnly) next.set("sameGender", "1");
   else next.delete("sameGender");
   return next;

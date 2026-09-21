@@ -54,6 +54,25 @@ describe("natural-language search parsing", () => {
     expect(result.departureBefore).toBe("2026-09-25T22:00:00.000Z");
   });
 
+  it("treats a dateless search as any upcoming departure and ignores seat requests", async () => {
+    const result = await parseSearchQuery("Skopje to Bitola for 3 people", {
+      candidates,
+      modelRunner: async () => ({
+        ...baseOutput,
+        originText: "Skopje",
+        dateLocal: null,
+        timeMode: null,
+        startTime: null,
+        requestedSeats: 3,
+        warnings: [
+          { field: "departure", code: "unsupported", message: "No date was given." },
+          { field: "seats", code: "unsupported", message: "Only one seat can be booked." },
+        ],
+      }),
+    });
+    expect(result).toMatchObject({ originId: 1, destinationId: 3, departureAfter: null, departureBefore: null, requestedSeats: null, warnings: [] });
+  });
+
   it("maps a landmark to its canonical parent city", async () => {
     const result = await parseSearchQuery("from Mavrovka to Bitola", {
       candidates,

@@ -3,7 +3,7 @@
 On `/rides/new`, describe one or several explicit trips and select **Fill form**. English,
 Macedonian Latin/Cyrillic, and `skp`/`bt` are supported. Results are editable; each tab requires
 its own **Publish ride** action. A successful publication closes that tab; after the last
-draft publishes, the page redirects to **My trips** (`/dashboard/trips`). Return journeys get separate tabs, with clearly shared vehicle,
+draft publishes, the page redirects to the driver view of **My trips** (`/dashboard/trips?view=driver`). Return journeys get separate tabs, with clearly shared vehicle,
 seats and price applied to both. Recurring schedules need explicit trips instead.
 
 Dates are displayed and submitted in Europe/Skopje even on a device in another timezone.
@@ -36,6 +36,13 @@ are shown honestly. Published tabs are removed from recovery; completing all dra
 saved draft set. Publication atomically creates/reuses the
 owned vehicle and ride; simultaneous retries use the same result, while distinct tabs create
 distinct rides. No new import records are made by natural-language fill.
+
+The refreshed form also supports **Save car** independently of ride completion. A newly saved
+car becomes selectable in every open draft, and its selection survives session recovery.
+A single saved car is preselected for an empty form; offered seats still require explicit entry
+and are bounded by the selected car's capacity. **Save draft** stores a complete private ride
+through the same atomic operation, closes that tab, and returns to the driver dashboard after
+the final tab is saved. Incomplete drafts continue to recover from browser session storage.
 
 ## Setup and verification
 

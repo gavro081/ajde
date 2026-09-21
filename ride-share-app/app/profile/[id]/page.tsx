@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { AppHeader } from '@/components/app-header'
 import { notFound } from 'next/navigation'
 
 import { getPublicProfile } from '@/lib/profiles/public-profile'
@@ -19,12 +18,12 @@ export default async function ProfilePage({ params }: PageProps<'/profile/[id]'>
   if (!profile) notFound()
 
   return (
-    <><AppHeader /><main id="main-content" className=" bg-slate-50 px-5 py-10">
+    <><main id="main-content" className="px-5 py-10">
       <div className="mx-auto max-w-2xl">
-        <Link href="/rides" className="text-sm font-semibold text-emerald-800 hover:underline">
-          ← Back to rides
+        <Link href="/rides" className="text-sm font-semibold text-brand-700 hover:underline">
+          Back to rides
         </Link>
-        <article className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <article className="surface-card mt-6 overflow-hidden">
           <div className="p-7 sm:p-10">
             <div className="size-28 overflow-hidden rounded-full bg-slate-50">
               {/* Remote profile-photo hosts are user/project specific, so this cannot use a fixed Next Image allowlist. */}
@@ -36,7 +35,7 @@ export default async function ProfilePage({ params }: PageProps<'/profile/[id]'>
               />
             </div>
             <div className="mt-6">
-              <h1 className="mt-2 text-4xl font-medium tracking-tight text-slate-950">
+              <h1 className="mt-2 font-display text-4xl font-extrabold tracking-[-.04em] text-slate-950">
                 {profile.fullName}
               </h1>
               <p className="mt-2 text-lg text-slate-600">{profile.university}</p>

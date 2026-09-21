@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { bookingRequestSchema, requestEligibility } from "@/lib/bookings/validation";
+import { BOOKING_SEATS, bookingRequestSchema, requestEligibility } from "@/lib/bookings/validation";
 import { canRequestSameGenderRide } from "@/lib/rides/gender-discovery";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,10 +14,9 @@ function detailUrl(rideId: string, type: "success" | "error", message: string) {
 export async function requestBooking(rideId: string, formData: FormData) {
   const validation = bookingRequestSchema.safeParse({
     rideId,
-    seats: formData.get("seats"),
     message: formData.get("message") ?? "",
   });
-  if (!validation.success) redirect(detailUrl(rideId, "error", "Check the seat count and message."));
+  if (!validation.success) redirect(detailUrl(rideId, "error", "Check your message and try again."));
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -35,7 +34,7 @@ export async function requestBooking(rideId: string, formData: FormData) {
     driverId: ride.driver_id,
     departureAt: ride.departure_at,
     status: ride.status,
-    requestedSeats: validation.data.seats,
+    requestedSeats: BOOKING_SEATS,
     availableSeats: ride.seats_available,
   });
   if (eligibilityError) redirect(detailUrl(rideId, "error", eligibilityError));
@@ -55,7 +54,7 @@ export async function requestBooking(rideId: string, formData: FormData) {
   const { error: insertError } = await supabase.from("bookings").insert({
     ride_id: rideId,
     passenger_id: user.id,
-    seats: validation.data.seats,
+    seats: BOOKING_SEATS,
     message: validation.data.message,
   });
   if (insertError) {

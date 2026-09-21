@@ -20,12 +20,22 @@ const trip = { draft: { ...blank, origin: { cityId: 1, pickupPointId: null, rawT
 beforeEach(() => { sessionStorage.clear(); publish.mockReset(); router.replace.mockReset(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+it("keeps Save draft private and closes the saved tab in the driver dashboard", async () => {
+  publish.mockResolvedValue({ status: "success", message: "Ride saved as a draft.", fieldErrors: {}, rideId: "30000000-0000-4000-8000-000000000003" });
+  render(<OfferWorkspace {...props} />);
+  const button = screen.getByRole("button", { name: "Save draft" });
+  fireEvent(button.closest("form")!, new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: button }));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/trips?view=driver"));
+  expect(publish.mock.calls[0][1].get("intent")).toBe("save_draft");
+  expect(sessionStorage.getItem(`ride-offers:v1:${props.userId}:native`)).toBeNull();
+});
+
 it("fills cities and Skopje departure before requesting kilometres with their names", async () => {
   const fetcher = vi.fn(async (url: string, options: RequestInit) => {
     if (url.includes("interpret")) return Response.json({ trips: [trip] });
     expect(JSON.parse(String(options.body))).toEqual({ originCity: "Skopje", destinationCity: "Bitola" });
-    expect(screen.getByLabelText("Departure city")).toHaveProperty("value", "1");
-    expect(screen.getByLabelText("Destination city")).toHaveProperty("value", "3");
+    expect(screen.getByLabelText("From")).toHaveProperty("value", "1");
+    expect(screen.getByLabelText("To")).toHaveProperty("value", "3");
     return Response.json({ distanceKm: 174.3 });
   });
   vi.stubGlobal("fetch", fetcher);
@@ -35,7 +45,7 @@ it("fills cities and Skopje departure before requesting kilometres with their na
   fireEvent.click(screen.getByRole("button", { name: "Fill form" }));
   await waitFor(() => expect(screen.getByLabelText("Departure")).toHaveProperty("value", "2026-09-26T16:00"));
   await waitFor(() => expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "174.3"));
-  expect(screen.getByLabelText("Available seats")).toHaveProperty("value", "");
+  expect(screen.getByLabelText("Available seats", { exact: false })).toHaveProperty("value", "");
   expect(screen.getByLabelText("Price per seat (MKD)")).toHaveProperty("value", "");
   expect(publish).not.toHaveBeenCalled();
 });
@@ -50,7 +60,7 @@ it("keeps two recognized trips in separate tabs and stays with the siblings afte
   await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(2));
   fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "Keep my outbound note" } });
   fireEvent.click(screen.getAllByRole("tab")[1]);
-  expect(screen.getByLabelText("Departure city")).toHaveProperty("value", "3");
+  expect(screen.getByLabelText("From")).toHaveProperty("value", "3");
   expect(screen.getByLabelText("Departure")).toHaveProperty("value", "2026-09-27T18:00");
   fireEvent.submit(screen.getByRole("button", { name: "Publish ride" }).closest("form")!);
   await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(1));
@@ -73,8 +83,8 @@ it("allows direct form edits after filling and protects manual km from stale loo
   fireEvent.change(screen.getByLabelText("Estimated route distance (km)"), { target: { value: "180" } });
   expect(screen.queryByLabelText("Correct this ride")).toBeNull();
   expect(screen.queryByRole("button", { name: "Update this draft" })).toBeNull();
-  fireEvent.change(screen.getByLabelText("Departure city"), { target: { value: "3" } });
-  fireEvent.change(screen.getByLabelText("Destination city"), { target: { value: "1" } });
+  fireEvent.change(screen.getByLabelText("From"), { target: { value: "3" } });
+  fireEvent.change(screen.getByLabelText("To"), { target: { value: "1" } });
   fireEvent.change(screen.getByLabelText("Departure"), { target: { value: "2026-09-27T17:00" } });
   fireEvent.change(screen.getByLabelText("Estimated route distance (km)"), { target: { value: "185" } });
   expect(screen.getByLabelText("Departure")).toHaveProperty("value", "2026-09-27T17:00");
@@ -85,21 +95,21 @@ it("allows direct form edits after filling and protects manual km from stale loo
 it("recovers every current field and manual km in the same user's session without exposing them to another user", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({ distanceKm: 174.3 })));
   const first = render(<OfferWorkspace {...props} />);
-  fireEvent.change(screen.getByLabelText("Departure city"), { target: { value: "1" } });
-  fireEvent.change(screen.getByLabelText("Destination city"), { target: { value: "3" } });
+  fireEvent.change(screen.getByLabelText("From"), { target: { value: "1" } });
+  fireEvent.change(screen.getByLabelText("To"), { target: { value: "3" } });
   await waitFor(() => expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "174.3"));
   fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "A suitcase and a guitar" } });
   fireEvent.change(screen.getByLabelText("Estimated route distance (km)"), { target: { value: "180" } });
-  fireEvent.change(screen.getByLabelText("Available seats"), { target: { value: "2" } });
+  fireEvent.change(screen.getByLabelText("Available seats", { exact: false }), { target: { value: "2" } });
   await screen.findByText("Saved for this session");
   first.unmount();
   const restored = render(<OfferWorkspace {...props} />);
   await waitFor(() => expect(screen.getByLabelText("Notes")).toHaveProperty("value", "A suitcase and a guitar"));
-  expect(screen.getByLabelText("Available seats")).toHaveProperty("value", "2");
+  expect(screen.getByLabelText("Available seats", { exact: false })).toHaveProperty("value", "2");
   expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "180");
   restored.rerender(<OfferWorkspace {...props} userId="another-driver" />);
   await waitFor(() => expect(screen.getByLabelText("Notes")).toHaveProperty("value", ""));
-  expect(screen.getByLabelText("Departure city")).toHaveProperty("value", "");
+  expect(screen.getByLabelText("From")).toHaveProperty("value", "");
 });
 
 it("preserves manual fields and description on interpretation failure and offers Retry", async () => {
@@ -123,7 +133,7 @@ it("does not overwrite edits made while interpretation was in flight", async () 
   await act(async () => { finish(Response.json({ trips: [trip] })); });
   await screen.findByText("The form changed. Retry to apply your description.");
   expect(screen.getByLabelText("Notes")).toHaveProperty("value", "Newer edit");
-  expect(screen.getByLabelText("Departure city")).toHaveProperty("value", "");
+  expect(screen.getByLabelText("From")).toHaveProperty("value", "");
 });
 
 it("routes an imported draft, ignores pickup edits, and allows manual km after provider failure", async () => {
@@ -136,7 +146,7 @@ it("routes an imported draft, ignores pickup edits, and allows manual km after p
   fireEvent.change(screen.getByLabelText("Pickup point"), { target: { value: "11" } });
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "180");
-  expect(screen.getByLabelText("Departure city")).toHaveProperty("value", "1");
+  expect(screen.getByLabelText("From")).toHaveProperty("value", "1");
 });
 
 it("retains incomplete dates in extra tabs, supports keyboard navigation, append and discard", async () => {
@@ -171,7 +181,7 @@ it("removes published tabs from recovery and redirects to My trips when the fina
   await waitFor(() => expect(screen.getAllByRole("tab").map(tab => tab.id)).toEqual([ids[1]]));
   expect(screen.getByRole("button", { name: "Publish ride" })).toBeTruthy();
   fireEvent.submit(screen.getByRole("button", { name: "Publish ride" }).closest("form")!);
-  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/trips"));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/trips?view=driver"));
   expect(screen.queryByRole("tab")).toBeNull();
   expect(sessionStorage.getItem(`ride-offers:v1:${props.userId}:native`)).toBeNull();
   expect(publish).toHaveBeenCalledTimes(2);
@@ -201,5 +211,5 @@ it("keeps a failed publication editable and redirects only after a successful re
   expect(screen.getByLabelText("Notes")).toHaveProperty("value", "Keep this on failure");
   expect(router.replace).not.toHaveBeenCalled();
   fireEvent.submit(screen.getByRole("button", { name: "Publish ride" }).closest("form")!);
-  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/trips"));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/trips?view=driver"));
 });
