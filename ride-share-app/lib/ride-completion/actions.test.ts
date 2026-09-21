@@ -19,6 +19,7 @@ vi.mock("@/lib/supabase/server", () => ({
         eq: (key: string, value: unknown) => { filters.push((record) => record[key] === value); return query; },
         in: (key: string, values: unknown[]) => { filters.push((record) => values.includes(record[key])); return query; },
         lt: (key: string, value: string) => { filters.push((record) => String(record[key]) < value); return query; },
+        gt: (key: string, value: string) => { filters.push((record) => String(record[key]) > value); return query; },
         update: (value: Record<string, unknown>) => { changes = value; return query; },
         maybeSingle: async () => {
           if (changes && fixture.failWrite) return { data: null, error: { message: "Unavailable" } };
@@ -34,7 +35,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error(decodeURIComponent(url)); } }));
 
-import { completeRide } from "./actions";
+import { cancelRide, completeRide } from "./actions";
 import { decideBooking } from "../../app/dashboard/actions";
 
 beforeEach(() => {
@@ -44,6 +45,8 @@ beforeEach(() => {
   fixture.ride.status = "published";
   fixture.ride.driver_id = "driver";
   fixture.ride.departure_at = "2026-09-20T12:00:00Z";
+  fixture.ride.seats_available = 1;
+  fixture.ride.seats_total = 3;
   fixture.booking.status = "requested";
   fixture.booking.seats = 2;
   fixture.failWrite = false;
@@ -88,6 +91,46 @@ describe("completeRide", () => {
     await completeRide(fixture.ride.id);
     expect(fixture.booking).toMatchObject({ status: "accepted", seats: 2 });
     expect(fixture.ride).toMatchObject({ seats_available: 1, seats_total: 3 });
+  });
+});
+
+describe("cancelRide", () => {
+  it("lets a driver cancel their future published ride", async () => {
+    fixture.ride.departure_at = "2026-09-22T12:00:00Z";
+
+    expect(await cancelRide(fixture.ride.id, false)).toEqual({
+      success: true,
+      message: "Ride cancelled. Confirmed passengers will see the cancellation in My trips.",
+    });
+    expect(fixture.ride.status).toBe("cancelled");
+  });
+
+  it("requires an explicit acknowledgement before cancelling a full ride", async () => {
+    fixture.ride.status = "full";
+    fixture.ride.seats_available = 0;
+    fixture.ride.departure_at = "2026-09-22T12:00:00Z";
+
+    expect(await cancelRide(fixture.ride.id, false)).toEqual({
+      success: false,
+      message: "This ride is full. Confirm that you understand passengers will need to make other plans.",
+    });
+    expect(fixture.ride.status).toBe("full");
+    expect(await cancelRide(fixture.ride.id, true)).toMatchObject({ success: true });
+  });
+
+  it.each([
+    [null, "published", "2026-09-22T12:00:00Z"],
+    ["other-driver", "published", "2026-09-22T12:00:00Z"],
+    ["driver", "draft", "2026-09-22T12:00:00Z"],
+    ["driver", "completed", "2026-09-22T12:00:00Z"],
+    ["driver", "cancelled", "2026-09-22T12:00:00Z"],
+    ["driver", "published", "2026-09-20T12:00:00Z"],
+  ] as const)("rejects an ineligible cancellation", async (userId, status, departureAt) => {
+    fixture.userId = userId;
+    fixture.ride.status = status;
+    fixture.ride.departure_at = departureAt;
+
+    expect(await cancelRide(fixture.ride.id, true)).toMatchObject({ success: false });
   });
 });
 

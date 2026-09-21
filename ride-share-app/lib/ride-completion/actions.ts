@@ -39,3 +39,46 @@ export async function completeRide(rideId: string): Promise<{ success: boolean; 
   revalidatePath(`/rides/${rideId}`);
   return { success: true, message: "Ride marked completed." };
 }
+
+export async function cancelRide(
+  rideId: string,
+  acknowledgesFullRide: boolean,
+): Promise<{ success: boolean; message: string }> {
+  if (!z.uuid().safeParse(rideId).success) return { success: false, message: "Invalid ride." };
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, message: "Sign in to cancel your ride." };
+
+  const { data: ride, error } = await supabase.from("rides")
+    .select("id, driver_id, status, departure_at, seats_available")
+    .eq("id", rideId).eq("driver_id", user.id).maybeSingle();
+  if (error || !ride) return { success: false, message: "Unable to find your ride." };
+
+  const now = new Date().toISOString();
+  if (!["published", "full"].includes(ride.status) || Date.parse(ride.departure_at) <= Date.parse(now)) {
+    return { success: false, message: "Only future published or full rides can be cancelled." };
+  }
+  const isFull = ride.status === "full" || ride.seats_available === 0;
+  if (isFull && acknowledgesFullRide !== true) {
+    return {
+      success: false,
+      message: "This ride is full. Confirm that you understand passengers will need to make other plans.",
+    };
+  }
+
+  const { data: updated, error: updateError } = await supabase.from("rides")
+    .update({ status: "cancelled" }).eq("id", rideId).eq("driver_id", user.id)
+    .in("status", ["published", "full"]).gt("departure_at", now).select("id").maybeSingle();
+  if (updateError || !updated) {
+    return { success: false, message: "The ride changed and could not be cancelled. Refresh and try again." };
+  }
+
+  revalidatePath("/rides");
+  revalidatePath(`/rides/${rideId}`);
+  revalidatePath("/dashboard/driver");
+  revalidatePath("/dashboard/trips");
+  return {
+    success: true,
+    message: "Ride cancelled. Confirmed passengers will see the cancellation in My trips.",
+  };
+}
