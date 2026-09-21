@@ -17,9 +17,9 @@ export function SearchInterpretation({
   ].filter((value): value is string => Boolean(value));
 
   return (
-    <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-4" aria-label="Search interpretation">
+    <section className="mt-3 rounded-3xl border border-white bg-white p-4" aria-label="Search interpretation">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-slate-900">
+        <p className="text-sm font-semibold text-slate-950">
           {criteria.length ? criteria.join(" · ") : "No reliable filters were extracted"}
         </p>
         <span className="text-xs font-medium text-slate-500">

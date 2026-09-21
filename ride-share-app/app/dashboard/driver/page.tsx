@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { SubmitButton } from "@/components/submit-button";
 import { AppHeader } from "@/components/app-header";
 import { SeatAvailability } from "@/components/seat-availability";
 import { CompleteRideButton } from "@/components/ride-completion/complete-ride-button";
@@ -52,35 +53,61 @@ export default async function DriverDashboard({ searchParams }: { searchParams: 
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-950"><AppHeader /><main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-      <div className="flex items-end justify-between gap-4"><div><p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">Driver dashboard</p><h1 className="mt-2 text-3xl font-bold">Your offered rides</h1></div><Link href="/rides/new" className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">Offer a ride</Link></div>
-      {notice.success ? <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{notice.success}</p> : null}
-      {notice.error ? <p className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">{notice.error}</p> : null}
-      <div className="mt-7 space-y-5">
+  return <div className="min-h-screen bg-slate-50 text-slate-950">
+    <AppHeader />
+    <main id="main-content" className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:py-16">
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <div><h1 className="page-heading">My rides</h1><p className="mt-4 text-slate-500">Your routes. Your passengers. All in one place.</p></div>
+        <Link href="/rides/new" className="btn-primary">Offer a ride <span aria-hidden="true">↗</span></Link>
+      </div>
+      {notice.success ? <p role="status" className="mt-6 rounded-2xl bg-emerald-50 p-5 text-emerald-800">{notice.success}</p> : null}
+      {notice.error ? <p role="alert" className="mt-6 rounded-2xl bg-red-50 p-5 text-red-800">{notice.error}</p> : null}
+      <div className="dashboard-grid">
         {rides?.map((ride) => {
           const rideBookings = (bookings ?? []).filter((booking) => booking.ride_id === ride.id);
           const isOpen = ["published", "full"].includes(ride.status);
           const hasDeparted = Date.parse(ride.departure_at) < now;
           const canDecide = isOpen && Date.parse(ride.departure_at) > now;
           const confirmedSeats = rideBookings.filter((booking) => booking.status === "accepted").reduce((total, booking) => total + booking.seats, 0);
+          const pendingRequests = rideBookings.filter((booking) => booking.status === "requested").length;
           const isFull = ride.status === "full" || ride.seats_available === 0;
-          return <section key={ride.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4"><div><Link href={`/rides/${ride.id}`} className="text-xl font-bold hover:underline">{cityMap.get(ride.origin_city_id)} → {cityMap.get(ride.dest_city_id)}</Link><p className="mt-1 text-sm text-slate-600">{formatDeparture(ride.departure_at)} · <span className="capitalize">{ride.status}</span></p></div><SeatAvailability available={ride.seats_available} total={ride.seats_total} /></div>
-            <h2 className="mt-6 border-t border-slate-100 pt-5 font-bold">Seat requests</h2>
+          return <section key={ride.id} className="journey-card">
+            <div className="journey-card-top"><p className="journey-card-date">{formatDeparture(ride.departure_at)}</p><span className={`status-pill ${ride.status === "cancelled" ? "bg-red-50 text-red-800" : isOpen ? "bg-blue-50 text-blue-800" : ""}`}>{ride.status}</span></div>
+            <h2><Link href={`/rides/${ride.id}`} className="journey-card-route hover:text-coral-700">{cityMap.get(ride.origin_city_id)} <span aria-hidden="true">→</span> {cityMap.get(ride.dest_city_id)}</Link></h2>
+            <div className="journey-card-meta"><SeatAvailability available={ride.seats_available} total={ride.seats_total} /><p className="text-slate-500">{confirmedSeats} confirmed · Skopje time</p></div>
             {isOpen && hasDeparted ? <CompleteRideButton rideId={ride.id} /> : null}
-            {canDecide ? <CancelRideControl rideId={ride.id} isFull={isFull} confirmedSeats={confirmedSeats} /> : null}
-            {rideBookings.length ? <div className="mt-3 space-y-3">{rideBookings.map((booking) => {
-              const passenger = passengerMap.get(booking.passenger_id);
-              const contact = contactMap.get(booking.passenger_id);
-              return <article key={booking.id} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><p className="font-semibold">{passenger?.full_name ?? "Student"} · {booking.seats} seat{booking.seats === 1 ? "" : "s"}</p><p className="text-sm text-slate-600">{passenger?.university}</p>{booking.message ? <p className="mt-2 text-sm text-slate-700">“{booking.message}”</p> : null}{booking.status === "accepted" ? <p className="mt-2 text-sm text-emerald-800">Contact: {contact?.phone || contact?.instagram || contact?.facebook || "No contact method added"}</p> : null}</div><div className="flex items-center gap-2">{booking.status === "requested" && canDecide ? <><form action={decideBooking.bind(null, booking.id, "accepted")}><button className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Accept</button></form><form action={decideBooking.bind(null, booking.id, "declined")}><button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">Decline</button></form></> : <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${booking.status === "accepted" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{booking.status}</span>}</div></div>
-                {booking.status === "accepted" ? <RatingControl state={ratingControls.get(ride.id)?.get(booking.passenger_id)} rideId={ride.id} rateeId={booking.passenger_id} targetName={passenger?.full_name ?? "your passenger"} /> : null}
-              </article>;
-            })}</div> : <p className="mt-3 text-sm text-slate-500">No requests yet.</p>}
+            <details className="card-options" open={(canDecide && pendingRequests > 0) || ratingControls.has(ride.id)}>
+              <summary>{ride.status === "completed" ? "Passengers & feedback" : "Manage ride"}{canDecide && pendingRequests > 0 ? <span className="ml-3 rounded-full bg-coral-50 px-3 py-1 text-sm text-coral-700">{pendingRequests} pending</span> : null}</summary>
+              <h3 className="text-xl font-medium">Passenger requests</h3>
+              {rideBookings.length ? <div className="mt-5 space-y-5">{rideBookings.map((booking) => {
+                const passenger = passengerMap.get(booking.passenger_id);
+                const contact = contactMap.get(booking.passenger_id);
+                return <article key={booking.id} className="border-b border-slate-100 pb-5 last:border-0">
+                  <div className="flex min-w-0 items-start gap-3">
+                    {passenger ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={passenger.photo_url} alt="" className="size-12 shrink-0 rounded-full bg-slate-50 object-cover" />
+                    ) : <span className="grid size-12 shrink-0 place-items-center rounded-full bg-slate-100 text-sm">SR</span>}
+                    <div className="min-w-0">
+                      <p className="font-medium">{passenger ? <Link href={`/profile/${passenger.id}`} className="hover:text-coral-700">{passenger.full_name}</Link> : "Student"}</p>
+                      <p className="text-sm text-slate-500">{booking.seats} seat{booking.seats === 1 ? "" : "s"} · {passenger?.university}</p>
+                    </div>
+                  </div>
+                  {booking.message ? <p className="mt-3 text-slate-600">“{booking.message}”</p> : null}
+                  {booking.status === "accepted" ? <p className="mt-3 text-sm text-emerald-800">Contact: {contact?.phone || contact?.instagram || contact?.facebook || "No contact method added"}</p> : null}
+                  <div className="mt-4 flex flex-wrap gap-3">{booking.status === "requested" && canDecide ? <>
+                    <form action={decideBooking.bind(null, booking.id, "accepted")}><SubmitButton pendingLabel="Accepting…" className="btn-primary disabled:opacity-60">Accept</SubmitButton></form>
+                    <form action={decideBooking.bind(null, booking.id, "declined")}><SubmitButton pendingLabel="Declining…" className="btn-secondary disabled:opacity-60">Decline</SubmitButton></form>
+                  </> : <span className="status-pill">{booking.status}</span>}</div>
+                  {booking.status === "accepted" ? <RatingControl state={ratingControls.get(ride.id)?.get(booking.passenger_id)} rideId={ride.id} rateeId={booking.passenger_id} targetName={passenger?.full_name ?? "your passenger"} /> : null}
+                </article>;
+              })}</div> : <p className="mt-3 text-slate-500">No requests yet.</p>}
+              {canDecide ? <CancelRideControl rideId={ride.id} isFull={isFull} confirmedSeats={confirmedSeats} /> : null}
+            </details>
           </section>;
         })}
-        {!rides?.length ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-14 text-center"><h2 className="text-xl font-bold">No rides offered yet</h2><p className="mt-2 text-slate-600">Publish a ride to start receiving requests.</p></div> : null}
+        {!rides?.length ? <div className="journey-card dashboard-empty"><h2>No rides offered yet</h2><p>Have a spare seat? Give someone a way home.</p><Link href="/rides/new" className="btn-primary">Offer your first ride</Link></div> : null}
       </div>
-    </main></div>
-  );
+    </main>
+  </div>;
 }

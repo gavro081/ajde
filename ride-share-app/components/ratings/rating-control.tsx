@@ -9,7 +9,7 @@ export function RatingControl({ state, rideId, rateeId, targetName }: {
   targetName: string;
 }) {
   if (!state) return null;
-  return <section className="mt-4 border-t border-slate-200 pt-4" aria-label="Completed-ride feedback">
+  return <section className="mt-6 border-t border-slate-100 pt-6" aria-label="Completed-ride feedback">
     {state.status === "submitted" ? <SubmittedRatingDetail rating={state.rating} /> : <RatingForm rideId={rideId} rateeId={rateeId} targetName={targetName} />}
   </section>;
 }

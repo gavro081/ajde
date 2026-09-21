@@ -139,6 +139,7 @@ function check(r) { if (r.error)
     await expect(trips).toHaveURL(`${base}/rides/${rideId}/chat`);
     await expect(trips.getByRole('heading', { name: 'Ride room', exact: true })).toBeVisible();
     await trips.goto(`${base}/dashboard/trips`);
+    await trips.locator('summary').filter({ hasText: 'Booking options' }).click();
     await trips.getByRole('button', { name: 'Create or retrieve link' }).click();
     await expect(trips.getByLabel('Trip link', { exact: true })).toBeVisible();
     const anonymous = await browser.newContext();
@@ -155,7 +156,7 @@ function check(r) { if (r.error)
     await expect(publicDetail.getByText('Seat request sent to the driver.', { exact: true })).toBeVisible();
     const outsiderTrips = await outsider.context.newPage();
     await outsiderTrips.goto(`${base}/dashboard/trips`);
-    await expect(outsiderTrips.getByText('Booking requested', { exact: true })).toBeVisible();
+    await expect(outsiderTrips.getByText('Awaiting approval', { exact: true })).toBeVisible();
     await expect(outsiderTrips.getByRole('link', {name:'Open ride chat',exact:true})).toHaveCount(0);
     await expect(outsiderTrips.getByText('Ride chat becomes available when the driver accepts your booking.',{exact:true})).toBeVisible();
     await expect(outsiderTrips.getByText('TEST CONTACT', { exact: false })).toHaveCount(0);
@@ -166,16 +167,20 @@ function check(r) { if (r.error)
     await expect(request.getByText('accepted', { exact: true })).toBeVisible();
     const pendingRequest = dashboard.locator('article').filter({ hasText: 'Room Test pending' });
     await pendingRequest.getByRole('button', { name: 'Decline', exact: true }).click();
+    await expect(pendingRequest.getByText('declined', { exact: true })).toBeAttached();
+    await dashboard.locator('summary').filter({ hasText: 'Manage ride' }).click();
     await expect(pendingRequest.getByText('declined', { exact: true })).toBeVisible();
     await outsiderTrips.reload();
     await expect(outsiderTrips.getByText('Driver contact: TEST CONTACT', { exact: true })).toBeVisible();
     await publicDetail.reload();
     await expect(publicDetail.getByRole('link', { name: 'Ride room', exact: true })).toBeVisible();
+    await outsiderTrips.locator('summary').filter({ hasText: 'Booking options' }).click();
     await outsiderTrips.getByRole('button', { name: 'Cancel booking', exact: true }).click();
-    await expect(outsiderTrips.getByText('Booking cancelled', { exact: true })).toBeVisible();
+    await expect(outsiderTrips.getByText('cancelled', { exact: true })).toBeVisible();
     await outsider.page.reload();
     await expect(outsider.page.getByRole('heading', { name: 'Ride room unavailable' })).toBeVisible();
     await dashboard.reload();
+    await dashboard.locator('summary').filter({ hasText: 'Manage ride' }).click();
     await dashboard.getByRole('button', { name: 'Cancel ride', exact: true }).click();
     await dashboard.getByRole('button', { name: 'Confirm cancellation', exact: true }).click();
     await expect(dashboard.getByRole('button', { name: 'Confirm cancellation', exact: true })).toHaveCount(0);

@@ -1,32 +1,30 @@
+import { Brand } from '@/components/brand'
 import { SignOutButton } from '@/components/sign-out-button'
 import { requireUser } from '@/lib/auth/session'
-
 import { OnboardingForm } from './onboarding-form'
+
+export const metadata = { title: 'Complete your profile' }
 
 export default async function OnboardingPage() {
   const user = await requireUser('/onboarding')
-
-  return (
-    <main className="min-h-screen bg-slate-50 px-5 py-10">
-      <div className="mx-auto max-w-2xl">
-        <header className="mb-6 flex items-center justify-between gap-4">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-emerald-700">
-            Student ride share
-          </p>
-          <SignOutButton />
-        </header>
-        <section className="rounded-3xl border border-slate-200 bg-white p-7 shadow-xl shadow-slate-200/60 sm:p-10">
-          <p className="text-sm font-semibold text-emerald-700">One last step</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-            Create your trusted profile
-          </h1>
-          <p className="mt-3 max-w-xl leading-7 text-slate-600">
-            Your real name, university, and photo help students know who they will share a ride with.
-          </p>
-          <OnboardingForm userId={user.id} />
-        </section>
-      </div>
+  return <div className="min-h-screen">
+    <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-5 sm:px-6"><Brand /><SignOutButton /></header>
+    <main id="main-content" className="mx-auto grid max-w-5xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[0.7fr_1.3fr] lg:gap-14">
+      <aside>
+        <h1 className="mt-4 text-4xl font-medium leading-tight tracking-tight">A face to go<br className="hidden lg:block" /> with the name.</h1>
+        <p className="mt-5 max-w-md text-slate-500">Help fellow students recognise you at pickup.</p>
+        <ol className="mt-7 flex flex-wrap gap-4 text-sm lg:flex-col lg:gap-5" aria-label="Signup progress">
+          <li className="flex items-center gap-3 text-emerald-700"><span className="grid size-7 place-items-center rounded-full bg-emerald-100" aria-hidden="true">✓</span> Student email verified</li>
+          <li className="flex items-center gap-3 font-semibold" aria-current="step"><span className="grid size-7 place-items-center rounded-full bg-coral-600 text-white" aria-hidden="true">2</span> Complete your profile</li>
+        </ol>
+        <p className="mt-8 hidden text-sm leading-6 text-slate-500 lg:block">Your name, photo and university are visible to other students. Contact details are shared only after a booking is confirmed.</p>
+      </aside>
+      <section aria-labelledby="profile-heading" className="rounded-3xl border border-white bg-white p-6 shadow-sm sm:p-8">
+        <h2 id="profile-heading" className="text-xl font-semibold">Create your trusted profile</h2>
+        <p className="mt-2 text-sm text-slate-500">Fields marked * are required.</p>
+        <OnboardingForm userId={user.id} />
+      </section>
     </main>
-  )
+  </div>
 }
 

@@ -11,7 +11,7 @@ export default function ProfileNotFound() {
         </p>
         <Link
           href="/rides"
-          className="mt-7 inline-flex rounded-2xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800"
+          className="mt-7 inline-flex rounded-2xl bg-coral-600 px-5 py-3 font-semibold text-white hover:bg-coral-700"
         >
           Browse rides
         </Link>

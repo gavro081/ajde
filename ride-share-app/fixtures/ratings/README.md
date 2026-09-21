@@ -25,7 +25,8 @@ sending email. The script deletes only its tracked fixtures in `finally`; cleanu
 the command. Do not interrupt cleanup. It requires the URL/public key/admin key/student domains
 from `.env` and Microsoft Edge, or an installed channel in `RATINGS_TEST_BROWSER`.
 
-The script checks completion unlocking, both rating directions, mobile width (375px), keyboard
+The script checks completion unlocking, both rating directions, mobile/tablet/desktop widths
+(375px, 768px, 1280px), keyboard
 radio selection/submission, escaped notes, reload, stale and concurrent duplicates, forged form
 targets/ride IDs, aggregate-only profiles, empty profiles, direct RLS denial, and unchanged
 bookings/seats/impact. Screenshots and results go to ignored `.test-dist/ratings/`.
@@ -48,3 +49,7 @@ These are automated browser checks, not a claim of human manual testing.
 - Temporary browser accounts, cars, rides, bookings, messages, shares, and ratings were cleaned up.
 - Independent Standards and Spec reviews reported no actionable findings. The review baseline
   was `a6ffbfc`; shared database work was reconciled with Dimi's deployed checkpoint.
+
+The refreshed UI merge was also checked at all three viewport widths. Completed driver rides
+open the passenger feedback section automatically; passenger rating forms remain visible outside
+Booking options. Rating forms, submitted feedback, and public averages use the shared coral theme.

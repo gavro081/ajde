@@ -67,27 +67,21 @@ export function NaturalLanguageSearch({
   }
 
   return (
-    <section className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-bold text-emerald-950">Search in your own words</h2>
-        <p className="text-sm text-emerald-900/75">
-          Try “Bitola Friday after 4” or “до Штип утре за 2 места”. You can correct the result below.
-        </p>
-      </div>
-      <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={submit}>
-        <label className="sr-only" htmlFor="natural-search">Describe the ride you need</label>
+    <section className="mt-10">
+      <label className="mb-4 block text-xl font-medium" htmlFor="natural-search">Describe the ride you need</label>
+      <form className="flex flex-col gap-4 sm:flex-row" onSubmit={submit}>
         <input
           id="natural-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           maxLength={300}
-          placeholder="Where and when do you want to travel?"
-          className="min-w-0 flex-1 rounded-xl border border-emerald-200 bg-white px-4 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          placeholder="Try “Skopje to Bitola tomorrow”"
+          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none focus:border-coral-600 focus:ring-2 focus:ring-coral-100"
         />
         <button
           type="submit"
           disabled={pending}
-          className="rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+          className="btn-primary px-5 py-3 disabled:opacity-50"
         >
           {pending ? "Interpreting…" : "Search"}
         </button>
@@ -95,13 +89,13 @@ export function NaturalLanguageSearch({
           <button
             type="button"
             onClick={clearSearch}
-            className="rounded-xl border border-emerald-300 bg-white px-4 py-3 font-semibold text-emerald-900 hover:bg-emerald-100"
+            className="rounded-xl border border-slate-200 px-4 py-3 font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-950"
           >
             Clear search
           </button>
         ) : null}
       </form>
-      {error ? <p role="alert" className="mt-3 rounded-xl bg-white px-4 py-3 text-sm text-rose-800">{error}</p> : null}
+      {error ? <p role="alert" className="mt-3 rounded-xl bg-white px-4 py-3 text-sm text-coral-700">{error}</p> : null}
     </section>
   );
 }

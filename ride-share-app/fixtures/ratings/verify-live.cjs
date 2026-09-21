@@ -17,7 +17,15 @@ const users = [], rides = [], cars = [];
 let browser;
 const check = ({ data, error }) => { if (error) throw Error(error.message); return data; };
 const forms = page => page.getByRole('form', { name: /^Rate / });
-const noOverflow = async page => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile content must fit');
+const noOverflow = async page => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Content must fit the viewport');
+async function responsiveScreenshots(page, name) {
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 850 });
+    await noOverflow(page);
+    await page.screenshot({ path: `.test-dist/ratings/${name}-${width}.png`, fullPage: true });
+  }
+  await page.setViewportSize({ width: 375, height: 850 });
+}
 
 async function student(name) {
   const email = `ratings-${name}-${randomUUID()}@${process.env.STUDENT_EMAIL_DOMAINS.split(',')[0].trim()}`;
@@ -54,16 +62,21 @@ async function main() {
   await driver.page.goto(`${base}/dashboard/driver`);
   await driver.page.screenshot({ path: '.test-dist/ratings/driver-before-completion.png', fullPage: true });
   console.log('Driver route:', new URL(driver.page.url()).pathname);
-  await expect(driver.page.getByRole('heading', { name: 'Your offered rides' })).toBeVisible();
+  await expect(driver.page.getByRole('heading', { name: 'My rides', exact: true })).toBeVisible();
   await expect(forms(driver.page)).toHaveCount(0);
   await driver.page.getByRole('button', { name: 'Mark completed', exact: true }).click();
   await expect(forms(driver.page)).toHaveCount(2);
+  await expect(forms(driver.page).first()).toBeVisible();
+  await expect(forms(driver.page).last()).toBeVisible();
+  await responsiveScreenshots(driver.page, 'driver-forms');
   await noOverflow(driver.page);
   for (const person of [one, two, pending, outsider]) await person.page.goto(`${base}/dashboard/trips`);
   await expect(forms(one.page)).toHaveCount(1);
   await expect(forms(two.page)).toHaveCount(1);
   await expect(forms(pending.page)).toHaveCount(0);
   await expect(forms(outsider.page)).toHaveCount(0);
+  await expect(forms(one.page)).toBeVisible();
+  await responsiveScreenshots(one.page, 'passenger-form');
   const before = check(await admin.from('rides').select('id,status,seats_available,seats_total').in('id', rides));
   const bookingsBefore = check(await admin.from('bookings').select('id,status,seats').in('ride_id', rides).order('id'));
   const impactBefore = await one.page.getByText(/kg CO/).allTextContents();
@@ -130,6 +143,7 @@ async function main() {
   await expect(forms(driver.page)).toHaveCount(0);
   await noOverflow(driver.page);
   await driver.page.screenshot({ path: '.test-dist/ratings/driver-submitted-mobile.png', fullPage: true });
+  await responsiveScreenshots(driver.page, 'driver-submitted');
   const publicPage = await browser.newPage({ viewport: { width: 375, height: 850 } });
   await publicPage.goto(`${base}/profile/${driver.id}`);
   await expect(publicPage.getByText('3.0 out of 5 · 2 ratings')).toBeVisible();
@@ -137,6 +151,7 @@ async function main() {
   for (const secret of [one.id, two.id, rideId, malicious, 'PRIVATE RATINGS CONTACT']) assert(!profileHtml.includes(secret), `Public profile leaked ${secret}`);
   await noOverflow(publicPage);
   await publicPage.screenshot({ path: '.test-dist/ratings/profile-mobile.png', fullPage: true });
+  await responsiveScreenshots(publicPage, 'profile');
   await publicPage.goto(`${base}/profile/${outsider.id}`);
   await expect(publicPage.getByText('No completed-ride ratings yet.')).toBeVisible();
   for (const [person, score] of [[one, '5.0'], [two, '3.0']]) {
@@ -158,7 +173,7 @@ async function main() {
   assert.deepEqual(await one.page.getByText(/kg CO/).allTextContents(), impactBefore);
   await noOverflow(one.page);
   console.log('PASS direct RLS denial, unchanged lifecycle, seats and impact totals');
-  fs.writeFileSync('.test-dist/ratings/results.json', JSON.stringify({ passed: true, date: new Date().toISOString(), cases: ['completion', 'eligibility', 'keyboard', 'mobile', 'escaping', 'duplicate', 'forged-target', 'forged-ride', 'concurrent-pair', 'both-directions', 'public-privacy', 'empty-summary', 'RLS', 'lifecycle-impact'] }, null, 2));
+  fs.writeFileSync('.test-dist/ratings/results.json', JSON.stringify({ passed: true, date: new Date().toISOString(), cases: ['completion', 'eligibility', 'keyboard', 'mobile-tablet-desktop', 'escaping', 'duplicate', 'forged-target', 'forged-ride', 'concurrent-pair', 'both-directions', 'public-privacy', 'empty-summary', 'RLS', 'lifecycle-impact'] }, null, 2));
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {

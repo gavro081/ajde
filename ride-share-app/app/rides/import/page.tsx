@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { AppHeader } from "@/components/app-header";
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,25 +13,23 @@ export default async function ImportRidePage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login?next=/rides/import");
+  const { data: cities } = await supabase.from("cities").select("id, name_en");
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950 sm:px-6">
+    <><AppHeader /><main id="main-content" className="bg-slate-50 px-4 py-10 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-700">
-          Import a post
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-          Turn a group post into a ride draft
+        <Link href="/rides/new" className="mb-5 inline-flex text-sm font-semibold text-emerald-700 hover:underline">← Create a ride manually</Link>
+        <h1 className="page-heading mt-3">
+          Import a ride post
         </h1>
         <p className="mt-3 max-w-2xl text-slate-600">
-          Paste a Viber or Facebook post, review every extracted detail, then finish it in the ride
-          form. Nothing is published automatically.
+          Paste your post. Review the details before publishing.
         </p>
 
-        <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-          <ImportRideForm />
+        <div className="mt-8 rounded-3xl border border-white bg-white p-5 shadow-sm sm:p-8">
+          <ImportRideForm cities={cities ?? []} />
         </div>
       </div>
-    </main>
+    </main></>
   );
 }
