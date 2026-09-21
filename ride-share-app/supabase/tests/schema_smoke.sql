@@ -252,4 +252,6 @@ begin
 end;
 $$;
 
+\ir communication_reputation.sql
+
 rollback;

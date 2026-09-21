@@ -14,7 +14,9 @@ The executable source of truth remains `supabase/migrations/`; generated applica
   `ON DELETE CASCADE`; historical relationships that must remain valid use `ON DELETE RESTRICT`.
 - `cars` stores a snapshot of make, model, fuel type, and consumption even when it references a
   catalog entry. This preserves the actual vehicle details and permits manual entries.
-- Row-level security is not defined yet. Add its policies here when they are introduced.
+- `messages` and `ratings` have table-specific RLS. Other public tables still lack RLS;
+  application checks are not a substitute for database protection. In particular, direct
+  mutation of unprotected rides/bookings can undermine the membership facts these policies use.
 
 ## Storage
 
@@ -134,15 +136,47 @@ Public Q&A on a ride. Each row links a ride and author profile, contains a trimm
 
 ### `messages`
 
-One direct message scoped to a ride. It links `sender_id` and `recipient_id` profiles, stores a
-trimmed 1–4000 character `body`, `created_at`, and optional `read_at`. Sender and recipient must
-differ. Deleting the ride or either participant cascades to the message.
+One message scoped to a ride. `recipient_id = null` means the shared ride room; non-null recipients
+are deferred direct-message data and inaccessible through room policies. The body constraint is
+1–4000 trimmed characters (chat's application limit is 2000). Sender and any recipient must differ.
+Deleting the ride or a referenced participant cascades. No second room/membership table exists.
+
+Only the driver and currently accepted passengers can read room messages. Passengers see rows
+created at or after their accepted booking's `decided_at`; the driver sees the whole room history.
+Cancelled bookings lose access immediately. Cancelled rides retain authorized read-only history.
+Sends require the authenticated sender, a real driver, null recipient, a non-cancelled ride, and
+`statement_timestamp() < departure_at + interval '48 hours'` (closed at the exact boundary).
+Clients can insert only ride/sender/recipient/body: timestamps and IDs cannot be forged, and
+updates/deletes are revoked. `messages_stamp` stamps authenticated sends with the database clock.
+
+`messages` is added idempotently to `supabase_realtime`. Postgres Changes applies SELECT RLS to
+each recipient. Chat history must filter `ride_id` and `recipient_id IS NULL`, order by
+`created_at DESC, id DESC`, and use both columns in the older-page cursor. The partial
+`messages_room_cursor_idx` supports that exact query; Realtime is a refresh signal, not authority.
 
 ### `ratings`
 
 A post-ride rating from `rater_id` to a different `ratee_id`, scoped to `ride_id`. `score` is 1–5,
 `note` is optional and at most 1000 characters, and `created_at` records submission. The tuple
 `(ride_id, rater_id, ratee_id)` is unique. Related ride/profile deletion cascades.
+
+INSERT RLS requires the authenticated rater and a completed ride: accepted passengers can rate
+its driver, and that driver can rate accepted passengers. Self-rating, passenger-to-passenger,
+unclaimed rides, and other booking/ride statuses are ineligible. Multiple seats do not multiply
+ratings. The unique tuple is the final concurrent-submission guard. Notes submitted by clients
+are optional, nonblank when present, trimmed, and limited to 1000 characters. No updates/deletes.
+Only rater and ratee can SELECT raw detail; anonymous users and unrelated students see no rows.
+
+Public `profile_rating_summary(target_profile_id)` returns exactly `{ average, count }`, with
+`average = null, count = 0` for no ratings. It excludes legacy rows that fail current eligibility
+and uses EXISTS so multiple bookings/seats cannot multiply contributions. It exposes no identities,
+ride IDs, or notes. This security-definer function has an empty search path and explicit execute
+grants only to `anon` and `authenticated` (besides privileged database roles). The session-bound
+boolean helpers `can_read_ride_room`, `can_send_ride_room`, and `can_rate_ride` similarly fix their
+search paths and permit authenticated callers only. They never accept a caller-supplied rater.
+
+Rating edits, appeals, moderation UI, and AI spam/safety screening are deferred. Notes are private
+feedback, not a moderated reporting channel; render them as escaped text.
 
 ### `reports`
 

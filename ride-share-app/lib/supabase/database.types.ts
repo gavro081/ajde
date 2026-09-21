@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
   public: {
     Tables: {
       bookings: {
@@ -192,7 +197,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          parsed_json: Json
+          parsed_json: NonNullable<Json>
           raw_text: string
           source_hint: string | null
           spam_flags: string[]
@@ -202,7 +207,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          parsed_json?: Json
+          parsed_json?: NonNullable<Json>
           raw_text: string
           source_hint?: string | null
           spam_flags?: string[]
@@ -212,7 +217,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          parsed_json?: Json
+          parsed_json?: NonNullable<Json>
           raw_text?: string
           source_hint?: string | null
           spam_flags?: string[]
@@ -233,7 +238,7 @@ export type Database = {
           created_at: string
           id: string
           read_at: string | null
-          recipient_id: string
+          recipient_id: string | null
           ride_id: string
           sender_id: string
         }
@@ -242,7 +247,7 @@ export type Database = {
           created_at?: string
           id?: string
           read_at?: string | null
-          recipient_id: string
+          recipient_id?: string | null
           ride_id: string
           sender_id: string
         }
@@ -251,7 +256,7 @@ export type Database = {
           created_at?: string
           id?: string
           read_at?: string | null
-          recipient_id?: string
+          recipient_id?: string | null
           ride_id?: string
           sender_id?: string
         }
@@ -519,7 +524,7 @@ export type Database = {
           departure_at: string
           dest_city_id: number
           dest_pickup_id: number | null
-          details: Json
+          details: NonNullable<Json>
           driver_id: string | null
           gender_preference: Database["public"]["Enums"]["ride_gender_preference"]
           id: string
@@ -542,7 +547,7 @@ export type Database = {
           departure_at: string
           dest_city_id: number
           dest_pickup_id?: number | null
-          details?: Json
+          details?: NonNullable<Json>
           driver_id?: string | null
           gender_preference?: Database["public"]["Enums"]["ride_gender_preference"]
           id?: string
@@ -565,7 +570,7 @@ export type Database = {
           departure_at?: string
           dest_city_id?: number
           dest_pickup_id?: number | null
-          details?: Json
+          details?: NonNullable<Json>
           driver_id?: string | null
           gender_preference?: Database["public"]["Enums"]["ride_gender_preference"]
           id?: string
@@ -677,6 +682,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_rate_ride: {
+        Args: { target_profile_id: string; target_ride_id: string }
+        Returns: boolean
+      }
+      can_read_ride_room: {
+        Args: { message_time: string; target_ride_id: string }
+        Returns: boolean
+      }
+      can_send_ride_room: { Args: { target_ride_id: string }; Returns: boolean }
+      profile_rating_summary: {
+        Args: { target_profile_id: string }
+        Returns: {
+          average: number
+          count: number
+        }[]
+      }
       recalculate_ride_seats: {
         Args: { target_ride_id: string }
         Returns: undefined
