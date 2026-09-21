@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AppHeader } from "@/components/app-header";
 import { SeatAvailability } from "@/components/seat-availability";
 import { CompleteRideButton } from "@/components/ride-completion/complete-ride-button";
+import { CancelRideControl } from "@/components/ride-completion/cancel-ride-control";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { formatDeparture } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
@@ -59,10 +60,13 @@ export default async function DriverDashboard({ searchParams }: { searchParams: 
           const isOpen = ["published", "full"].includes(ride.status);
           const hasDeparted = Date.parse(ride.departure_at) < now;
           const canDecide = isOpen && Date.parse(ride.departure_at) > now;
+          const confirmedSeats = rideBookings.filter((booking) => booking.status === "accepted").reduce((total, booking) => total + booking.seats, 0);
+          const isFull = ride.status === "full" || ride.seats_available === 0;
           return <section key={ride.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4"><div><Link href={`/rides/${ride.id}`} className="text-xl font-bold hover:underline">{cityMap.get(ride.origin_city_id)} → {cityMap.get(ride.dest_city_id)}</Link><p className="mt-1 text-sm text-slate-600">{formatDeparture(ride.departure_at)} · <span className="capitalize">{ride.status}</span></p></div><SeatAvailability available={ride.seats_available} total={ride.seats_total} /></div>
             <h2 className="mt-6 border-t border-slate-100 pt-5 font-bold">Seat requests</h2>
             {isOpen && hasDeparted ? <CompleteRideButton rideId={ride.id} /> : null}
+            {canDecide ? <CancelRideControl rideId={ride.id} isFull={isFull} confirmedSeats={confirmedSeats} /> : null}
             {rideBookings.length ? <div className="mt-3 space-y-3">{rideBookings.map((booking) => {
               const passenger = passengerMap.get(booking.passenger_id);
               const contact = contactMap.get(booking.passenger_id);
