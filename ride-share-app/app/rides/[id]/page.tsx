@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/app-header";
 import { SeatAvailability } from "@/components/seat-availability";
 import { RideComments } from "@/components/ride-comments/ride-comments";
 import { requireCompleteProfile } from "@/lib/auth/session";
+import { canViewRideDetail } from "@/lib/rides/ride-detail-access";
 import { formatDeparture, getRide } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,7 +23,7 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
   const { id } = await params;
   const user = await requireCompleteProfile(`/rides/${id}`);
   const ride = await getRide(id);
-  if (!ride || (!["published", "full"].includes(ride.status) && ride.driver_id !== user.id)) notFound();
+  if (!ride) notFound();
 
   const supabase = await createClient();
   const { data: booking } = await supabase
@@ -32,6 +33,11 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
     .eq("passenger_id", user.id)
     .in("status", ["requested", "accepted"])
     .maybeSingle();
+  if (!canViewRideDetail({
+    rideStatus: ride.status,
+    isDriver: ride.driver_id === user.id,
+    bookingStatus: booking?.status,
+  })) notFound();
   const notice = await searchParams;
   const requestAction = requestBooking.bind(null, id);
   const canRequest = ride.driver_id !== user.id && ride.status === "published" && ride.seats_available > 0 && !booking;
