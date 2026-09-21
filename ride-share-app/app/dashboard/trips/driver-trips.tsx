@@ -1,3 +1,4 @@
+import { ContactDetails } from "@/components/contact-details";
 import Link from "next/link";
 
 import { SubmitButton } from "@/components/submit-button";
@@ -29,18 +30,18 @@ export async function DriverRides({ userId }: { userId: string }) {
     cityIds.length ? supabase.from("cities").select("id, name_en").in("id", cityIds) : Promise.resolve({ data: [] }),
   ]);
   const passengerIds = [...new Set((bookings ?? []).map((booking) => booking.passenger_id))];
-  const acceptedPassengerIds = [...new Set((bookings ?? []).filter((booking) => booking.status === "accepted").map((booking) => booking.passenger_id))];
-  const [{ data: passengers }, { data: acceptedContacts }] = await Promise.all([
+  const contactPassengerIds = [...new Set((bookings ?? []).filter((booking) => ["requested", "accepted"].includes(booking.status)).map((booking) => booking.passenger_id))];
+  const [{ data: passengers }, { data: requestContacts }] = await Promise.all([
     passengerIds.length
       ? supabase.from("profiles").select("id, full_name, photo_url, university").in("id", passengerIds)
       : Promise.resolve({ data: [] }),
-    acceptedPassengerIds.length
-      ? supabase.from("profiles").select("id, phone, instagram, facebook").in("id", acceptedPassengerIds)
+    contactPassengerIds.length
+      ? supabase.from("profiles").select("id, phone").in("id", contactPassengerIds)
       : Promise.resolve({ data: [] }),
   ]);
   const cityMap = new Map((cities ?? []).map((city) => [city.id, city.name_en]));
   const passengerMap = new Map((passengers ?? []).map((passenger) => [passenger.id, passenger]));
-  const contactMap = new Map((acceptedContacts ?? []).map((contact) => [contact.id, contact]));
+  const contactMap = new Map((requestContacts ?? []).map((contact) => [contact.id, contact]));
   const ratingControls = await getRatingControls(userId, (rides ?? []).map((ride) => ({ ...ride, driver_id: userId })), bookings ?? []);
   // This authenticated Server Component renders a fresh eligibility snapshot per request.
   // eslint-disable-next-line react-hooks/purity
@@ -78,7 +79,7 @@ export async function DriverRides({ userId }: { userId: string }) {
                     </div>
                   </div>
                   {booking.message ? <p className="mt-3 text-slate-600">“{booking.message}”</p> : null}
-                  {booking.status === "accepted" ? <p className="mt-3 text-sm text-emerald-800">Contact: {contact?.phone || contact?.instagram || contact?.facebook || "No contact method added"}</p> : null}
+                  {["requested", "accepted"].includes(booking.status) ? <ContactDetails phone={contact?.phone} /> : null}
                   <div className="mt-4 flex flex-wrap gap-3">{booking.status === "requested" && canDecide ? <>
                     <form action={decideBooking.bind(null, booking.id, "accepted")}><SubmitButton pendingLabel="Accepting…" className="btn-primary disabled:opacity-60">Accept</SubmitButton></form>
                     <form action={decideBooking.bind(null, booking.id, "declined")}><SubmitButton pendingLabel="Declining…" className="btn-secondary disabled:opacity-60">Decline</SubmitButton></form>
