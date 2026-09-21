@@ -30,7 +30,7 @@ vi.mock("../supabase/server", () => ({ createClient: async () => ({
   },
 }) }));
 
-import { getImpactSummary } from "./queries";
+import { getImpactSummary, getPublicImpactSummary } from "./queries";
 
 function ride(id = "ride-1", overrides: Record<string, unknown> = {}): Row {
   return { id, status: "completed", departure_at: "2026-09-20T10:00:00.000Z", details: { distance_km: 100 },
@@ -154,5 +154,47 @@ describe("passenger impact query", () => {
   it("excludes unrepresentable estimates instead of leaking Infinity into totals", async () => {
     database.rides[0].details = { distance_km: Number.MAX_VALUE };
     expect((await getImpactSummary()).platform).toEqual({ savedCo2Kg: 0, eligibleTrips: 1, includedTrips: 0, excludedTrips: 1 });
+  });
+});
+
+
+describe("public homepage impact", () => {
+  it("works signed out and returns only aggregate numbers", async () => {
+    database.userId = null;
+    expect(await getPublicImpactSummary()).toEqual({
+      savedCo2Kg: 48.51, savedFuelLitres: 21, uniqueParticipants: 3,
+      completedSharedTrips: 1, excludedEstimateTrips: 0,
+    });
+  });
+
+  it("deduplicates participants across trips and paginates without counting demo or unshared rides", async () => {
+    database.responseLimit = 1;
+    database.rides = [ride(), ride("ride-2"), ride("ride-3", { details: { distance_km: 100, demo_seed: true } }), ride("ride-4")];
+    database.bookings.push(booking("booking-3", "passenger-a", 1, "ride-2"), booking("booking-4", "demo-passenger", 1, "ride-3"));
+    expect(await getPublicImpactSummary()).toEqual({
+      savedCo2Kg: 64.68, savedFuelLitres: 28, uniqueParticipants: 3,
+      completedSharedTrips: 2, excludedEstimateTrips: 0,
+    });
+  });
+
+  it("counts participation when emissions cannot be estimated", async () => {
+    database.rides[0].car = null;
+    expect(await getPublicImpactSummary()).toEqual({
+      savedCo2Kg: 0, savedFuelLitres: 0, uniqueParticipants: 3,
+      completedSharedTrips: 1, excludedEstimateTrips: 1,
+    });
+  });
+
+  it("reports genuine zero totals when no completed trips exist", async () => {
+    database.rides = [ride("future", { departure_at: "2030-01-01T00:00:00Z" }), ride("cancelled", { status: "cancelled" })];
+    expect(await getPublicImpactSummary()).toEqual({
+      savedCo2Kg: 0, savedFuelLitres: 0, uniqueParticipants: 0,
+      completedSharedTrips: 0, excludedEstimateTrips: 0,
+    });
+  });
+
+  it.each(["rides", "bookings"])("does not turn a %s query failure into zero impact", async table => {
+    database.failure = table;
+    await expect(getPublicImpactSummary()).rejects.toThrow("Unable to load impact estimates.");
   });
 });
