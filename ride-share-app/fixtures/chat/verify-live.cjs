@@ -26,7 +26,7 @@ function check(r) { if (r.error)
         const id = generated.user.id;
         const entry = { id, name };
         users.push(entry);
-        check(await admin.from('profiles').insert({ id, full_name: `Room Test ${name}`, photo_url: `${base}/icon.svg`, university: 'UKIM', phone: 'TEST CONTACT' }));
+        check(await admin.from('profiles').insert({ id, full_name: `Room Test ${name}`, photo_url: `${base}/icon.svg`, university: 'UKIM', phone: '+38970123456' }));
         const jar = [];
         const session = createServerClient(url, key, { cookies: { getAll: () => jar, setAll: values => { for (const c of values) {
                     const i = jar.findIndex(x => x.name === c.name);
@@ -127,10 +127,10 @@ function check(r) { if (r.error)
     await publicDetail.goto(`${base}/rides/${rideId}`);
     await expect(publicDetail.getByText('Public Q&A regression', { exact: true })).toBeVisible();
     await expect(publicDetail.getByRole('link', { name: 'Ride room', exact: true })).toHaveCount(0);
-    await expect(publicDetail.getByText('TEST CONTACT', { exact: false })).toHaveCount(0);
+    await expect(publicDetail.getByText('+38970123456', { exact: false })).toHaveCount(0);
     const trips = await one.context.newPage();
     await trips.goto(`${base}/dashboard/trips`);
-    await expect(trips.getByText('Driver contact: TEST CONTACT', { exact: true })).toBeVisible();
+    await expect(trips.getByText('Driver contact: +38970123456', { exact: true })).toBeVisible();
     await trips.getByRole('link', { name: 'View trip', exact: true }).click();
     await expect(trips).toHaveURL(`${base}/rides/${rideId}`);
     await expect(trips.getByRole('heading', { name: 'Request seats', exact: true })).toBeVisible();
@@ -146,7 +146,7 @@ function check(r) { if (r.error)
     const shared = await anonymous.newPage();
     await shared.goto(await trips.getByLabel('Trip link', { exact: true }).inputValue());
     await expect(shared.getByRole('heading', { name: 'Shared itinerary' })).toBeVisible();
-    await expect(shared.getByText('TEST CONTACT', { exact: false })).toHaveCount(0);
+    await expect(shared.getByText('+38970123456', { exact: false })).toHaveCount(0);
     await expect(shared.getByText('Room Test one', { exact: false })).toHaveCount(0);
     await trips.getByRole('button', { name: 'Revoke link', exact: true }).click();
     await expect(trips.getByText('Trip link revoked. New visits cannot open it.', { exact: true })).toBeVisible();
@@ -159,7 +159,7 @@ function check(r) { if (r.error)
     await expect(outsiderTrips.getByText('Awaiting approval', { exact: true })).toBeVisible();
     await expect(outsiderTrips.getByRole('link', {name:'Open ride chat',exact:true})).toHaveCount(0);
     await expect(outsiderTrips.getByText('Ride chat becomes available when the driver accepts your booking.',{exact:true})).toBeVisible();
-    await expect(outsiderTrips.getByText('TEST CONTACT', { exact: false })).toHaveCount(0);
+    await expect(outsiderTrips.getByText('+38970123456', { exact: false })).toHaveCount(0);
     const dashboard = await driver.context.newPage();
     await dashboard.goto(`${base}/dashboard/driver`);
     const request = dashboard.locator('article').filter({ hasText: 'Room Test outsider' });
@@ -171,7 +171,7 @@ function check(r) { if (r.error)
     await dashboard.locator('summary').filter({ hasText: 'Manage ride' }).click();
     await expect(pendingRequest.getByText('declined', { exact: true })).toBeVisible();
     await outsiderTrips.reload();
-    await expect(outsiderTrips.getByText('Driver contact: TEST CONTACT', { exact: true })).toBeVisible();
+    await expect(outsiderTrips.getByText('Driver contact: +38970123456', { exact: true })).toBeVisible();
     await publicDetail.reload();
     await expect(publicDetail.getByRole('link', { name: 'Ride room', exact: true })).toBeVisible();
     await outsiderTrips.locator('summary').filter({ hasText: 'Booking options' }).click();
