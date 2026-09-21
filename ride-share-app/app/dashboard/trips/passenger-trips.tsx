@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { SubmitButton } from "@/components/submit-button";
 import { TripShareControls } from "@/components/trip-share-controls";
+import { ChatIcon } from "@/components/chat-icon";
 import { RatingControl } from "@/components/ratings/rating-control";
 import { getRatingControls } from "@/lib/ratings/queries";
 import { formatDeparture } from "@/lib/rides/ride-view";
@@ -51,10 +52,10 @@ export async function PassengerTrips({ userId }: { userId: string }) {
               <p className="text-xl font-medium">{ride.price_per_seat_mkd === null ? "Flexible price" : <>{ride.price_per_seat_mkd} MKD <span className="text-sm font-normal text-slate-500">/ seat</span></>}</p>
             </div>
             {rideIsCancelled ? <p role="alert" className="mt-5 text-red-800">The driver cancelled this ride. Please make other travel plans.</p> : null}
-            {booking.status === "accepted" && !rideIsCancelled ? <div className="mt-6 rounded-2xl bg-emerald-50 p-5 text-emerald-900"><p className="font-medium">{rideIsCompleted ? "Travelled" : "You’re confirmed"}{driver ? ` with ${driver.full_name}` : ""}.</p><p className="mt-2 text-sm">Driver contact: {contact || "No contact added. Use the ride Q&A to arrange your meetup."}</p></div> : null}
+            {booking.status === "accepted" && !rideIsCancelled ? <div className="mt-6 rounded-2xl bg-emerald-50 p-5 text-emerald-900"><p className="font-medium">{rideIsCompleted ? "Travelled" : "You’re confirmed"}{driver ? ` with ${driver.full_name}` : ""}.</p><p className="mt-2 text-sm">Driver contact: {contact || "No contact added. Use the ride chat to arrange your meetup."}</p></div> : null}
             <nav aria-label="Trip actions" className="mt-6 flex flex-wrap gap-3">
               <Link href={`/rides/${ride.id}`} className="btn-secondary flex-1">View trip</Link>
-              {booking.status === "accepted" && ride.driver_id ? <Link href={`/rides/${ride.id}/chat`} className="btn-primary flex-1">Open ride chat</Link> : null}
+              {booking.status === "accepted" && ride.driver_id ? <Link href={`/rides/${ride.id}/chat`} className="btn-primary flex-1" aria-label={`Open ride chat for ${cityMap.get(ride.origin_city_id)} to ${cityMap.get(ride.dest_city_id)}`}><ChatIcon /> Open ride chat</Link> : null}
               {rideIsCompleted || rideIsCancelled ? <Link href="/rides" className="btn-secondary w-full">Find your next ride</Link> : null}
             </nav>
             {booking.status === "requested" ? <p className="mt-3 text-sm text-slate-600">Ride chat becomes available when the driver accepts your booking.</p> : null}
