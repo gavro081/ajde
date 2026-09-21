@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
 import { SeatAvailability } from "@/components/seat-availability";
+import { RideComments } from "@/components/ride-comments/ride-comments";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { formatDeparture, getRide } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
@@ -84,6 +85,7 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
             </section>
           </aside>
         </div>
+        <RideComments rideId={id} />
       </main>
     </div>
   );
