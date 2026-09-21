@@ -1,44 +1,55 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
-import { AppHeader } from "@/components/app-header";
-import { UiIcon } from "@/components/ui-icon";
+import { Suspense, type ReactNode } from "react";
+import { LandingMap } from "@/components/landing/landing-map";
+import { WhereToForm } from "@/components/landing/where-to-form";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "A little closer, together" };
 
-export default async function Home() {
+// Marketing figures — placeholders until they are wired to lib/impact.
+const savings: { icon: ReactNode; value: string; label: string }[] = [
+  { icon: <path d="M4 17a4 4 0 0 1 1-7.9A6 6 0 0 1 16.7 8 4.5 4.5 0 0 1 19 17H4Z" />, value: "1,284 t", label: "CO₂ saved" },
+  { icon: <path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z" />, value: "548,210 L", label: "Fuel saved" },
+  { icon: <><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6m2 3c2 .8 3 2.8 3 6" /></>, value: "86,412", label: "Riders connected" },
+  { icon: <path d="M12 21V11m0 0c-4 0-7-3-7-7 4 0 7 3 7 7Zm0 0c0-4 3-7 7-7 0 4-3 7-7 7Z" />, value: "58,400", label: "Trees' worth" },
+];
+
+async function CitySearch() {
   const supabase = await createClient();
   const { data: cities } = await supabase.from("cities").select("id, name_en").order("name_en");
+  return <WhereToForm cities={cities ?? []} />;
+}
 
-  return <div className="landing-shell">
-    <AppHeader />
-    <main id="main-content" className="landing-main">
-      <section className="landing-hero" aria-labelledby="home-title">
-        <div className="landing-copy">
-          <h1 id="home-title" className="landing-title">Going home?<br /><span>Go together.</span></h1>
-          <p className="landing-lede">Share a ride. Split the cost. Travel with students across North Macedonia.</p>
-          <div className="mt-9 flex flex-wrap gap-4">
-            <a href="#find-a-ride" className="btn-primary">Find your ride <UiIcon name="arrow" size={22} /></a>
-            <Link href="/rides/new" className="btn-secondary">Offer a seat</Link>
-          </div>
+export default function Home() {
+  // The hero slides up under the sticky glass navbar so the map fills the whole first screen.
+  return <div className="-mt-[var(--header-h)] flex min-h-svh flex-col bg-[#0f1511] text-[#16201a] lg:h-svh lg:min-h-[44rem]">
+    <section className="relative isolate flex flex-1 flex-col overflow-hidden rounded-b-[2rem] bg-[linear-gradient(180deg,#b9e3fb_0%,#d9f0f4_45%,#e7f6de_100%)] lg:min-h-0">
+      <LandingMap />
+      <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-3/5 bg-[linear-gradient(0deg,#e7f6de_0%,rgb(231_246_222/0.85)_40%,transparent_100%)]" />
+
+      <main id="main-content" className="relative mt-auto grid items-end gap-10 px-5 pb-10 pt-[calc(var(--header-h)+15rem)] sm:px-10 sm:pt-[calc(var(--header-h)+9rem)] lg:grid-cols-[1fr_auto] lg:pb-12 lg:pt-[calc(var(--header-h)+1.5rem)]">
+        <div>
+          <h1 className="font-display text-[clamp(3.1rem,min(7vw,10.5vh),6.4rem)] font-extrabold leading-[0.95] tracking-[-0.055em]">
+            Share the ride.<br /><span className="underline decoration-[0.07em] underline-offset-[0.12em]">Spare the air.</span>
+          </h1>
+          <p className="mt-6 max-w-lg text-lg leading-relaxed text-[#3c4a41]">Fill the empty seats on your way home. Split the fuel, meet other students, and leave a smaller footprint on every trip.</p>
         </div>
-        <div className="journey-scene">
-          <Image src="/images/shared-journey.png" width={1254} height={1254} alt="A coral car on a winding road, with a blue location pin and a green tree" className="journey-art" sizes="(max-width: 767px) 100vw, 55vw" preload />
-        </div>
-      </section>
+        <Suspense fallback={<WhereToForm cities={[]} loading />}>
+          <CitySearch />
+        </Suspense>
+      </main>
+    </section>
 
-      <section id="find-a-ride" className="home-search" aria-labelledby="search-heading">
-        <div className="home-search-heading"><h2 id="search-heading" className="text-2xl font-medium tracking-tight">Where are you headed?</h2></div>
-        <form action="/rides" className="home-search-form">
-          <div className="home-search-field"><UiIcon name="pin" /><label>Leaving from<select name="origin" defaultValue=""><option value="">Choose a city</option>{cities?.map((city) => <option key={city.id} value={city.id}>{city.name_en}</option>)}</select></label></div>
-          <div className="home-search-field"><UiIcon name="pin" /><label>Going to<select name="destination" defaultValue=""><option value="">Choose a city</option>{cities?.map((city) => <option key={city.id} value={city.id}>{city.name_en}</option>)}</select></label></div>
-          <div className="home-search-field"><UiIcon name="calendar" /><label>When<input name="date" type="date" /></label></div>
-          <button type="submit" className="btn-primary"><UiIcon name="search" size={18} /> Find a ride</button>
-        </form>
-      </section>
-
-    </main>
-    <footer className="landing-footer"><span className="font-medium text-slate-700">Student Ride Share</span><span>For students. For the way home.</span><Link href="/rides/import" className="hover:text-slate-950">Import a ride post ↗</Link></footer>
+    <section aria-label="Savings so far" className="shrink-0 px-5 py-7 text-white sm:px-10 lg:py-6">
+      <ul className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-5 lg:flex lg:flex-nowrap lg:items-center lg:justify-center lg:gap-x-[clamp(2rem,4vw,4.5rem)]">
+        {savings.map((s) => <li key={s.label} className="flex items-center gap-3.5">
+          <svg className="shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#86efac" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{s.icon}</svg>
+          <span className="flex flex-col min-[1400px]:flex-row min-[1400px]:items-center min-[1400px]:gap-3.5">
+            <span className="whitespace-nowrap font-display text-[clamp(1.4rem,2.2vw,1.9rem)] font-extrabold leading-tight tracking-[-0.03em]" style={{ fontVariantNumeric: "tabular-nums" }}>{s.value}</span>
+            <span className="whitespace-nowrap font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-[#a3b8aa] sm:text-xs">{s.label}</span>
+          </span>
+        </li>)}
+      </ul>
+    </section>
   </div>;
 }
