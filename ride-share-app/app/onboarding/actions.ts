@@ -1,5 +1,7 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
+import { contactSchema } from '@/lib/profiles/contact'
 import { requireUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 
@@ -9,6 +11,8 @@ export type ProfileInput = {
   fullName: string
   university: string
   storagePath: string
+  phone: string
+  socialUrl: string
   bio: string
   gender: Gender | ''
 }
@@ -21,6 +25,8 @@ const genders = new Set<Gender>(['woman', 'man', 'non_binary', 'prefer_not_to_sa
 
 export async function saveProfile(input: ProfileInput): Promise<SaveProfileResult> {
   const user = await requireUser('/onboarding')
+  const contacts = contactSchema.safeParse(input)
+  if (!contacts.success) return { ok: false, message: contacts.error.issues[0].message }
   const fullName = input.fullName.trim()
   const university = input.university.trim()
   const bio = input.bio.trim()
@@ -34,7 +40,7 @@ export async function saveProfile(input: ProfileInput): Promise<SaveProfileResul
   if (bio.length > 500) {
     return { ok: false, message: 'Bio must be 500 characters or fewer.' }
   }
-  if (!input.storagePath.startsWith(`${user.id}/`)) {
+  if (input.storagePath && !input.storagePath.startsWith(`${user.id}/`)) {
     return { ok: false, message: 'Upload a profile photo owned by your account.' }
   }
   if (input.gender && !genders.has(input.gender)) {
@@ -42,11 +48,17 @@ export async function saveProfile(input: ProfileInput): Promise<SaveProfileResul
   }
 
   const supabase = await createClient()
-  const { data } = supabase.storage.from('profile-photos').getPublicUrl(input.storagePath)
+  const { data: existing } = await supabase.from('profiles').select('photo_url').eq('id', user.id).maybeSingle()
+  const photoUrl = input.storagePath
+    ? supabase.storage.from('profile-photos').getPublicUrl(input.storagePath).data.publicUrl
+    : existing?.photo_url
+  if (!photoUrl) return { ok: false, message: 'Add a profile photo to continue.' }
   const { error } = await supabase.from('profiles').upsert({
     id: user.id,
     full_name: fullName,
-    photo_url: data.publicUrl,
+    photo_url: photoUrl,
+    phone: contacts.data.phone,
+    social_url: contacts.data.socialUrl || null,
     university,
     bio: bio || null,
     gender: input.gender || null,
@@ -56,6 +68,7 @@ export async function saveProfile(input: ProfileInput): Promise<SaveProfileResul
     return { ok: false, message: 'Your profile could not be saved. Please try again.' }
   }
 
+  revalidatePath('/', 'layout')
   return { ok: true }
 }
 

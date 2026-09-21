@@ -2,16 +2,20 @@
 
 import { startTransition, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { ContactDetails } from "@/components/contact-details";
 import { loadRoom, sendRoomMessage } from "@/lib/chat/actions";
 import { isRoomEvent, mergeMessages, type Cursor, type Member, type Message, type RoomPage } from "@/lib/chat/contract";
 import { createClient } from "@/lib/supabase/client";
 
 export function ParticipantRoster({ members }: { members: Member[] }) {
   return <ul aria-label="Room participants" className="flex gap-2 lg:flex-col">
-    {members.map(member => <li key={member.id} className="flex shrink-0 items-center gap-2 rounded-full bg-slate-100 py-1.5 pl-1.5 pr-3 text-sm lg:rounded-xl">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={member.photo_url} alt="" className="size-7 rounded-full object-cover" />
-      <span>{member.full_name}{member.isDriver ? " · Driver" : ""}</span>
+    {members.map(member => <li key={member.id} className="w-60 shrink-0 rounded-xl bg-slate-50 p-3 text-sm lg:w-auto">
+      <div className="flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={member.photo_url} alt="" className="size-8 shrink-0 rounded-full object-cover" />
+        <span className="min-w-0 break-words font-medium">{member.full_name}{member.isDriver ? " · Driver" : ""}</span>
+      </div>
+      <ContactDetails phone={member.phone} socialUrl={member.social_url} instagram={member.instagram} facebook={member.facebook} />
     </li>)}
   </ul>;
 }

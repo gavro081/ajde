@@ -44,9 +44,10 @@ photos are part of the public identity shown on ride and profile pages.
 
 Application profile for one Supabase Auth user. `id` is both its primary key and a cascading foreign
 key to `auth.users.id`. Required identity fields are `full_name`, `photo_url`, and `university`.
-Optional contact/profile fields are `phone`, `instagram`, `facebook`, `bio`, and `gender`;
+The application requires a valid phone (7–15 digits, optional leading +) for profile completion, including existing accounts. `phone` remains nullable in storage for legacy profiles, which are redirected to onboarding. Optional contact/profile fields are `social_url`, `instagram`, `facebook`, `bio`, and `gender`;
 `verified_at` records verification. It also has `created_at` and trigger-maintained `updated_at`.
 Names must be 2–100 trimmed characters, university names 2–160, and bios at most 500 characters.
+`social_url` stores an optional HTTPS profile URL (up to 500 characters), validated on save; credentials and non-HTTPS URLs are rejected. Existing social columns are preserved.
 The Tier 1 demo seed creates 25 clearly synthetic, verified student profiles with deterministic IDs.
 
 ### `cities`

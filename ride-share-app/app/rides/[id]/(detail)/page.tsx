@@ -93,6 +93,7 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
               {booking ? <div className="mt-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold capitalize">{booking.status}</p><p className="mt-1">Your seat request is with the driver.</p><Link className="mt-2 inline-block font-semibold underline" href="/dashboard/trips">Manage in My trips</Link></div> : null}
               {canRequest ? <form action={requestAction} className="mt-4 space-y-4">
                 <label className="block text-sm font-semibold">Message <span className="font-normal text-slate-500">(optional)</span><textarea name="message" maxLength={1000} rows={3} className="mt-1.5 w-full resize-y rounded-xl border border-slate-300 px-3 py-2.5" placeholder="Introduce yourself or mention luggage." /></label>
+                <p className="text-xs text-slate-500">Your phone number will be shared with the driver when you send this request.</p>
                 <SubmitButton pendingLabel="Sending request…" className="btn-primary w-full disabled:opacity-60">Request my seat</SubmitButton>
                 <p className="text-xs leading-5 text-slate-500">Each request reserves one seat, just for you. It is confirmed when the driver accepts. Track the response in My trips.</p>
                 {ride.gender_preference === "same_as_driver" ? <p className="text-xs text-slate-500">This ride accepts same-gender requests only.</p> : null}
