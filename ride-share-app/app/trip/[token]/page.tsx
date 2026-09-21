@@ -22,7 +22,7 @@ export default async function SharedTripPage({ params }: { params: Promise<{ tok
     <h1 className="font-display text-4xl font-extrabold tracking-[-.04em]">Shared itinerary</h1>
     <p className="mt-3 text-slate-600">This is a planned itinerary, not live tracking. It does not confirm the traveller’s current location.</p>
     <section className="mt-6 surface-card p-6">
-      <h2 className="font-display text-2xl font-bold tracking-tight">{itinerary.origin} → {itinerary.destination}</h2>
+      <h2 className="font-display text-2xl font-bold tracking-tight">{itinerary.origin} <span className="text-slate-400">to</span> {itinerary.destination}</h2>
       <dl className="mt-4 space-y-3 text-sm">
         <div><dt className="font-semibold">Departure (Skopje time)</dt><dd>{new Date(itinerary.departureAt).toLocaleString("en-GB", { timeZone: "Europe/Skopje", dateStyle: "full", timeStyle: "short" })}</dd></div>
         <div><dt className="font-semibold">Pickup</dt><dd>{itinerary.pickup ?? "Not specified"}</dd></div>

@@ -125,14 +125,14 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
     <><main id="main-content" className="px-4 py-10 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-4xl">
         <div className="mb-8">
-          <Link href="/dashboard/trips?view=driver" className="mb-5 inline-flex text-sm font-semibold text-brand-700 hover:underline">← My trips</Link>
+          <Link href="/dashboard/trips?view=driver" className="mb-5 inline-flex text-sm font-semibold text-brand-700 hover:underline">My trips</Link>
           <h1 className="page-heading mt-3">
             Where are you headed?
           </h1>
           <p className="mt-3 max-w-2xl text-slate-600">
             Set your route, choose your car, and offer a seat.
           </p>
-          <Link href="/rides/import" className="mt-4 inline-flex text-sm font-semibold text-brand-700 hover:underline">Already posted in a group? Import your post →</Link>
+          <Link href="/rides/import" className="mt-4 inline-flex text-sm font-semibold text-brand-700 hover:underline">Already posted in a group? Import your post</Link>
         </div>
 
         <div className="surface-card p-5 sm:p-8">

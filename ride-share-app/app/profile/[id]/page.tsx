@@ -21,7 +21,7 @@ export default async function ProfilePage({ params }: PageProps<'/profile/[id]'>
     <><main id="main-content" className="px-5 py-10">
       <div className="mx-auto max-w-2xl">
         <Link href="/rides" className="text-sm font-semibold text-brand-700 hover:underline">
-          ← Back to rides
+          Back to rides
         </Link>
         <article className="surface-card mt-6 overflow-hidden">
           <div className="p-7 sm:p-10">

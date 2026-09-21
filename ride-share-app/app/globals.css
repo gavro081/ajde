@@ -56,8 +56,11 @@
 
   /* Global glass navbar */
   .site-header { position: sticky; top: 0; z-index: 50; height: var(--header-h); padding: .75rem .75rem 0; pointer-events: none; }
-  .site-header-bar { position: relative; pointer-events: auto; display: flex; align-items: center; justify-content: space-between; gap: .75rem; max-width: 88rem; height: 3.5rem; margin-inline: auto; padding: .375rem .4375rem .375rem .5rem; border: 1px solid rgb(255 255 255 / 70%); border-radius: 999px; background: rgb(255 255 255 / 55%); box-shadow: 0 8px 32px rgb(11 42 23 / 12%), inset 0 1px 0 rgb(255 255 255 / 80%); backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); }
+  .site-header-bar { position: relative; pointer-events: auto; display: flex; align-items: center; justify-content: space-between; gap: .75rem; max-width: 88rem; height: 3.5rem; margin-inline: auto; padding: .375rem .4375rem .375rem .5rem; transition: max-width 420ms cubic-bezier(.2, .8, .2, 1), height 300ms ease, background-color 300ms ease, box-shadow 300ms ease; border: 1px solid rgb(255 255 255 / 70%); border-radius: 999px; background: rgb(255 255 255 / 55%); box-shadow: 0 8px 32px rgb(11 42 23 / 12%), inset 0 1px 0 rgb(255 255 255 / 80%); backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); }
+  .site-header[data-scrolled] .site-header-bar { max-width: 46rem; height: 3.125rem; background: rgb(255 255 255 / 88%); box-shadow: 0 10px 36px rgb(11 42 23 / 16%), inset 0 1px 0 rgb(255 255 255 / 80%); }
   .brand { color: var(--foreground); }
+  .brand-label { overflow: hidden; max-width: 12rem; white-space: nowrap; transition: max-width 380ms cubic-bezier(.2, .8, .2, 1), opacity 240ms ease; }
+  .site-header[data-scrolled] .brand-label { max-width: 0; opacity: 0; }
   .brand-mark { background: var(--ink); color: #4ade80; }
   .site-nav { display: flex; flex: 1; align-items: center; gap: .5rem; }
   .site-nav-links { display: flex; align-items: center; gap: .125rem; margin-inline: auto; }
@@ -88,6 +91,8 @@
 }
 @media (max-width: 1023px) {
   .site-menu-button { display: inline-flex; }
+  .site-header[data-scrolled] .site-header-bar { max-width: 19rem; }
+  .site-header[data-scrolled] .brand-label { max-width: 12rem; opacity: 1; }
   .site-nav { display: none; }
   .site-nav-open { position: absolute; top: calc(100% + .5rem); left: 0; right: 0; display: flex; flex-direction: column; align-items: stretch; gap: .75rem; padding: .75rem; border: 1px solid rgb(255 255 255 / 70%); border-radius: 1.5rem; background: rgb(255 255 255 / 96%); box-shadow: 0 16px 40px rgb(11 42 23 / 16%); backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); }
   .site-nav-open .site-nav-links { flex-direction: column; align-items: stretch; margin: 0; }

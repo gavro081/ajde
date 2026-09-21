@@ -43,9 +43,7 @@ export function WhereToForm({ cities, loading = false }: { cities: City[]; loadi
 
     <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3">
       <button type="submit" className="rounded-xl bg-[#16201a] px-6 text-[17px] font-semibold text-white hover:bg-[#2a3a30]">Find a ride</button>
-      <Link href="/rides/new" className="group inline-flex items-center gap-2 text-[17px] font-semibold underline decoration-[#16201a]/25 underline-offset-[6px] hover:decoration-[#16201a]">
-        Offer a ride <span aria-hidden="true" className="transition group-hover:translate-x-0.5">→</span>
-      </Link>
+      <Link href="/rides/new" className="inline-flex items-center text-[17px] font-semibold underline decoration-[#16201a]/25 underline-offset-[6px] hover:decoration-[#16201a]">Offer a ride</Link>
     </div>
     <p className="mt-4 flex items-center gap-2 border-t border-[#16201a]/10 pt-4 text-sm text-[#4c5a50]">
       <span className="size-2 shrink-0 rounded-full bg-[#22c55e]" />A shared trip saves about 21 kg of CO₂.

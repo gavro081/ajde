@@ -2,8 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Brand } from "@/components/brand";
+
+function subscribeToScroll(onChange: () => void) {
+  window.addEventListener("scroll", onChange, { passive: true });
+  return () => window.removeEventListener("scroll", onChange);
+}
+
+/** True once the page has scrolled past the top, which collapses the navbar into a compact pill. */
+function useScrolled() {
+  return useSyncExternalStore(subscribeToScroll, () => window.scrollY > 24, () => false);
+}
 
 function isActive(pathname: string, href: string) {
   if (href === "/rides") return pathname === href || /^\/rides\/(?!new|import)[^/]+/.test(pathname);
@@ -38,6 +48,7 @@ export function AppNavigation({ userLinks, account }: { userLinks: ReactNode; ac
   const pathname = usePathname();
   const [openPath, setOpenPath] = useState<string | null>(null);
   const menuOpen = openPath === pathname;
+  const scrolled = useScrolled();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -46,7 +57,7 @@ export function AppNavigation({ userLinks, account }: { userLinks: ReactNode; ac
     return () => window.removeEventListener("keydown", close);
   }, [menuOpen]);
 
-  return <header className="site-header">
+  return <header className="site-header" data-scrolled={scrolled || undefined}>
     <a href="#main-content" className="skip-link">Skip to content</a>
     <div className="site-header-bar">
       <Brand />

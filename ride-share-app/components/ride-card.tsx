@@ -41,7 +41,7 @@ export function RideCard({ ride, explanation }: { ride: RideView; explanation?: 
         <div className="mt-auto pt-5">
           <div className="flex flex-wrap items-end justify-between gap-4 border-t border-slate-200 pt-4">
             <SeatAvailability available={ride.seats_available} total={ride.seats_total} />
-            <Link className="btn-primary" href={`/rides/${ride.id}`} aria-label={`View ride from ${ride.originCity.name_en} to ${ride.destinationCity.name_en}`}>Choose ride <span aria-hidden="true">→</span></Link>
+            <Link className="btn-primary" href={`/rides/${ride.id}`} aria-label={`View ride from ${ride.originCity.name_en} to ${ride.destinationCity.name_en}`}>Choose ride</Link>
           </div>
         </div>
       </div>
