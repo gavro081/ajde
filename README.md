@@ -313,6 +313,12 @@ Implemented protections:
 
 ### CO2 impact assumptions
 
+The homepage shows database-derived estimated CO2/fuel savings, distinct participants, and completed
+shared trips. It excludes rides marked `details.demo_seed`, counts only departed completed rides
+with accepted bookings, and labels estimates and unavailable data explicitly. Participants count
+each driver/passenger once across qualifying trips; missing/unsupported vehicle data excludes a
+trip from savings estimates but not participation counts. No tree-equivalent estimate is shown.
+
 - Each accepted passenger seat is assumed to replace a separate car making the same trip with the
   shared car's recorded consumption. These are estimates, not measured emissions.
 - Personal savings belong to accepted passengers; drivers receive no extra credit. Each eligible

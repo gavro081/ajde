@@ -2,17 +2,47 @@ import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 import { LandingMap } from "@/components/landing/landing-map";
 import { WhereToForm } from "@/components/landing/where-to-form";
+import { getPublicImpactSummary } from "@/lib/impact/queries";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "A little closer, together" };
 
-// Marketing figures — placeholders until they are wired to lib/impact.
-const savings: { icon: ReactNode; value: string; label: string }[] = [
-  { icon: <path d="M4 17a4 4 0 0 1 1-7.9A6 6 0 0 1 16.7 8 4.5 4.5 0 0 1 19 17H4Z" />, value: "1,284 t", label: "CO₂ saved" },
-  { icon: <path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z" />, value: "548,210 L", label: "Fuel saved" },
-  { icon: <><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6m2 3c2 .8 3 2.8 3 6" /></>, value: "86,412", label: "Riders connected" },
-  { icon: <path d="M12 21V11m0 0c-4 0-7-3-7-7 4 0 7 3 7 7Zm0 0c0-4 3-7 7-7 0 4-3 7-7 7Z" />, value: "58,400", label: "Trees' worth" },
-];
+type PublicImpact = Awaited<ReturnType<typeof getPublicImpactSummary>>;
+
+async function HomepageImpact() {
+  let summary: PublicImpact;
+  try {
+    summary = await getPublicImpactSummary();
+  } catch {
+    return <Savings summary={null} message="Trip statistics are temporarily unavailable." />;
+  }
+  return <Savings summary={summary} />;
+}
+
+function Savings({ summary, message }: { summary: PublicImpact | null; message?: string }) {
+  const number = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 });
+  const savings: { icon: ReactNode; value: string; label: string }[] = [
+    { icon: <path d="M4 17a4 4 0 0 1 1-7.9A6 6 0 0 1 16.7 8 4.5 4.5 0 0 1 19 17H4Z" />, value: summary ? `${number.format(summary.savedCo2Kg)} kg` : "—", label: "Est. CO₂ saved" },
+    { icon: <path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z" />, value: summary ? `${number.format(summary.savedFuelLitres)} L` : "—", label: "Est. fuel saved" },
+    { icon: <><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5a3 3 0 0 1 0 6m2 3c2 .8 3 2.8 3 6" /></>, value: summary ? number.format(summary.uniqueParticipants) : "—", label: "Unique participants" },
+    { icon: <path d="m5 12 4 4L19 6" />, value: summary ? number.format(summary.completedSharedTrips) : "—", label: "Shared trips completed" },
+  ];
+  return <section aria-label="Community trip statistics" className="shrink-0 px-5 py-7 text-white sm:px-10 lg:py-6">
+    <ul className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-5 lg:flex lg:flex-nowrap lg:items-center lg:justify-center lg:gap-x-[clamp(2rem,4vw,4.5rem)]">
+      {savings.map((s) => <li key={s.label} className="flex items-center gap-3.5">
+        <svg className="shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#86efac" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{s.icon}</svg>
+        <span className="flex min-w-0 flex-col">
+          <span className="font-display text-[clamp(1.4rem,2.2vw,1.9rem)] font-extrabold leading-tight tracking-[-0.03em]" style={{ fontVariantNumeric: "tabular-nums" }}>{s.value}</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-[#a3b8aa] sm:text-xs">{s.label}</span>
+        </span>
+      </li>)}
+    </ul>
+    <p className="mx-auto mt-4 max-w-4xl text-center text-xs leading-relaxed text-[#a3b8aa]">
+      {message ?? "Completed trips with accepted passengers; demo rides excluded. Participants count each driver or passenger once. Savings assume each passenger seat replaces a separate car; petrol and diesel trips with valid distance and consumption only."}
+      {summary && summary.excludedEstimateTrips > 0 ? ` ${summary.excludedEstimateTrips} completed shared trip(s) excluded from savings estimates because vehicle or distance data is missing or unsupported.` : null}
+    </p>
+  </section>;
+}
 
 async function CitySearch() {
   const supabase = await createClient();
@@ -40,16 +70,8 @@ export default function Home() {
       </main>
     </section>
 
-    <section aria-label="Savings so far" className="shrink-0 px-5 py-7 text-white sm:px-10 lg:py-6">
-      <ul className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-5 lg:flex lg:flex-nowrap lg:items-center lg:justify-center lg:gap-x-[clamp(2rem,4vw,4.5rem)]">
-        {savings.map((s) => <li key={s.label} className="flex items-center gap-3.5">
-          <svg className="shrink-0" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#86efac" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{s.icon}</svg>
-          <span className="flex flex-col min-[1400px]:flex-row min-[1400px]:items-center min-[1400px]:gap-3.5">
-            <span className="whitespace-nowrap font-display text-[clamp(1.4rem,2.2vw,1.9rem)] font-extrabold leading-tight tracking-[-0.03em]" style={{ fontVariantNumeric: "tabular-nums" }}>{s.value}</span>
-            <span className="whitespace-nowrap font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-[#a3b8aa] sm:text-xs">{s.label}</span>
-          </span>
-        </li>)}
-      </ul>
-    </section>
+    <Suspense fallback={<Savings summary={null} message="Loading trip statistics…" />}>
+      <HomepageImpact />
+    </Suspense>
   </div>;
 }

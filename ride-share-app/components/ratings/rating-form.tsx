@@ -3,9 +3,8 @@
 import { useActionState, useId } from "react";
 
 import { submitRating } from "@/lib/ratings/actions";
+import { StarRatingInput } from "./star-rating";
 import { SubmittedRatingDetail } from "./submitted-rating";
-
-const scores = ["1 — Poor", "2 — Fair", "3 — Good", "4 — Very good", "5 — Excellent"];
 
 export function RatingForm({ rideId, rateeId, targetName }: { rideId: string; rateeId: string; targetName: string }) {
   const id = useId();
@@ -17,10 +16,8 @@ export function RatingForm({ rideId, rateeId, targetName }: { rideId: string; ra
     <input type="hidden" name="rideId" value={rideId} />
     <input type="hidden" name="rateeId" value={rateeId} />
     <fieldset disabled={pending} aria-describedby={`${id}-privacy`} className="min-w-0">
-      <legend className="text-xl font-medium">Rate your ride with {targetName}</legend>
-      <div className="mt-4 flex flex-wrap gap-2">{scores.map((label, index) => <label key={label} className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm has-checked:border-brand-600 has-checked:bg-brand-50 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-blue-600">
-        <input type="radio" name="score" value={index + 1} required className="accent-brand-600" />{label}
-      </label>)}</div>
+      <legend className="font-display text-xl font-bold tracking-tight">Rate your ride with {targetName}</legend>
+      <div className="mt-3"><StarRatingInput name="score" label={`Score for ${targetName}`} /></div>
       <label htmlFor={`${id}-note`} className="mt-5 block text-sm font-medium">Private feedback (optional, up to 1000 characters)</label>
       <textarea id={`${id}-note`} name="note" maxLength={1000} rows={3} className="field mt-2 resize-y" />
       <p id={`${id}-privacy`} className="mt-3 text-sm text-slate-500">Your score contributes to their public profile average. Written feedback is visible only to you and this person. You can submit once per person for this ride.</p>

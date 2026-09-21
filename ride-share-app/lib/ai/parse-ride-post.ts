@@ -205,7 +205,7 @@ export async function resolveParsedLocations(
   return parsedRidePostSchema.parse({ ...parsed, draft });
 }
 
-async function resolveLocationFromRawText(
+export async function resolveLocationFromRawText(
   rawText: string,
   candidates: LocationCandidate[],
   pickupById: Map<number, ParserPickupPoint>,

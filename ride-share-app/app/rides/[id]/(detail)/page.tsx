@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { SeatAvailability } from "@/components/seat-availability";
 import { RideRoute } from "@/components/ride-route";
 import { SubmitButton } from "@/components/submit-button";
+import { ChatIcon } from "@/components/chat-icon";
 import { RideComments } from "@/components/ride-comments/ride-comments";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { canViewRideDetail } from "@/lib/rides/ride-detail-access";
@@ -41,6 +42,8 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
   })) notFound();
   const notice = await searchParams;
   const requestAction = requestBooking.bind(null, id);
+  const canChat = Boolean(ride.driver_id) && (ride.driver_id === user.id || booking?.status === "accepted");
+  const route = `${ride.originCity.name_en} to ${ride.destinationCity.name_en}`;
   const canRequest = ride.driver_id !== user.id && ride.status === "published" && ride.seats_available > 0 && !booking;
 
   return (
@@ -66,13 +69,20 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
           </section>
 
           <aside className="space-y-5">
+            {canChat ? <section aria-labelledby="ride-chat-heading" className="surface-card border-brand-200! bg-brand-50 p-5">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-600 text-white"><ChatIcon /></span>
+                <div><h2 id="ride-chat-heading" className="font-display text-xl font-bold tracking-tight">Ride chat</h2><p className="text-sm text-slate-600">Plan pickup with {ride.driver_id === user.id ? "your passengers" : "your driver and passengers"}.</p></div>
+              </div>
+              <Link href={`/rides/${id}/chat`} className="btn-primary mt-4 w-full" aria-label={`Open ride chat for ${route}`}><ChatIcon /> Open ride chat</Link>
+            </section> : null}
             <section className="surface-card overflow-hidden p-6 text-slate-950">
               {ride.driver ? <>
                 <div className="flex items-center gap-4">
                   {/* User/project-specific hosts cannot use a fixed Next Image allowlist. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={ride.driver.photo_url} alt="" width={64} height={64} className="size-16 shrink-0 rounded-full bg-blue-50 object-cover" />
-                  <div><p className="eyebrow">Your driver</p>{ride.driver.verified_at ? <span className="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">Verified driver</span> : null}</div>
+                  <div><p className="text-sm font-medium text-slate-500">Your driver</p>{ride.driver.verified_at ? <span className="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">Verified driver</span> : null}</div>
                 </div>
                 <Link href={`/profile/${ride.driver.id}`} className="mt-4 block font-display text-xl font-bold tracking-tight hover:text-brand-700">{ride.driver.full_name}</Link><p className="mt-1 text-sm text-slate-600">{ride.driver.university}</p>{ride.car ? <p className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-600">{ride.car.color ? `${ride.car.color} ` : ""}{ride.car.make} {ride.car.model}</p> : null}
               </> : <p className="p-5 text-sm text-slate-600">Imported ride awaiting a driver.</p>}
@@ -94,9 +104,6 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
           </aside>
         </div>
         <RideComments rideId={id} />
-        {ride.driver_id && (ride.driver_id === user.id || booking?.status === "accepted") ? (
-          <Link href={`/rides/${id}/chat`} className="btn-primary mt-5">Open ride room</Link>
-        ) : null}
       </main>
     </div>
   );

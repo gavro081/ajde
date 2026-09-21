@@ -1,18 +1,19 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
+import { departureInstant, type OfferValues } from "@/lib/rides/offer-values";
 
 import type { Tables } from "@/lib/supabase/database.types";
 import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
 import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
+import { DateTimeField } from "@/components/date-time-field";
 
-import { createRide, saveCar, type CreateRideFormState } from "./actions";
+import { saveCar, type CreateRideFormState } from "./actions";
 
 type City = Pick<Tables<"cities">, "id" | "name_en" | "name_mk">;
 type PickupPoint = Pick<Tables<"pickup_points">, "id" | "city_id" | "name_en" | "name_mk">;
-type Car = Pick<
+export type Car = Pick<
   Tables<"cars">,
   | "id"
   | "make"
@@ -34,7 +35,7 @@ type CarModel = Pick<
   | "release_year"
 >;
 
-type RideFormProps = {
+export type RideFormProps = {
   cars: Car[];
   carModels: CarModel[];
   cities: City[];
@@ -43,16 +44,17 @@ type RideFormProps = {
   initialDraft: RideDraft;
   submissionId: string;
   isImportedDraft: boolean;
-};
-
-const initialState: CreateRideFormState = {
-  status: "idle",
-  message: "",
-  fieldErrors: {},
+  values: OfferValues;
+  onChange: (values: OfferValues) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  state: CreateRideFormState;
+  pending: boolean;
+  onCarSaved: (car: Car) => void;
+  onCarSaving: (saving: boolean) => void;
 };
 
 const inputClass =
-  "mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
+  "mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100";
 
 const tagLabels: Record<(typeof RIDE_TAGS)[number], string> = {
   flexible_pickup: "Flexible pickup",
@@ -63,17 +65,13 @@ const tagLabels: Record<(typeof RIDE_TAGS)[number], string> = {
   quiet_ride: "Quiet ride",
 };
 
-function dateTimeLocalValue(value: string | null) {
-  return value?.slice(0, 16) ?? "";
-}
-
 function FieldError({ errors, id }: { errors?: string[]; id?: string }) {
   if (!errors?.length) return null;
   return <p id={id} className="mt-1 text-sm text-red-700">{errors[0]}</p>;
 }
 
 export function RideForm({
-  cars: initialCars,
+  cars,
   carModels,
   cities,
   fuelPrices,
@@ -81,73 +79,30 @@ export function RideForm({
   initialDraft,
   submissionId,
   isImportedDraft,
+  values, onChange, onSubmit, state, pending, onCarSaved, onCarSaving,
 }: RideFormProps) {
-  const [cars, setCars] = useState(initialCars);
   const [savingCar, startSavingCar] = useTransition();
   const [carMessage, setCarMessage] = useState("");
   const [carSaveError, setCarSaveError] = useState(false);
   const carFieldsRef = useRef<HTMLFieldSetElement>(null);
   const carChangeRef = useRef<HTMLButtonElement>(null);
-  const [state, formAction, pending] = useActionState(createRide, initialState);
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
-    if (state.status === "success" && state.rideId) {
-      router.replace(`/rides/${state.rideId}?success=${encodeURIComponent(state.message)}`);
-      router.refresh();
-    }
-    if (state.status === "error") {
-      formRef.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();
-    }
-  }, [state, router]);
-  const [originCityId, setOriginCityId] = useState(initialDraft.origin.cityId?.toString() ?? "");
-  const [destinationCityId, setDestinationCityId] = useState(
-    initialDraft.destination.cityId?.toString() ?? "",
-  );
-  const [originPickupId, setOriginPickupId] = useState(
-    initialDraft.origin.pickupPointId?.toString() ?? "",
-  );
-  const [destinationPickupId, setDestinationPickupId] = useState(
-    initialDraft.destination.pickupPointId?.toString() ?? "",
-  );
-  const [departureLocal, setDepartureLocal] = useState(
-    dateTimeLocalValue(initialDraft.departureAt),
-  );
-  const [distanceKm, setDistanceKm] = useState(initialDraft.distanceKm?.toString() ?? "");
-  const [rideSeatsOverride, setRideSeatsOverride] = useState<string | null>(initialDraft.seatsTotal?.toString() ?? null);
-  const [pricePerSeatMkd, setPricePerSeatMkd] = useState(
-    initialDraft.pricePerSeatMkd?.toString() ?? "",
-  );
-  const [carMode, setCarMode] = useState<"existing" | "catalog" | "manual">(
-    initialDraft.carId && cars.some((car) => car.id === initialDraft.carId)
-      ? "existing"
-      : initialDraft.car?.carModelId
-        ? "catalog"
-        : cars.length > 0
-          ? "existing"
-          : "catalog",
-  );
-  const [catalogQuery, setCatalogQuery] = useState("");
-  const [catalogModelId, setCatalogModelId] = useState(
-    initialDraft.car?.carModelId?.toString() ?? "",
-  );
-  const initialCatalogModel = carModels.find(
-    (model) => model.id === initialDraft.car?.carModelId,
-  );
-  const [consumption, setConsumption] = useState(
-    initialDraft.car?.consumptionL100Km?.toString() ??
-      initialCatalogModel?.consumption_l_100km.toString() ??
-      "",
-  );
-  const [existingCarId, setExistingCarId] = useState(
-    cars.some((car) => car.id === initialDraft.carId)
-      ? initialDraft.carId!
-      : cars.length === 1 ? cars[0].id : "",
-  );
+    if (state.status === "error") formRef.current?.querySelector<HTMLElement>('[role="alert"]')?.focus();
+  }, [state]);
   const [choosingCar, setChoosingCar] = useState(false);
-  const [manualFuelType, setManualFuelType] = useState<string>(
-    initialDraft.car?.fuelType ?? "petrol",
-  );
+  const { originCityId, destinationCityId, originPickupId, destinationPickupId, departureLocal, distanceKm, seatsTotal, pricePerSeatMkd, carMode, catalogQuery, catalogModelId, consumption, existingCarId, manualFuelType } = values;
+  const setOriginPickupId = (value: OfferValues["originPickupId"]) => onChange({ ...values, originPickupId: value });
+  const setDestinationPickupId = (value: OfferValues["destinationPickupId"]) => onChange({ ...values, destinationPickupId: value });
+  const setDepartureLocal = (value: OfferValues["departureLocal"]) => onChange({ ...values, departureLocal: value });
+  const setDistanceKm = (value: OfferValues["distanceKm"]) => onChange({ ...values, distanceKm: value });
+  const setSeatsTotal = (value: OfferValues["seatsTotal"]) => onChange({ ...values, seatsTotal: value });
+  const setPricePerSeatMkd = (value: OfferValues["pricePerSeatMkd"]) => onChange({ ...values, pricePerSeatMkd: value });
+  const setCarMode = (value: OfferValues["carMode"]) => onChange({ ...values, carMode: value });
+  const setCatalogQuery = (value: OfferValues["catalogQuery"]) => onChange({ ...values, catalogQuery: value });
+  const setConsumption = (value: OfferValues["consumption"]) => onChange({ ...values, consumption: value });
+  const setExistingCarId = (value: OfferValues["existingCarId"]) => onChange({ ...values, existingCarId: value });
+  const setManualFuelType = (value: OfferValues["manualFuelType"]) => onChange({ ...values, manualFuelType: value });
 
   const originPickupPoints = useMemo(
     () => pickupPoints.filter((point) => point.city_id.toString() === originCityId),
@@ -173,7 +128,6 @@ export function RideForm({
   );
   const selectedExistingCar = cars.find((car) => car.id === existingCarId);
   const selectedCarCapacity = carMode === "existing" ? selectedExistingCar?.seats_total : undefined;
-  const seatsTotal = rideSeatsOverride ?? selectedCarCapacity?.toString() ?? "";
   const estimateFuelType =
     carMode === "existing"
       ? selectedExistingCar?.fuel_type
@@ -193,6 +147,7 @@ export function RideForm({
     }
     const data = new FormData(formRef.current);
     setCarMessage("");
+    onCarSaving(true);
     startSavingCar(async () => {
       try {
         const result = await saveCar(data);
@@ -201,9 +156,7 @@ export function RideForm({
           setCarMessage(result.message);
           return;
         }
-        setCars((current) => [...current.filter((car) => car.id !== result.car.id), result.car]);
-        setExistingCarId(result.car.id);
-        setCarMode("existing");
+        onCarSaved(result.car);
         setChoosingCar(false);
         setCarSaveError(false);
         setCarMessage("Car saved. It’s ready for this ride and future rides.");
@@ -211,20 +164,18 @@ export function RideForm({
       } catch {
         setCarSaveError(true);
         setCarMessage("We could not save your car. Please try again.");
+      } finally {
+        onCarSaving(false);
       }
     });
   }
 
-  let departureAt = "";
-  if (departureLocal) {
-    const parsedDeparture = new Date(departureLocal);
-    if (!Number.isNaN(parsedDeparture.getTime())) departureAt = parsedDeparture.toISOString();
-  }
+  const departureAt = departureInstant(departureLocal);
 
   return (
     <form
       ref={formRef}
-      action={formAction}
+      onSubmit={onSubmit}
       // React resets forms after a resolved action, including validation failures.
       // Keep every entered value until the successful save navigates away.
       onReset={(event) => event.preventDefault()}
@@ -256,8 +207,7 @@ export function RideForm({
               required
               value={originCityId}
               onChange={(event) => {
-                setOriginCityId(event.target.value);
-                setOriginPickupId("");
+                onChange({ ...values, originCityId: event.target.value, originPickupId: "" });
               }}
             >
               <option value="">Choose a city</option>
@@ -279,8 +229,7 @@ export function RideForm({
               required
               value={destinationCityId}
               onChange={(event) => {
-                setDestinationCityId(event.target.value);
-                setDestinationPickupId("");
+                onChange({ ...values, destinationCityId: event.target.value, destinationPickupId: "" });
               }}
             >
               <option value="">Choose a city</option>
@@ -294,20 +243,20 @@ export function RideForm({
           </label>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <label className="font-medium text-slate-800 col-span-2">
-            Departure
-            <input
+          <div className="font-medium text-slate-800 col-span-2">
+            <span id="departure-label">Departure</span>
+            <DateTimeField
+              labelledBy="departure-label"
               className={inputClass}
-              name="departureLocal"
-              aria-invalid={Boolean(state.fieldErrors.departureAt) || undefined}
-              aria-describedby={state.fieldErrors.departureAt ? "departure-error" : undefined}
-              type="datetime-local"
-              required
+              invalid={Boolean(state.fieldErrors.departureAt)}
+              describedBy={state.fieldErrors.departureAt ? "departure-error" : undefined}
+              disabled={pending || savingCar}
               value={departureLocal}
-              onChange={(event) => setDepartureLocal(event.target.value)}
+              onChange={setDepartureLocal}
             />
             <FieldError id="departure-error" errors={state.fieldErrors.departureAt} />
-          </label>
+            {departureLocal && !departureAt && <p className="mt-2 text-sm text-amber-800">Recognized {departureLocal.split("T").filter(Boolean).join(" ")}. Complete the departure date and time.</p>}
+          </div>
           <label className="font-medium text-slate-800">
             Available seats
             <input
@@ -317,12 +266,12 @@ export function RideForm({
               name="seatsTotal"
               aria-invalid={Boolean(state.fieldErrors.seatsTotal) || undefined}
               aria-describedby={state.fieldErrors.seatsTotal ? "seats-hint seats-error" : "seats-hint"}
-              onChange={(event) => setRideSeatsOverride(event.target.value)}
+              onChange={(event) => setSeatsTotal(event.target.value)}
               required
               type="number"
               value={seatsTotal}
             />
-            <span id="seats-hint" className="mt-1 block text-xs font-normal text-slate-500">For this ride only</span>
+            <span id="seats-hint" className="mt-1 block text-xs font-normal text-slate-500">Choose how many seats to offer for this ride</span>
             <FieldError id="seats-error" errors={state.fieldErrors.seatsTotal} />
           </label>
           <label className="font-medium text-slate-800">
@@ -342,7 +291,7 @@ export function RideForm({
             <FieldError id="price-error" errors={state.fieldErrors.pricePerSeatMkd} />
           </label>
         </div>
-        <p className="text-xs text-slate-500">Enter departure in your local time. Rides display in Skopje time.</p>
+        <p className="text-xs text-slate-500">Enter departure in Skopje local time, wherever your device is located.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="font-medium text-slate-800">
             Pickup point
@@ -390,7 +339,7 @@ export function RideForm({
                 {selectedExistingCar.plate_last3 ? ` · •••${selectedExistingCar.plate_last3}` : ""}
               </p>
             </div>
-            <button ref={carChangeRef} type="button" className="rounded-lg px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50" onClick={() => setChoosingCar(true)}>Change</button>
+            <button ref={carChangeRef} type="button" className="rounded-lg px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50" onClick={() => setChoosingCar(true)}>Change</button>
             <input type="hidden" name="carId" value={existingCarId} />
           </div>
         ) : (
@@ -481,9 +430,8 @@ export function RideForm({
                     name="carModelId"
                     onChange={(event) => {
                       const nextId = event.target.value;
-                      setCatalogModelId(nextId);
                       const model = carModels.find((item) => item.id.toString() === nextId);
-                      setConsumption(model?.consumption_l_100km.toString() ?? "");
+                      onChange({ ...values, catalogModelId: nextId, consumption: model?.consumption_l_100km.toString() ?? "" });
                     }}
                     required
                     value={catalogModelId}
@@ -505,7 +453,8 @@ export function RideForm({
                 </label>
                 <NewCarFields
                   consumption={consumption}
-                  initialDraft={initialDraft}
+                  values={values}
+                  onChange={onChange}
                   onConsumptionChange={setConsumption}
                 />
               </div>
@@ -517,7 +466,8 @@ export function RideForm({
                   Make
                   <input
                     className={inputClass}
-                    defaultValue={initialDraft.car?.make ?? ""}
+                    value={values.carMake}
+                    onChange={(event) => onChange({ ...values, carMake: event.target.value })}
                     maxLength={80}
                     name="carMake"
                     required
@@ -527,7 +477,8 @@ export function RideForm({
                   Model
                   <input
                     className={inputClass}
-                    defaultValue={initialDraft.car?.model ?? ""}
+                    value={values.carModel}
+                    onChange={(event) => onChange({ ...values, carModel: event.target.value })}
                     maxLength={120}
                     name="carModel"
                     required
@@ -542,6 +493,7 @@ export function RideForm({
                     required
                     value={manualFuelType}
                   >
+                    <option value="">Choose fuel</option>
                     <option value="petrol">Petrol</option>
                     <option value="diesel">Diesel</option>
                     <option value="hybrid">Hybrid</option>
@@ -552,7 +504,8 @@ export function RideForm({
                 </label>
                 <NewCarFields
                   consumption={consumption}
-                  initialDraft={initialDraft}
+                  values={values}
+                  onChange={onChange}
                   onConsumptionChange={setConsumption}
                 />
               </div>
@@ -565,16 +518,16 @@ export function RideForm({
                 <p className="text-sm text-slate-500">Save once and reuse on future rides.</p>
               </div>
             ) : selectedExistingCar ? (
-              <button className="mt-4 text-sm font-semibold text-emerald-700" type="button" onClick={() => setChoosingCar(false)}>Done</button>
+              <button className="mt-4 text-sm font-semibold text-brand-700" type="button" onClick={() => setChoosingCar(false)}>Done</button>
             ) : null}
           </div>
         )}
         <input name="carMode" type="hidden" value={carMode} />
-        {carMessage ? <p role={carSaveError ? "alert" : "status"} className={`mt-3 text-sm ${carSaveError ? "text-red-700" : "text-emerald-700"}`}>{carMessage}</p> : null}
+        {carMessage ? <p role={carSaveError ? "alert" : "status"} className={`mt-3 text-sm ${carSaveError ? "text-red-700" : "text-brand-700"}`}>{carMessage}</p> : null}
         <FieldError errors={state.fieldErrors.carId} />
       </fieldset>
 
-      <details className="card-options" open={Boolean(initialDraft.distanceKm || state.fieldErrors.distanceKm?.length)}>
+      <details className="card-options" open={Boolean(distanceKm || state.fieldErrors.distanceKm?.length)}>
       <summary>Estimate fuel costs & CO₂ savings</summary>
       <RideEstimatePanel
         consumption={estimateConsumption}
@@ -596,7 +549,8 @@ export function RideForm({
               key={tag}
             >
               <input
-                defaultChecked={initialDraft.tags.includes(tag)}
+                checked={values.tags.includes(tag)}
+                onChange={(event) => onChange({ ...values, tags: event.target.checked ? [...values.tags, tag] : values.tags.filter(t => t !== tag) })}
                 name="tags"
                 type="checkbox"
                 value={tag}
@@ -612,7 +566,8 @@ export function RideForm({
         Passenger preference
         <select
           className={inputClass}
-          defaultValue={initialDraft.genderPreference ?? "any"}
+          value={values.genderPreference}
+          onChange={(event) => onChange({ ...values, genderPreference: event.target.value === "same_as_driver" ? "same_as_driver" : "any" })}
           name="genderPreference"
           required
         >
@@ -626,7 +581,8 @@ export function RideForm({
         Notes
         <textarea
           className={`${inputClass} min-h-28 resize-y`}
-          defaultValue={initialDraft.notes ?? ""}
+          value={values.notes}
+          onChange={(event) => onChange({ ...values, notes: event.target.value })}
           maxLength={2_000}
           name="notes"
           placeholder="Luggage, timing, or pickup details passengers should know"
@@ -641,12 +597,12 @@ export function RideForm({
           tabIndex={-1}
           className={`rounded-xl border p-4 text-sm ${
             state.status === "success"
-              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+              ? "border-brand-300 bg-brand-50 text-brand-900"
               : "border-red-300 bg-red-50 text-red-900"
           }`}
         >
           {state.message}
-          {state.rideId ? <span className="ml-1">Opening your ride…</span> : null}
+          {state.rideId ? <span className="ml-1">Opening My trips…</span> : null}
           {Object.keys(state.fieldErrors).length ? <ul className="mt-2 list-disc space-y-1 pl-5">{Object.entries(state.fieldErrors).map(([field, errors]) => <li key={field}>{errors[0]}</li>)}</ul> : null}
         </div>
       ) : null}
@@ -718,9 +674,9 @@ function RideEstimatePanel({
   }
 
   return (
-    <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5">
-      <h2 className="font-semibold text-emerald-950">Fair-price and CO₂ estimate</h2>
-      <p className="mt-1 text-sm text-emerald-900/75">
+    <section className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4 sm:p-5">
+      <h2 className="font-semibold text-brand-950">Fair-price and CO₂ estimate</h2>
+      <p className="mt-1 text-sm text-brand-900/75">
         Fuel cost is split across the offered passenger seats. The price remains editable.
       </p>
       <label className="mt-4 block max-w-xs font-medium text-slate-800">
@@ -768,7 +724,7 @@ function RideEstimatePanel({
             >
               Use {estimate.pricePerSeatMkd} MKD suggestion
             </button>
-            <p className="mt-2 text-xs text-emerald-900/70">
+            <p className="mt-2 text-xs text-brand-900/70">
               Assumes {fuelPrice} MKD/L and {supportedFuel === "petrol" ? "2.31" : "2.68"} kg CO₂
               per litre. Potential savings assume every offered seat replaces one separate car on
               the same route.
@@ -791,13 +747,14 @@ function EstimateValue({ label, value }: { label: string; value: string }) {
 
 type NewCarFieldsProps = {
   consumption: string;
-  initialDraft: RideDraft;
+  values: OfferValues;
+  onChange: (values: OfferValues) => void;
   onConsumptionChange: (value: string) => void;
 };
 
 function NewCarFields({
   consumption,
-  initialDraft,
+  values, onChange,
   onConsumptionChange,
 }: NewCarFieldsProps) {
   return (
@@ -819,7 +776,8 @@ function NewCarFields({
         Total passenger seats
         <input
           className={inputClass}
-          defaultValue={initialDraft.car?.seatsTotal ?? 4}
+          value={values.carSeatsTotal}
+          onChange={(event) => onChange({ ...values, carSeatsTotal: event.target.value })}
           max={8}
           min={1}
           name="carSeatsTotal"
@@ -831,7 +789,8 @@ function NewCarFields({
         Color (optional)
         <input
           className={inputClass}
-          defaultValue={initialDraft.car?.color ?? ""}
+          value={values.carColor}
+          onChange={(event) => onChange({ ...values, carColor: event.target.value })}
           name="carColor"
         />
       </label>
@@ -839,7 +798,8 @@ function NewCarFields({
         Last 3 plate characters (optional)
         <input
           className={inputClass}
-          defaultValue={initialDraft.car?.plateLast3 ?? ""}
+          value={values.plateLast3}
+          onChange={(event) => onChange({ ...values, plateLast3: event.target.value })}
           maxLength={3}
           name="plateLast3"
           placeholder="123"

@@ -212,6 +212,19 @@ bookings 1--* trip_shares
 
 ## Database behavior
 
+- `create_ride_offer(jsonb,jsonb,uuid,boolean)` publishes an offer and selects/creates its owned
+  vehicle in one transaction. It derives the driver from `auth.uid()`, verifies import and vehicle
+  ownership, validates required fields, and relies on the city/pickup constraints for route integrity.
+  A driver-scoped transaction advisory lock serializes simultaneous tab publications. Matching
+  complete vehicle details reuse the driver's existing car. A unique index on
+  `(driver_id, details->>'submission_id')` plus lookup under that lock makes retries idempotent.
+  Different submission IDs remain distinct rides. Both anonymous and PUBLIC execution are revoked.
+- `ride_routing_gate` is a private singleton table with a timestamp and no client table grants.
+  `try_ride_routing_request()` grants at most one authenticated routing permit per 1.2 seconds,
+  using a row lock across app instances. It has a fixed empty search path and no anonymous grant.
+  This gate supports the low-volume public OSRM demo; denied permits are retried by the UI,
+  while unavailable routing leaves optional kilometres manually editable.
+
 - `set_updated_at()` refreshes `updated_at` on updates to `profiles`, `cars`, `rides`, `bookings`,
   and `ride_comments`.
 - `guard_booking_identity()` prevents changing a booking's ride or passenger.

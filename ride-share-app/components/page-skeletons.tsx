@@ -8,7 +8,8 @@ export function Bone({ className = "" }: { className?: string }) {
 }
 
 function SkeletonMain({ label, className, bodyClassName, children }: { label: string; className: string; bodyClassName?: string; children: ReactNode }) {
-  return <main id="main-content" aria-busy="true" className={className}>
+  // w-full: <main> sits directly in the flex-column body, where mx-auto alone would shrink it to its content.
+  return <main id="main-content" aria-busy="true" className={`w-full ${className}`}>
     <p role="status" className="sr-only">{label}</p>
     <div aria-hidden="true" className={bodyClassName}>{children}</div>
   </main>;
