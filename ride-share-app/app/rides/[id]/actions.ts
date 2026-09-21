@@ -1,5 +1,6 @@
 "use server";
 
+import { requireCompleteProfile } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -18,9 +19,8 @@ export async function requestBooking(rideId: string, formData: FormData) {
   });
   if (!validation.success) redirect(detailUrl(rideId, "error", "Check your message and try again."));
 
+  const user = await requireCompleteProfile(`/rides/${rideId}`);
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect(`/login?next=${encodeURIComponent(`/rides/${rideId}`)}`);
 
   const { data: ride, error } = await supabase
     .from("rides")
