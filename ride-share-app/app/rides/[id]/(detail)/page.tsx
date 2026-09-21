@@ -11,7 +11,7 @@ import { canViewRideDetail } from "@/lib/rides/ride-detail-access";
 import { formatDeparture, getRide } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
 
-import { requestBooking } from "./actions";
+import { requestBooking } from "../actions";
 
 export const metadata: Metadata = { title: "Ride details" };
 
@@ -46,14 +46,14 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
   return (
     <div className="text-slate-950">
       <main id="main-content" className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <Link href="/rides" className="text-sm font-semibold text-brand-700 hover:underline">← Back to rides</Link>
+        <Link href="/rides" className="text-sm font-semibold text-brand-700 hover:underline">Back to rides</Link>
         {notice.success ? <p role="status" className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">{notice.success}</p> : null}
         {notice.error ? <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">{notice.error}</p> : null}
 
         <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_350px]">
           <section className="surface-card p-6 sm:p-8">
             <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm font-semibold text-brand-700">{formatDeparture(ride.departure_at)} · Skopje time</p><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize">{ride.status}</span></div>
-            <h1 className="mt-3 font-display text-4xl font-extrabold tracking-[-.04em]">{ride.originCity.name_en} <span className="text-slate-400">→</span> {ride.destinationCity.name_en}</h1>
+            <h1 className="mt-3 font-display text-4xl font-extrabold tracking-[-.04em]">{ride.originCity.name_en} <span className="text-slate-400">to</span> {ride.destinationCity.name_en}</h1>
             <div className="mt-6 rounded-xl bg-slate-50 p-5">
               <RideRoute origin={ride.originCity.name_en} destination={ride.destinationCity.name_en} pickup={ride.originPickup?.name_en} dropoff={ride.destinationPickup?.name_en} />
             </div>
@@ -79,13 +79,12 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
             </section>
 
             <section className="surface-card p-5">
-              <h2 className="font-display text-xl font-bold tracking-tight">Request seats</h2>
-              {booking ? <div className="mt-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold capitalize">{booking.status}</p><p className="mt-1">{booking.seats} seat{booking.seats === 1 ? "" : "s"} requested.</p><Link className="mt-2 inline-block font-semibold underline" href="/dashboard/trips">Manage in My trips</Link></div> : null}
+              <h2 className="font-display text-xl font-bold tracking-tight">Request a seat</h2>
+              {booking ? <div className="mt-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-semibold capitalize">{booking.status}</p><p className="mt-1">Your seat request is with the driver.</p><Link className="mt-2 inline-block font-semibold underline" href="/dashboard/trips">Manage in My trips</Link></div> : null}
               {canRequest ? <form action={requestAction} className="mt-4 space-y-4">
-                <label className="block text-sm font-semibold">Seats<select name="seats" className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5">{Array.from({ length: ride.seats_available }, (_, index) => index + 1).map((seat) => <option key={seat} value={seat}>{seat}</option>)}</select></label>
                 <label className="block text-sm font-semibold">Message <span className="font-normal text-slate-500">(optional)</span><textarea name="message" maxLength={1000} rows={3} className="mt-1.5 w-full resize-y rounded-xl border border-slate-300 px-3 py-2.5" placeholder="Introduce yourself or mention luggage." /></label>
-                <SubmitButton pendingLabel="Sending request…" className="btn-primary w-full disabled:opacity-60">Send request</SubmitButton>
-                <p className="text-xs leading-5 text-slate-500">Your seat is confirmed when the driver accepts. Track the response in My trips.</p>
+                <SubmitButton pendingLabel="Sending request…" className="btn-primary w-full disabled:opacity-60">Request my seat</SubmitButton>
+                <p className="text-xs leading-5 text-slate-500">Each request reserves one seat, just for you. It is confirmed when the driver accepts. Track the response in My trips.</p>
                 {ride.gender_preference === "same_as_driver" ? <p className="text-xs text-slate-500">This ride accepts same-gender requests only.</p> : null}
               </form> : null}
               {!booking && !canRequest ? <p className="mt-3 text-sm text-slate-600">{ride.driver_id === user.id ? "This is your ride. Manage requests from the driver dashboard." : "This ride is not accepting requests."}</p> : null}
@@ -95,7 +94,7 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
         </div>
         <RideComments rideId={id} />
         {ride.driver_id && (ride.driver_id === user.id || booking?.status === "accepted") ? (
-          <Link href={`/rides/${id}/chat`} className="btn-primary mt-5">Open ride room <span aria-hidden="true">→</span></Link>
+          <Link href={`/rides/${id}/chat`} className="btn-primary mt-5">Open ride room</Link>
         ) : null}
       </main>
     </div>

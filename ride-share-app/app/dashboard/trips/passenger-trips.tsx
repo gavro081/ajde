@@ -45,9 +45,9 @@ export async function PassengerTrips({ userId }: { userId: string }) {
               <p className="journey-card-date">{formatDeparture(ride.departure_at)}</p>
               <span className={`status-pill ${rideIsCancelled ? "bg-red-50 text-red-800" : booking.status === "accepted" ? "bg-emerald-50 text-emerald-800" : ""}`}>{status}</span>
             </div>
-            <h2 className="journey-card-route">{cityMap.get(ride.origin_city_id)} <span aria-hidden="true">→</span> {cityMap.get(ride.dest_city_id)}</h2>
+            <h2 className="journey-card-route">{cityMap.get(ride.origin_city_id)} <span>to</span> {cityMap.get(ride.dest_city_id)}</h2>
             <div className="journey-card-meta">
-              <p className="text-slate-600">{booking.seats} seat{booking.seats === 1 ? "" : "s"} · Skopje time</p>
+              <p className="text-slate-600">Skopje time</p>
               <p className="text-xl font-medium">{ride.price_per_seat_mkd === null ? "Flexible price" : <>{ride.price_per_seat_mkd} MKD <span className="text-sm font-normal text-slate-500">/ seat</span></>}</p>
             </div>
             {rideIsCancelled ? <p role="alert" className="mt-5 text-red-800">The driver cancelled this ride. Please make other travel plans.</p> : null}

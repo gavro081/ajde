@@ -57,7 +57,7 @@ export async function DriverRides({ userId }: { userId: string }) {
           const isFull = ride.status === "full" || ride.seats_available === 0;
           return <section key={ride.id} className="journey-card">
             <div className="journey-card-top"><p className="journey-card-date">{formatDeparture(ride.departure_at)}</p><span className={`status-pill ${ride.status === "cancelled" ? "bg-red-50 text-red-800" : isOpen ? "bg-blue-50 text-blue-800" : ""}`}>{ride.status}</span></div>
-            <h2><Link href={`/rides/${ride.id}`} className="journey-card-route hover:text-brand-700">{cityMap.get(ride.origin_city_id)} <span aria-hidden="true">→</span> {cityMap.get(ride.dest_city_id)}</Link></h2>
+            <h2><Link href={`/rides/${ride.id}`} className="journey-card-route hover:text-brand-700">{cityMap.get(ride.origin_city_id)} <span>to</span> {cityMap.get(ride.dest_city_id)}</Link></h2>
             <div className="journey-card-meta"><SeatAvailability available={ride.seats_available} total={ride.seats_total} /><p className="text-slate-500">{confirmedSeats} confirmed · Skopje time</p></div>
             {isOpen && hasDeparted ? <CompleteRideButton rideId={ride.id} /> : null}
             <details className="card-options" open={(canDecide && pendingRequests > 0) || ratingControls.has(ride.id)}>
@@ -74,7 +74,7 @@ export async function DriverRides({ userId }: { userId: string }) {
                     ) : <span className="grid size-12 shrink-0 place-items-center rounded-full bg-slate-100 text-sm">SR</span>}
                     <div className="min-w-0">
                       <p className="font-medium">{passenger ? <Link href={`/profile/${passenger.id}`} className="hover:text-brand-700">{passenger.full_name}</Link> : "Student"}</p>
-                      <p className="text-sm text-slate-500">{booking.seats} seat{booking.seats === 1 ? "" : "s"} · {passenger?.university}</p>
+                      <p className="text-sm text-slate-500">{passenger?.university}</p>
                     </div>
                   </div>
                   {booking.message ? <p className="mt-3 text-slate-600">“{booking.message}”</p> : null}

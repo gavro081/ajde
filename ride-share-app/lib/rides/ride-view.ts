@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Tables } from "@/lib/supabase/database.types";
+import { BOOKING_SEATS } from "@/lib/bookings/validation";
 import {
   departureBoundsForFilters,
   type RideFilters,
@@ -41,7 +42,7 @@ export async function getRideFeed(
     .select("*")
     .in("status", ["published", "full"])
     .gte("departure_at", bounds.after)
-    .gte("seats_available", filters.seats)
+    .gte("seats_available", BOOKING_SEATS)
     .order("departure_at");
 
   if (filters.origin) query = query.eq("origin_city_id", filters.origin);

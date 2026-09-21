@@ -105,7 +105,12 @@ export async function parseSearchQuery(
     throw new SearchParserError("The model returned an invalid search interpretation.", "invalid_output");
   }
 
-  const warnings = [...modelOutput.data.warnings];
+  // A dateless search means "any upcoming departure", and seats are always one, so the
+  // model's warnings about either are noise.
+  const output = modelOutput.data;
+  const dateless = !output.dateLocal && !output.timeMode && !output.startTime && !output.endTime;
+  const warnings = output.warnings.filter((warning) =>
+    warning.field !== "seats" && !(dateless && warning.field === "departure"));
   const [originId, destinationId] = await Promise.all([
     resolveCityId(
       "origin",
@@ -129,7 +134,7 @@ export async function parseSearchQuery(
     destinationId,
     departureAfter: bounds.after,
     departureBefore: bounds.before,
-    requestedSeats: modelOutput.data.requestedSeats,
+    requestedSeats: null,
     confidence: modelOutput.data.confidence,
     warnings,
   });
@@ -254,7 +259,9 @@ async function runOpenAISearchModel({
             "destination in originText/destinationText. A lone place such as ‘Bitola Friday after 4’ " +
             "is a destination, never an invented origin. Use 16:00 for contextually afternoon ‘after 4’; " +
             "warn when genuinely ambiguous. For a date without a time use timeMode=day. Unknown or " +
-            "unsupported criteria stay null and receive a warning. Never infer gender preferences.",
+            "unsupported criteria stay null and receive a warning. A search without any date or time is " +
+            "valid and means any upcoming departure: leave dateLocal null with no warning. Every booking " +
+            "is exactly one seat, so leave requestedSeats null. Never infer gender preferences.",
         },
         {
           role: "user",

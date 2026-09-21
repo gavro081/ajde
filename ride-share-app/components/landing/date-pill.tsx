@@ -94,7 +94,7 @@ export function DatePill({ name }: { name: string }) {
   }
 
   return <div className="relative">
-    <input type="hidden" name={name} value={value} />
+    <input type="hidden" name={name} value={value} disabled={!value} />
     <button ref={trigger} type="button" aria-haspopup="dialog" aria-expanded={open} onClick={toggle}
       className={`flex min-h-0 items-center gap-2 rounded-full py-2 pl-3.5 pr-3 text-[15px] font-semibold transition-colors ${value ? "bg-[#16201a] text-white" : "bg-[#f1f4f1] hover:bg-[#e6ebe5]"}`}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4m8-4v4M3 10h18" /></svg>
