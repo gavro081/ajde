@@ -92,6 +92,9 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
           </aside>
         </div>
         <RideComments rideId={id} />
+        {ride.driver_id && (ride.driver_id === user.id || booking?.status === "accepted") ? (
+          <Link href={`/rides/${id}/chat`} className="mt-5 inline-flex rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white hover:bg-emerald-800">Ride room</Link>
+        ) : null}
       </main>
     </div>
   );
