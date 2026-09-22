@@ -1,8 +1,10 @@
 import type { RideCheckMetadata, CheckTraceEntry } from "@/lib/ai/ride-check-contract";
+import { SimilarRidesSummary } from "./similar-rides-summary";
 
 type City = { id: number; name_en: string };
 
 function Evidence({ entry, cities }: { entry: CheckTraceEntry; cities: City[] }) {
+  if (entry.tool === "find_similar_rides") return <SimilarRidesSummary entry={entry} cities={cities} />;
   const label = entry.tool === "road_distance" ? "Road distance" : "Check";
   if ("error" in entry.result) return <li>{label} unavailable: {entry.result.error.slice(0, 300)}</li>;
   if (entry.tool === "road_distance" && "distanceKm" in entry.result && entry.args) {
