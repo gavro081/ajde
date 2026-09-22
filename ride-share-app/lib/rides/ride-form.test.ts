@@ -25,6 +25,34 @@ function validFormData() {
 }
 
 describe("validateRideSubmission", () => {
+  it.each([
+    ["pricePerSeatMkd", "-1"], ["pricePerSeatMkd", "3001"], ["pricePerSeatMkd", "12.5"],
+    ["distanceKm", "0.9"], ["distanceKm", "600.1"],
+    ["seatsTotal", "0"], ["seatsTotal", "9"], ["seatsTotal", "1.5"],
+    ["departureAt", NOW.toISOString()],
+    ["departureAt", new Date(NOW.getTime() + 90 * 86_400_000 + 1).toISOString()],
+  ])("rejects out-of-range %s=%s even when browser validation is bypassed", (field, value) => {
+    const form = validFormData();
+    form.set(field, value);
+    for (const intent of ["publish", "save_draft"]) {
+      form.set("intent", intent);
+      const result = validateRideSubmission(form, NOW).draft;
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.issues.some(issue => issue.path[0] === field)).toBe(true);
+    }
+  });
+
+  it.each([
+    ["pricePerSeatMkd", "0"], ["pricePerSeatMkd", "3000"],
+    ["distanceKm", "1"], ["distanceKm", "600"],
+    ["seatsTotal", "1"], ["seatsTotal", "8"],
+    ["departureAt", new Date(NOW.getTime() + 90 * 86_400_000).toISOString()],
+  ])("accepts the supported boundary %s=%s", (field, value) => {
+    const form = validFormData();
+    form.set(field, value);
+    expect(validateRideSubmission(form, NOW).draft.success).toBe(true);
+  });
+
   it("normalizes and validates a complete HTML form submission", () => {
     const result = validateRideSubmission(validFormData(), NOW);
 

@@ -124,6 +124,9 @@
   .dashboard-empty h2 { font-family: var(--font-display); font-size: 1.75rem; font-weight: 700; letter-spacing: -.03em; }
   .dashboard-empty p { margin: .75rem 0 1.5rem; color: var(--color-slate-500); }
   .ride-form h2, .ride-form legend { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; letter-spacing: -.03em; }
+  .ride-form-options { border-top: 1px solid var(--color-slate-100); }
+  .ride-form-options > summary { padding-block: .75rem; font-size: .9375rem; font-weight: 600; }
+  .ride-form-options[open] > summary { margin-bottom: .5rem; }
 }
 @media (max-width: 1023px) {
   .dashboard-grid { grid-template-columns: 1fr; }

@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { RIDE_LIMITS } from "./ride-limits";
 
 const optionalText = z.preprocess(
   (value) => (typeof value === "string" && value.trim() ? value.trim() : null),
-  z.string().nullable(),
+  z.string().max(RIDE_LIMITS.colorLength, "Color must be 40 characters or fewer").nullable(),
 );
 
 const optionalPlate = z.preprocess(
@@ -13,8 +14,8 @@ const optionalPlate = z.preprocess(
     .nullable(),
 );
 
-const positiveNumber = z.coerce.number().positive();
-const seatCount = z.coerce.number().int().min(1).max(8);
+const consumption = z.coerce.number().min(RIDE_LIMITS.consumptionL100Km.min, "Consumption must be at least 0.5 L/100 km").max(RIDE_LIMITS.consumptionL100Km.max, "Consumption must be no more than 30 L/100 km");
+const seatCount = z.coerce.number().int().min(RIDE_LIMITS.seats.min).max(RIDE_LIMITS.seats.max);
 
 export const carSelectionSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -24,17 +25,17 @@ export const carSelectionSchema = z.discriminatedUnion("mode", [
   z.object({
     mode: z.literal("catalog"),
     carModelId: z.coerce.number().int().positive(),
-    consumptionL100Km: positiveNumber,
+    consumptionL100Km: consumption,
     color: optionalText,
     plateLast3: optionalPlate,
     seatsTotal: seatCount,
   }),
   z.object({
     mode: z.literal("manual"),
-    make: z.string().trim().min(1).max(80),
-    model: z.string().trim().min(1).max(120),
+    make: z.string().trim().min(1).max(RIDE_LIMITS.makeLength),
+    model: z.string().trim().min(1).max(RIDE_LIMITS.modelLength),
     fuelType: z.enum(["petrol", "diesel", "hybrid", "electric", "lpg", "other"]),
-    consumptionL100Km: positiveNumber,
+    consumptionL100Km: consumption,
     color: optionalText,
     plateLast3: optionalPlate,
     seatsTotal: seatCount,
