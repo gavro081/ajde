@@ -30,7 +30,7 @@ async function signedIn(person) {
   page.setDefaultTimeout(30000);
   await page.goto(`${base}/login`);
   await page.getByLabel('Student email').fill(person.email);
-  await page.getByRole('button', { name: 'Development sign-in (no email)' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   try {
     await page.waitForURL('**/rides', { timeout: 60000, waitUntil: 'domcontentloaded' });
   } catch (error) {
@@ -207,7 +207,7 @@ async function verifyUX() {
   await visitor.getByRole('heading', { name: 'Your next ride starts here' }).waitFor();
   await responsive(visitor, 'Signup');
   await visitor.getByLabel('Student email').fill('not-a-student@example.invalid');
-  await visitor.getByRole('button', { name: 'Email me a sign-in link' }).click();
+  await visitor.getByRole('button', { name: 'Email me a sign-up link' }).click();
   await visible(visitor, 'Use an approved student email address to continue.');
   assert.equal(await visitor.getByLabel('Student email').getAttribute('aria-invalid'), 'true');
   for (const route of ['/rides', '/rides/new', '/rides/import', '/dashboard/trips', '/dashboard/driver', '/onboarding']) {
@@ -228,7 +228,7 @@ async function verifyUX() {
   });
   await page.goto(base + '/login?mode=signup');
   await page.getByLabel('Student email').fill(signupEmail);
-  await page.getByRole('button', { name: 'Development sign-in (no email)' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL('**/onboarding');
   await page.getByLabel('Full name').waitFor();
   await responsive(page, 'Onboarding');

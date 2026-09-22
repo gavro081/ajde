@@ -44,11 +44,12 @@ Fill in `.env.local` without committing it:
 | `OPENAI_EXPLAIN_MODEL` | Optional match-explanation override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
 | `OPENAI_CHAT_MODEL` | Optional chat-assistant override | Falls back to `OPENAI_MODEL` |
 | `CHAT_AI_ENABLED` | Chat summary / Ask AI buttons | Optional; set `false` to turn the chat assistant off |
+| `AI_IMPORT_PIPELINE_ENABLED` | Screenshot import and the tool-using checker | Optional; only exactly `true` enables it. Restart after changing |
+| `OPENAI_CHECK_MODEL` | Optional checker override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
 | `FUEL_PRICE_PETROL_MKD_L` | Petrol cost estimate | Optional at startup; verify the current MKD/L value before a demo |
 | `FUEL_PRICE_DIESEL_MKD_L` | Diesel cost estimate | Optional at startup; verify the current MKD/L value before a demo |
-| `DEV_AUTH_BYPASS` | Local sign-in without sending email | Optional; honored only when exactly `true` outside production |
-| `SUPABASE_SECRET_KEY` | Local development bypass | Preferred server-only admin key when the bypass is enabled |
-| `SUPABASE_SERVICE_ROLE_KEY` | Local development bypass | Legacy alternative to `SUPABASE_SECRET_KEY` |
+| `SUPABASE_SECRET_KEY` | Sign in (no email) | Required; server-only admin key used to sign users in directly |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sign in (no email) | Legacy alternative to `SUPABASE_SECRET_KEY` |
 
 `.env.local` is ignored by Git. Only the blank `.env.example` contract is tracked.
 
@@ -104,10 +105,10 @@ is a successful anonymous connectivity check.
 `/rides/new`, `/rides/import`, and `/api/parse` require a valid session. New users are sent through
 `/onboarding` until their name, university, and profile photo are complete.
 
-If hosted email is rate-limited during local development, set `DEV_AUTH_BYPASS=true` and configure
-`SUPABASE_SECRET_KEY` (or the legacy service-role key). The separate bypass button appears only
-outside production, still requires an allowed student-domain address, and creates an ordinary
-cookie-backed Supabase session.
+**Sign in** does not send email, locally or in production: the server uses `SUPABASE_SECRET_KEY`
+(or the legacy service-role key) to mint and immediately verify a magic-link token, creating an
+ordinary cookie-backed Supabase session. It still requires an allowed student-domain address, but
+anyone who knows such an address can sign in as that user. **Sign up** still emails a magic link.
 
 ## Verification commands
 

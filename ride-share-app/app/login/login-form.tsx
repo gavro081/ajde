@@ -6,7 +6,7 @@ import { requestMagicLink, type LoginState } from './actions'
 
 const initialState: LoginState = { status: 'idle' }
 
-export function LoginForm({ next, devBypassEnabled }: { next: string; devBypassEnabled: boolean }) {
+export function LoginForm({ next, signingUp }: { next: string; signingUp: boolean }) {
   const [state, action, pending] = useActionState(requestMagicLink, initialState)
 
   return (
@@ -35,23 +35,12 @@ export function LoginForm({ next, devBypassEnabled }: { next: string; devBypassE
       <button
         type="submit"
         name="intent"
-        value="magic-link"
+        value={signingUp ? 'magic-link' : 'sign-in'}
         disabled={pending}
         className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {pending ? 'Continuing…' : state.status === 'sent' ? 'Send another link' : 'Email me a sign-in link'}
+        {pending ? 'Continuing…' : !signingUp ? 'Sign in' : state.status === 'sent' ? 'Send another link' : 'Email me a sign-up link'}
       </button>
-      {devBypassEnabled ? (
-        <button
-          type="submit"
-          name="intent"
-          value="dev-bypass"
-          disabled={pending}
-          className="w-full rounded-2xl border border-dashed border-amber-400 bg-amber-50 px-4 py-3 font-semibold text-amber-950 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Development sign-in (no email)
-        </button>
-      ) : null}
       {state.message ? (
         <p
           id="login-message"

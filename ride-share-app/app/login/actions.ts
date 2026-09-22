@@ -20,7 +20,7 @@ export async function requestMagicLink(
 ): Promise<LoginState> {
   const email = String(formData.get('email') ?? '').trim().toLocaleLowerCase('en-US')
   const next = safeNextPath(String(formData.get('next') ?? ''), '/rides')
-  const intent = String(formData.get('intent') ?? 'magic-link')
+  const intent = String(formData.get('intent') ?? 'sign-in')
 
   if (!isAllowedStudentEmail(email)) {
     return {
@@ -30,8 +30,8 @@ export async function requestMagicLink(
     }
   }
 
-  if (intent === 'dev-bypass') {
-    return developmentSignIn(email, next)
+  if (intent === 'sign-in') {
+    return instantSignIn(email, next)
   }
 
   const requestHeaders = await headers()
@@ -57,7 +57,7 @@ export async function requestMagicLink(
     return {
       status: 'error',
       message: rateLimited
-        ? 'Email sending is temporarily rate-limited. Wait before requesting another link, or use the development bypass below.'
+        ? 'Email sending is temporarily rate-limited. Wait before requesting another link, or use Sign in instead.'
         : 'We could not send the sign-in link. Please try again.',
       email,
     }
@@ -70,15 +70,10 @@ export async function requestMagicLink(
   }
 }
 
-async function developmentSignIn(email: string, next: string): Promise<LoginState> {
-  if (process.env.NODE_ENV === 'production' || process.env.DEV_AUTH_BYPASS !== 'true') {
-    return {
-      status: 'error',
-      message: 'The development sign-in bypass is disabled.',
-      email,
-    }
-  }
-
+// Signs in without email confirmation: the admin client mints a magic-link token
+// and the server verifies it immediately. Deliberately unsafe; anyone who knows
+// an approved-domain address can sign in as that user.
+async function instantSignIn(email: string, next: string): Promise<LoginState> {
   let userId: string
 
   try {
@@ -89,19 +84,20 @@ async function developmentSignIn(email: string, next: string): Promise<LoginStat
     })
 
     if (linkError) {
-      return { status: 'error', message: `Development sign-in failed: ${linkError.message}`, email }
+      return { status: 'error', message: `Sign-in failed: ${linkError.message}`, email }
     }
 
     const supabase = await createClient()
     const { data, error } = await supabase.auth.verifyOtp({
       token_hash: link.properties.hashed_token,
-      type: 'magiclink',
+      // 'email' accepts both magic-link and first-time signup tokens.
+      type: 'email',
     })
 
     if (error || !data.user) {
       return {
         status: 'error',
-        message: `Development sign-in failed: ${error?.message ?? 'No user was returned.'}`,
+        message: `Sign-in failed: ${error?.message ?? 'No user was returned.'}`,
         email,
       }
     }
@@ -110,7 +106,7 @@ async function developmentSignIn(email: string, next: string): Promise<LoginStat
   } catch (error) {
     return {
       status: 'error',
-      message: error instanceof Error ? error.message : 'Development sign-in failed.',
+      message: error instanceof Error ? error.message : 'Sign-in failed.',
       email,
     }
   }

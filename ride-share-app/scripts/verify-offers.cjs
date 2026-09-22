@@ -40,7 +40,7 @@ async function main() {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto(`${base}/login`);
   await page.getByLabel('Student email').fill(email);
-  await page.getByRole('button', { name: 'Development sign-in (no email)' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL('**/rides', { timeout: 60000 });
   await page.goto(`${base}/rides/new`);
   const localParts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Skopje', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(departureAt)).map(p => [p.type, p.value]));

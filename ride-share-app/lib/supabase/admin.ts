@@ -10,7 +10,7 @@ export function createAdminClient() {
     process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceRoleKey) {
     throw new Error(
-      'Missing SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) for the development auth bypass.',
+      'Missing SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY) for sign-in.',
     )
   }
 
