@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
+import { aiImportPipelineEnabled } from "@/lib/ai/import-pipeline-config";
 
 import { ImportRideForm } from "./import-ride-form";
 
@@ -26,7 +27,7 @@ export default async function ImportRidePage() {
         </p>
 
         <div className="mt-8 surface-card p-5 sm:p-8">
-          <ImportRideForm cities={cities ?? []} />
+          <ImportRideForm cities={cities ?? []} pipelineEnabled={aiImportPipelineEnabled()} />
         </div>
       </div>
     </main></>

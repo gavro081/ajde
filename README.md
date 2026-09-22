@@ -21,6 +21,8 @@ be saved or published.
 | Car catalog and manual cars | Implemented | Catalog selection prefills fuel/consumption; overrides create a driver-owned snapshot |
 | Fuel-price and CO2 estimate | Implemented | Petrol/diesel arithmetic using server-configured fuel prices; suggestion remains editable |
 | Group-post import and review | Implemented | Structured OpenAI parsing, warnings/confidence, saved import, and editable ride prefill |
+| Tool-using import checker | Implemented locally, disabled by default | Model-selected road-distance evidence, bounded execution, editable distance fill, and fail-open review; price and duplicate tools are pending |
+| Screenshot import | Pending | Text-only importing remains available |
 | Authentication and onboarding | Implemented | Student-domain magic links, guarded local bypass, callback, profile completion, photo upload, and server-side route protection |
 | Public profiles | Implemented | Deliberately limited projection excludes phone and social contact fields |
 | Location normalization | Implemented | Deterministic name/alias matching first, structured model fallback on misses, and canonical-ID validation |
@@ -66,7 +68,12 @@ key. OpenAI credentials, database credentials, and fuel-price assumptions remain
 flowchart LR
   Post[Group post] --> Parse[Structured parser]
   Parse --> Validate[Schema + canonical-ID guards]
-  Validate --> Import[(imports)]
+  Validate --> Flag{Pipeline enabled and offer?}
+  Flag -->|yes| Checker[Bounded checker]
+  Checker -->|model-selected road_distance| Road[Canonical city road routing]
+  Road --> Checker
+  Checker --> Import[(imports + check evidence)]
+  Flag -->|no| Import
   Import --> Review[Human review]
   Review --> Form[Shared ride form]
   Form --> Server[Server validation]
@@ -122,6 +129,8 @@ Fill in `.env.local` without committing it:
 | `STUDENT_EMAIL_DOMAINS` | Student access policy | Server-only comma-separated exact domains |
 | `OPENAI_API_KEY` | Post parsing, location fallback, natural-language search, match explanations, and live evaluations | Server-only; never prefix it with `NEXT_PUBLIC_` |
 | `OPENAI_MODEL` | Optional ride-post parser override | Defaults to `gpt-5.4-mini` |
+| `AI_IMPORT_PIPELINE_ENABLED` | Server-only import pipeline switch | Disabled unless exactly `true`; normal server restart/redeploy required after an environment change |
+| `OPENAI_CHECK_MODEL` | Optional checker override | First nonempty value of this setting, `OPENAI_MODEL`, then verified `gpt-5.4-mini` |
 | `OPENAI_LOCATION_MODEL` | Optional location-fallback override | Defaults to `gpt-5-mini` |
 | `OPENAI_SEARCH_MODEL` | Optional natural-language search override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
 | `OPENAI_EXPLAIN_MODEL` | Optional match-explanation override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
@@ -246,6 +255,44 @@ The implemented product flow is:
    platform estimated CO2 counters in the passenger dashboard.
 
 ## How AI is used
+
+### Tool-backed import checking
+
+The server-only [pipeline setting](ride-share-app/lib/ai/import-pipeline-config.ts) controls the new
+import checker as a unit. Missing, false, or invalid settings preserve the existing text-only
+parse, persist, review, and editable-form flow without check metadata. The server sends only the
+resolved boolean to the browser; client requests cannot enable the feature. Older checked imports
+remain compatible with the existing draft schema while the setting is disabled.
+
+After the existing [parser and canonical guards](ride-share-app/lib/ai/parse-ride-post.ts),
+[`checkRideDraft`](ride-share-app/lib/ai/check-ride-draft.ts) receives a deliberate projection of
+canonical city IDs/names, structured ride fields, and a Europe/Skopje clock. It never receives the
+original post, location raw text, or notes. Only ride offers enter this step; requests and unknown
+posts retain their existing review path.
+
+| Model-selected tool | Evidence | Limits |
+| --- | --- | --- |
+| `road_distance` | [Shared road routing](ride-share-app/lib/rides/road-distance.ts) using canonical city reference coordinates | Editable city-to-city estimate; shared permit and eight-second routing timeout |
+
+The [authenticated tool adapters](ride-share-app/lib/ai/ride-check-tools.ts) use the caller's Supabase
+client. The checker validates tool arguments, successful results, and their relevance to the draft;
+unknown tools and dependency errors become unavailable evidence. It allows four tool-capable model
+rounds and six executed calls, then requests a final response with tools disabled. Requests use
+`store: false`, a 15-second timeout, and zero retries, with ordered SDK continuation. Total latency
+can exceed the handoff's unmeasured 2–6-second estimate. The [capability spike](docs/verification/ai-import-capabilities.md)
+records actual observations and the verified fallback, separately from production accuracy.
+
+Code fills only a missing distance from successful routing and preserves all existing values,
+confidence, and warnings. Findings require successful relevant evidence; arbitrary model prose
+cannot supply a distance or unsupported price, duplicate, departure, or capacity claims. Whole-check
+failure preserves the draft and adds “Automatic plausibility check was unavailable.” An empty or
+failed trace never implies an all-clear. The [review summary](ride-share-app/app/rides/import/ride-check-summary.tsx)
+shows readable evidence and errors before explicit continuation to the editable form. Human review
+and the existing publication validation remain required; native ride-description AI fill is unchanged.
+
+Current delivery includes distance checking only. Fair-price checking, possible duplicate lookup,
+and screenshot reading are pending subsequent local slices. No image is accepted by this increment.
+
 
 `parseRidePost` uses the OpenAI Responses API with a Zod-backed structured-output schema. It is
 designed for informal posts containing Macedonian Cyrillic, Latin transliteration, mixed scripts,

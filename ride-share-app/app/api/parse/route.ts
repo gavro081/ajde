@@ -2,6 +2,10 @@ import { z } from "zod";
 
 import { createOpenAILocationFallback } from "@/lib/ai/openai-location-fallback";
 import { parseRidePost, RideParserError } from "@/lib/ai/parse-ride-post";
+import { aiImportPipelineEnabled } from "@/lib/ai/import-pipeline-config";
+import { checkRideDraft } from "@/lib/ai/check-ride-draft";
+import { createRideCheckTools } from "@/lib/ai/ride-check-tools";
+import type { RideCheckMetadata } from "@/lib/ai/ride-check-contract";
 import { createClient } from "@/lib/supabase/server";
 
 const requestSchema = z.object({
@@ -85,12 +89,22 @@ export async function POST(request: Request) {
       message: "The parser has low confidence in this result; review every field carefully.",
     });
   }
+  let check: RideCheckMetadata | undefined;
+  if (aiImportPipelineEnabled() && parsed.classification === "offer") {
+    const checked = await checkRideDraft(parsed, {
+      cities: cities.map(city => ({ id: city.id, nameEn: city.name_en, nameMk: city.name_mk })),
+      tools: createRideCheckTools(supabase),
+      now: new Date(),
+    });
+    parsed = checked.parsed;
+    check = { status: checked.status, trace: checked.trace };
+  }
   const { data: imported, error } = await supabase
     .from("imports")
     .insert({
       raw_text: input.data.text,
       source_hint: input.data.sourceHint,
-      parsed_json: parsed,
+      parsed_json: check ? { ...parsed, check } : parsed,
       confidence: parsed.draft.confidence,
       created_by: user.id,
     })
@@ -101,5 +115,5 @@ export async function POST(request: Request) {
     return Response.json({ error: "The parsed draft could not be saved." }, { status: 500 });
   }
 
-  return Response.json({ importId: imported.id, parsed });
+  return Response.json({ importId: imported.id, parsed, ...(check ? { check } : {}) });
 }

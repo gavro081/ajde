@@ -1,5 +1,17 @@
 # Location resolver handoff
 
+## Import plausibility checking
+
+[`checkRideDraft`](check-ride-draft.ts) checks structured imported ride offers through injectable
+model and tool boundaries. [`ride-check-contract.ts`](ride-check-contract.ts) is the browser-safe
+metadata contract; [`ride-check-tools.ts`](ride-check-tools.ts) binds authenticated services.
+The server-only [`import-pipeline-config.ts`](import-pipeline-config.ts) disables the pipeline unless
+`AI_IMPORT_PIPELINE_ENABLED=true`. Only road-distance checking is delivered in this increment.
+The checker never receives source text or notes, never publishes, and fails open with a review
+warning. See the root README for loop limits, evidence guards, configuration, and capability evidence.
+
+## Location normalization
+
 Use `resolveCanonicalLocation(raw)` from `location-candidates.ts` in server-side parse/import code.
 It loads the canonical city and pickup-point vocabulary from Supabase, tries deterministic names and
 aliases first, and calls the server-only OpenAI fallback only for a genuine miss when

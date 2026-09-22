@@ -4,17 +4,20 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 import { parsedRidePostSchema, type ParsedRidePost } from "@/lib/ai/parsed-ride-post";
+import { rideCheckMetadataSchema, type RideCheckMetadata } from "@/lib/ai/ride-check-contract";
 import { formatDeparture } from "@/lib/rides/ride-presentation";
+import { RideCheckSummary } from "./ride-check-summary";
 
 type ParseResponse = {
   importId: string;
   parsed: ParsedRidePost;
+  check?: RideCheckMetadata;
 };
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 
-export function ImportRideForm({ cities }: { cities: { id: number; name_en: string }[] }) {
+export function ImportRideForm({ cities, pipelineEnabled = false }: { cities: { id: number; name_en: string }[]; pipelineEnabled?: boolean }) {
   const [text, setText] = useState("");
   const [sourceHint, setSourceHint] = useState<"viber" | "facebook" | "other">("viber");
   const [result, setResult] = useState<ParseResponse | null>(null);
@@ -65,7 +68,10 @@ export function ImportRideForm({ cities }: { cities: { id: number; name_en: stri
         return;
       }
 
-      setResult({ importId, parsed: parsedResponse.data });
+      const check = rideCheckMetadataSchema.safeParse(
+        typeof payload === "object" && payload !== null && "check" in payload ? payload.check : undefined,
+      );
+      setResult({ importId, parsed: parsedResponse.data, ...(check.success ? { check: check.data } : {}) });
     } catch {
       setError("The parser could not be reached. Try again or create the ride manually.");
     } finally {
@@ -120,12 +126,12 @@ export function ImportRideForm({ cities }: { cities: { id: number; name_en: stri
         </p>
       ) : null}
 
-      {result ? <ParsedReview result={result} cities={cities} /> : null}
+      {result ? <ParsedReview result={result} cities={cities} pipelineEnabled={pipelineEnabled} /> : null}
     </div>
   );
 }
 
-function ParsedReview({ result, cities }: { result: ParseResponse; cities: { id: number; name_en: string }[] }) {
+function ParsedReview({ result, cities, pipelineEnabled }: { result: ParseResponse; cities: { id: number; name_en: string }[]; pipelineEnabled: boolean }) {
   const { parsed } = result;
   const fields = [
     ["Classification", parsed.classification],
@@ -168,6 +174,8 @@ function ParsedReview({ result, cities }: { result: ParseResponse; cities: { id:
           ))}
         </ul>
       ) : null}
+
+      {pipelineEnabled && result.check ? <RideCheckSummary check={result.check} cities={cities} /> : null}
 
       {parsed.classification === "request" ? (
         <p className="mt-4 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">
