@@ -32,7 +32,7 @@ be saved or published.
 | Public ride Q&A | Implemented | Authenticated students can post on future published/full rides and delete their own comments |
 | Share my trip | Implemented | Accepted passengers can create and revoke signed-out itinerary links that expire 24 hours after departure |
 | Ride completion and CO2 impact | Implemented | Drivers complete/cancel rides; passenger and platform estimates count completed shared trips with explicit assumptions |
-| Private ride rooms | Implemented | Driver and accepted passengers share a Realtime room; acceptance-time history and a 48-hour send window |
+| Private ride rooms | Implemented | Driver and accepted passengers share full room history; a 48-hour send window; private AI summaries and questions |
 | Post-ride ratings | Implemented | Completed-ride counterpart ratings, private written feedback, and aggregate-only public reputation |
 | Production authorization | Partial | Messages and ratings have RLS; other public tables still need policies before production deployment |
 
@@ -359,16 +359,15 @@ moderation UI, and AI spam/safety screening are deferred.
 
 ### Ride rooms and Realtime
 
-Each ride has one room shared by its driver and currently accepted passengers. Passengers can
-read messages created at or after their accepted booking's `decided_at`; the driver sees the
-whole room history. Cancelling a booking immediately removes database read/send access.
+Each ride has one room shared by its driver and currently accepted passengers. Every current member can
+read the entire room history, including messages before acceptance. Reaccepted passengers regain
+that full history. Cancelling a booking immediately removes database read/send access.
 Previously delivered text cannot be recalled. The client rechecks membership on reads, sends,
 events, reconnect, focus, and periodically while open.
 
 Sending is allowed until 48 hours after departure, inclusive, and stops when a ride is cancelled.
 Completed rides inside the window can still receive messages. Authorized members keep read-only
-history after cancellation or expiry. Direct messages, edits, deletes, read receipts, and AI
-processing are deferred. Realtime events trigger an authorized history refresh.
+history after cancellation or expiry. Direct messages, edits, deletes, and read receipts are deferred. Realtime events trigger an authorized history refresh.
 
 Apply the migrations in order, including `20260921140000_communication_reputation_policies.sql`
 and `20260921190000_rating_input_grants.sql`. The first publishes `public.messages` through
@@ -376,6 +375,27 @@ and `20260921190000_rating_input_grants.sql`. The first publishes `public.messag
 student sessions and the existing public project key. The second narrows rating insert columns
 and enforces private-note input without changing room permissions. No admin key is used by
 the application for chat or ratings. See the linked verification guides for repeatable checks.
+
+### AI chat assistance
+
+**Summarize chat** and **Ask AI** use the full authorized room transcript, including messages not
+loaded in the browser. Answers are private to the requester, with source excerpts, message count,
+and a cutoff; new messages mark an answer out of date. Each question is independent. Answers may
+be wrong, and citations should be checked against the original discussion.
+
+Apply `20260922090000_room_full_history.sql` and `20260922091000_chat_ai_budget.sql` before
+running this feature. Use the existing server-only `OPENAI_API_KEY` and `OPENAI_MODEL`, with an
+optional `OPENAI_CHAT_MODEL` override. Members explicitly invoke AI; room text, timestamps and
+minimal author labels go to OpenAI. Profile contact fields are not attached, but anything typed
+in the messages remains part of the transcript. Requests set `store: false`; this is not a
+zero-retention guarantee. Questions and answers are not persisted by the application.
+
+AI requires current room access, including for read-only rooms, and rechecks access before and
+after generation. Each member has a shared rolling limit of five requests per minute. Complete
+transcripts are limited to 1,000 messages or 100,000 serialized characters; oversized chats get an
+explicit error instead of an incomplete summary. Ordinary chat and full-history browsing still work.
+See the [chat verification guide](ride-share-app/fixtures/chat/README.md) and
+[implementation checklist](22-09-dimi.md).
 
 ## Known issues and limitations
 

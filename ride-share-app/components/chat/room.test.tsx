@@ -64,7 +64,7 @@ describe("ride room client", () => {
     render(<RideRoom rideId={rideId} initial={{ ...initial, messages: [message] }} />);
     expect(await screen.findByText("Ride room unavailable")).toBeTruthy();
     expect(screen.queryByText("Hello room")).toBeNull();
-    expect(mocks.remove).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mocks.remove).toHaveBeenCalledTimes(1));
   });
   it("preserves failed drafts, supports keyboard newlines, and restores focus", async () => {
     mocks.send.mockResolvedValue({ ok: false, code: "database", error: "Send failed" });

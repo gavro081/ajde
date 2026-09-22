@@ -74,7 +74,7 @@ export function ChatAiPanel({ rideId, latest, onUnavailable }: {
       <span className="text-xs text-slate-500">Only you see the answer</span>
     </div>
     <p className="mt-2 text-xs leading-5 text-slate-500">Using AI sends this room’s messages to OpenAI, including anything members typed into them.</p>
-    {open ? <section id={panelId} aria-label="Private chat assistant" className="mt-3 rounded-xl border border-brand-100 bg-brand-50/40 p-3 sm:p-4">
+    {open ? <section id={panelId} aria-label="Private chat assistant" className="mt-3 max-h-[55svh] overflow-y-auto rounded-xl border border-brand-100 bg-brand-50/40 p-3 sm:p-4 lg:max-h-[32svh]">
       <div className="mb-3 flex items-center justify-between gap-3"><h2 className="font-semibold">Ask about this chat</h2>
         <button type="button" onClick={close} className="text-sm font-semibold text-slate-600 underline">Close AI panel</button></div>
       <form onSubmit={event => { event.preventDefault(); if (question.trim()) void run({ rideId, mode: "question", question: question.trim() }); }}>
@@ -91,7 +91,7 @@ export function ChatAiPanel({ rideId, latest, onUnavailable }: {
       {error ? <div className="mt-2"><p role="alert" className="text-sm text-red-700">{error}</p>
         {lastRequest ? <button type="button" className="mt-2 text-sm font-semibold text-brand-700 underline" disabled={pending}
           onClick={() => void run(lastRequest)}>Retry AI request</button> : null}</div> : null}
-      <div ref={result} tabIndex={-1} aria-label="AI response" aria-live="polite" className="max-h-64 overflow-y-auto [overflow-wrap:anywhere] focus:outline-brand-500">
+      <div ref={result} tabIndex={-1} aria-label="AI response" aria-live="polite" className="[overflow-wrap:anywhere] focus:outline-brand-500">
         {answer ? <div className="mt-3 space-y-3 border-t border-brand-100 pt-3">
           <h3 className="font-semibold">{answer.mode === "summary" ? "Chat summary" : "Answer"}</h3>
           {answer.mode === "question" ? <p className="text-sm text-slate-600">{answeredQuestion}</p> : null}

@@ -247,14 +247,14 @@ function RideRoomSession({ rideId, initial }: { rideId: string; initial: RoomPag
     </aside>
 
     <div className="surface-card flex min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="max-h-[65%] shrink-0 overflow-y-auto border-b border-slate-100">
+      <header className="shrink-0 border-b border-slate-100">
         <div className="flex items-center justify-between gap-3 px-5 py-3.5">
           <h1 className="font-display text-xl font-extrabold tracking-[-.03em]">Ride room</h1>
           <span className="text-xs text-slate-500">{messages.length} message{messages.length === 1 ? "" : "s"}</span>
         </div>
         <ChatAiPanel rideId={rideId} latest={messages.at(-1) ?? null} onUnavailable={loseAccess} />
       </header>
-      <div ref={timeline} tabIndex={0} aria-label="Message history" className="min-h-40 flex-1 overflow-y-auto overscroll-contain" onScroll={() => {
+      <div ref={timeline} tabIndex={0} aria-label="Message history" className="h-64 flex-none overflow-y-auto overscroll-contain lg:h-auto lg:min-h-20 lg:flex-1" onScroll={() => {
         const node = timeline.current;
         if (node) nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
       }}>
