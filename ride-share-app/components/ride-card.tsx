@@ -11,7 +11,11 @@ export function RideCard({ ride, explanation }: { ride: RideView; explanation?: 
 
   return (
     <article className="ride-choice-card surface-card flex min-w-0 flex-col gap-2 p-4 text-slate-950">
-      <h2 className="journey-card-route">{ride.originCity.name_en}<span className="mx-1.5 font-medium">to</span>{ride.destinationCity.name_en}</h2>
+      <h2 className="journey-card-route">
+        <Link href={`/rides/${ride.id}`} className="rounded-sm hover:text-brand-700 hover:underline underline-offset-4">
+          {ride.originCity.name_en}{" "}<span className="font-medium">to</span>{" "}{ride.destinationCity.name_en}
+        </Link>
+      </h2>
       <div className="flex items-start justify-between gap-3">
         <time dateTime={ride.departure_at} aria-label={`${formatDeparture(ride.departure_at)}, Skopje time`} className="min-w-0">
           <span className="flex flex-wrap items-baseline gap-x-2 text-[1.375rem] font-bold leading-7 text-brand-800">

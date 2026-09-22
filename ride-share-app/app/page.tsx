@@ -38,10 +38,10 @@ function Savings({ summary, message }: { summary: PublicImpact | null; message?:
         </span>
       </li>)}
     </ul>
-    <p className="mx-auto mt-4 max-w-4xl text-center text-xs leading-relaxed text-[#a3b8aa]">
-      {message ?? "Completed trips with accepted passengers; demo rides excluded. Participants count each driver or passenger once. Savings assume each passenger seat replaces a separate car; petrol and diesel trips with valid distance and consumption only."}
+    {message || (summary && summary.excludedEstimateTrips > 0) ? <p className="mx-auto mt-4 max-w-4xl text-center text-xs leading-relaxed text-[#a3b8aa]">
+      {message}
       {summary && summary.excludedEstimateTrips > 0 ? ` ${summary.excludedEstimateTrips} completed shared trip(s) excluded from savings estimates because vehicle or distance data is missing or unsupported.` : null}
-    </p>
+    </p> : null}
   </section>;
 }
 

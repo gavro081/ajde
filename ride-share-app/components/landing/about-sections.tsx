@@ -209,6 +209,11 @@ export function AboutSections() {
         </nav>
         <p>© {new Date().getFullYear()} ajde. Made in Skopje.</p>
       </div>
+      <div className="mx-auto max-w-6xl px-5 pb-8 sm:px-10">
+        <p className="border-t border-white/10 pt-6 text-xs leading-relaxed text-[#a3b8aa]">
+          Completed trips with accepted passengers; demo rides excluded. Participants count each driver or passenger once. Savings assume each passenger seat replaces a separate car; petrol and diesel trips with valid distance and consumption only.
+        </p>
+      </div>
     </footer>
   </div>;
 }

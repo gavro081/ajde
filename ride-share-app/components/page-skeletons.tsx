@@ -76,15 +76,21 @@ export function FormPageSkeleton({ width = "max-w-4xl", fields = 6, title, subti
 }
 
 export function ProfileSkeleton() {
-  return <SkeletonMain label="Loading profile…" className="px-5 py-10">
-    <div className="mx-auto max-w-2xl">
-      <Bone className="h-4 w-28" />
-      <div className="surface-card mt-6 p-7 sm:p-10">
-        <Bone className="size-28 rounded-full" />
-        <Bone className="mt-8 h-10 w-64 max-w-full" />
-        <Bone className="mt-3 h-5 w-48" />
-        <div className="mt-8 grid gap-5 border-t border-slate-100 pt-7 sm:grid-cols-2"><div><Bone className="h-4 w-16" /><Bone className="mt-2 h-5 w-28" /></div><div><Bone className="h-4 w-16" /><Bone className="mt-2 h-5 w-full" /></div></div>
+  return <SkeletonMain label="Loading profile…" className="px-5 py-8 sm:py-12">
+    <div className="mx-auto max-w-xl">
+      <div className="flex h-11 items-center"><Bone className="h-4 w-28" /></div>
+      <div className="surface-card mt-20">
+        <div className="px-6 pb-8 sm:px-8 sm:pb-10">
+          <div className="flex justify-center"><Bone className="-mt-14 size-28 rounded-full ring-[6px] ring-white sm:-mt-16 sm:size-32" /></div>
+          <Bone className="mx-auto mt-6 h-10 w-64 max-w-full" />
+          <Bone className="mx-auto mt-3 h-7 w-48 max-w-full" />
+          <div className="mt-8 grid grid-cols-1 gap-8 border-t border-slate-200 pt-8">
+            <div><Bone className="h-7 w-20" /><Bone className="mt-4 h-4 w-full" /><Bone className="mt-3 h-4 w-4/5" /><Bone className="mt-3 h-4 w-3/5" /></div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6"><Bone className="h-7 w-28" /><Bone className="mt-4 h-12 w-24" /><Bone className="mt-4 h-5 w-32" /><Bone className="mt-3 h-4 w-full" /></div>
+          </div>
+        </div>
       </div>
+      <Bone className="mx-auto mt-6 h-12 w-full max-w-2xl" />
     </div>
   </SkeletonMain>;
 }
