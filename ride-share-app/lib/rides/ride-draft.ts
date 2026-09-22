@@ -110,7 +110,9 @@ const publishableRideDraftBaseSchema = rideDraftSchema.extend({
   departureAt: z.iso.datetime({ offset: true }),
   seatsTotal: z.number().int().min(RIDE_LIMITS.seats.min).max(RIDE_LIMITS.seats.max),
   carId: z.uuid(),
-  pricePerSeatMkd: z.number().int().min(RIDE_LIMITS.priceMkd.min).max(RIDE_LIMITS.priceMkd.max, "Price per seat must be between 0 and 3,000 MKD"),
+  // Price is optional: a ride published without one is free, stored as 0.
+  pricePerSeatMkd: z.number().int().min(RIDE_LIMITS.priceMkd.min).max(RIDE_LIMITS.priceMkd.max, "Price per seat must be between 0 and 3,000 MKD")
+    .nullable().transform((price) => price ?? 0),
   distanceKm: z.number().min(RIDE_LIMITS.distanceKm.min, "Distance must be at least 1 km").max(RIDE_LIMITS.distanceKm.max, "Distance must be no more than 600 km").nullable(),
   genderPreference: z.enum(["any", "same_as_driver"]),
 });

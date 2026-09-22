@@ -3,6 +3,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 
 import { matchExplanationResponseSchema } from "./explain-match-schema";
 import type { SearchQueryResult } from "./search-query-schema";
+import { isFreeRide } from "../rides/ride-price";
 
 export type ExplainRideFact = {
   rideId: string;
@@ -22,7 +23,7 @@ export type ExplainRidePrompt = {
   to: string;
   departs: string;
   seatsAvailable: number;
-  pricePerSeatMkd: number | null;
+  price: string;
 };
 
 export type ExplainSearchPrompt = {
@@ -81,7 +82,7 @@ function ridePrompt(ride: ExplainRideFact): ExplainRidePrompt {
     to: ride.destinationName,
     departs: formatDeparture(ride.departureAt),
     seatsAvailable: ride.seatsAvailable,
-    pricePerSeatMkd: ride.pricePerSeatMkd,
+    price: isFreeRide(ride.pricePerSeatMkd) ? "free of charge" : `${ride.pricePerSeatMkd} MKD per seat`,
   };
 }
 
@@ -162,8 +163,8 @@ function factualTemplate(ride: ExplainRideFact, context: SearchQueryResult) {
   if (reasons.length === 0) {
     reasons.push(`${ride.originName} to ${ride.destinationName}`, `departs ${formatDeparture(ride.departureAt)}`);
   }
-  if (ride.pricePerSeatMkd !== null && reasons.length < 3) {
-    reasons.push(`${ride.pricePerSeatMkd} MKD per seat`);
+  if (reasons.length < 3) {
+    reasons.push(isFreeRide(ride.pricePerSeatMkd) ? "is free of charge" : `${ride.pricePerSeatMkd} MKD per seat`);
   }
   return `Matches because it ${reasons.join(", ")}.`;
 }

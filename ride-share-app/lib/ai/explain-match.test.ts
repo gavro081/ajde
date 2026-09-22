@@ -154,7 +154,7 @@ describe("explanations for daily time windows", () => {
     await explainMatch([gostivarRide], afterFive, async (input) => { sent = input; return []; });
     expect(sent).toEqual({
       search: { from: "Gostivar", to: "Skopje", dates: null, dailyTime: "at or after 17:00" },
-      rides: [{ rideId: gostivarRide.rideId, from: "Gostivar", to: "Skopje", departs: "Sun 27 Sept at 17:00", seatsAvailable: 3, pricePerSeatMkd: 250 }],
+      rides: [{ rideId: gostivarRide.rideId, from: "Gostivar", to: "Skopje", departs: "Sun 27 Sept at 17:00", seatsAvailable: 3, price: "250 MKD per seat" }],
     });
     expect(JSON.stringify(sent)).not.toMatch(/CityId|15:00|T\d{2}:/);
   });
@@ -187,5 +187,17 @@ describe("explanations for daily time windows", () => {
     expect(explanationRideMatchesContext(ride, afterFive)).toBe(true);
     expect(explanationRideMatchesContext({ ...ride, departure_at: "2026-09-27T14:59:00+00:00" }, afterFive)).toBe(false);
     expect(explanationRideMatchesContext(ride, { ...afterFive, departureAfter: "2026-09-27T15:00:00.000Z" })).toBe(true);
+  });
+});
+
+describe("free rides in explanations", () => {
+  const free: ExplainRideFact = { ...rides[0], pricePerSeatMkd: 0 };
+
+  it("tells the model and the fallback that a 0 MKD ride is free", async () => {
+    let sent: { rides: readonly { price: string }[] } | undefined;
+    const [result] = await explainMatch([free], { ...context, requestedSeats: null, departureAfter: null, departureBefore: null },
+      async (input) => { sent = input; return []; });
+    expect(sent?.rides[0].price).toBe("free of charge");
+    expect(result.explanation).toBe("Matches because it goes to Bitola, is free of charge.");
   });
 });

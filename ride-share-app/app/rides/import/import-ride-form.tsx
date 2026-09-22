@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 
 import { parsedRidePostSchema, type ParsedRidePost } from "@/lib/ai/parsed-ride-post";
 import { formatDeparture } from "@/lib/rides/ride-presentation";
+import { formatSeatPrice } from "@/lib/rides/ride-price";
 
 type ParseResponse = {
   importId: string;
@@ -133,7 +134,7 @@ function ParsedReview({ result, cities }: { result: ParseResponse; cities: { id:
     ["Destination city", cities.find(city => city.id === parsed.draft.destination.cityId)?.name_en ?? parsed.draft.destination.rawText ?? "Needs review"],
     ["Departure (Skopje time)", parsed.draft.departureAt ? formatDeparture(parsed.draft.departureAt) : "Needs review"],
     ["Seats", parsed.draft.seatsTotal ?? "Needs review"],
-    ["Price per seat", parsed.draft.pricePerSeatMkd !== null ? `${parsed.draft.pricePerSeatMkd} MKD` : "Needs review"],
+    ["Price per seat", parsed.draft.pricePerSeatMkd !== null ? formatSeatPrice(parsed.draft.pricePerSeatMkd) : "Not stated (free unless you add one)"],
   ];
 
   return (

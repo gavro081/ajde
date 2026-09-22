@@ -303,17 +303,17 @@ export function RideForm({
               className={`${inputClass} ${priceFilled ? "ring-4 ring-brand-200" : ""}`}
               min={RIDE_LIMITS.priceMkd.min}
               max={RIDE_LIMITS.priceMkd.max}
-              title="0–3,000 MKD per seat; 0 means a free ride"
-              placeholder="0–3,000"
+              title="0–3,000 MKD per seat; leave empty or enter 0 for a free ride"
+              placeholder="Free"
               name="pricePerSeatMkd"
               aria-invalid={Boolean(state.fieldErrors.pricePerSeatMkd) || undefined}
-              aria-describedby={state.fieldErrors.pricePerSeatMkd ? "price-error" : undefined}
+              aria-describedby={state.fieldErrors.pricePerSeatMkd ? "price-hint price-error" : "price-hint"}
               onChange={(event) => setPricePerSeatMkd(event.target.value)}
-              required
               step={1}
               type="number"
               value={pricePerSeatMkd}
             />
+            <span id="price-hint" className="mt-1 block text-[.75rem] font-normal text-slate-500">Leave empty or enter 0 to offer the ride free of charge.</span>
             <FieldError id="price-error" errors={state.fieldErrors.pricePerSeatMkd} />
           </label>
         </div>
