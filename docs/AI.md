@@ -22,7 +22,7 @@ draft contract, and the stricter publishable schema is checked again on the serv
 
 `parseRidePost` uses the OpenAI Responses API with a Zod-backed structured-output schema. It is
 designed for informal posts containing Macedonian Cyrillic, Latin transliteration, mixed scripts,
-Albanian, landmarks, relative dates, offer/request wording, and several price modes.
+landmarks, relative dates, offer/request wording, and several price modes.
 
 The parser receives:
 

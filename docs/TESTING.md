@@ -21,7 +21,7 @@ tests check what *our code* does with good, bad and malformed AI output.
 | Command | Fixtures | Last recorded result |
 | --- | --- | --- |
 | `npm run eval:parser` | 5 anonymised real group posts ([fixtures/posts](../ride-share-app/fixtures/posts/README.md)) | 5/5 on classification, route, departure, seats and price |
-| `npm run eval:search` | 12 search phrases in English, Macedonian Cyrillic/Latin and Albanian ([fixtures/search](../ride-share-app/fixtures/search/README.md)) | 12/12 |
+| `npm run eval:search` | 12 search phrases in English and Macedonian Cyrillic/Latin ([fixtures/search](../ride-share-app/fixtures/search/README.md)) | 12/12 |
 | `npx tsx scripts/evaluate-offers.ts` | 4 multilingual ride descriptions incl. an outbound + return trip | 4/4 |
 
 Each run uses a fixed clock so "tomorrow" and "Friday" give repeatable answers. These are small
@@ -33,7 +33,7 @@ curated sets: a regression signal, not a claim about production accuracy.
 | --- | --- |
 | Empty or one-word input | Rejected before any AI call with a readable message (post import needs 10+ characters, search 2+, ride description 2+). |
 | Huge input | Capped server-side: post import 5,000 characters, ride description 6,000, search 300. Longer input gets a 400 with the limit in the message. |
-| Macedonian Cyrillic, Latin transliteration, mixed script, Albanian, English | Covered by the live fixtures above. |
+| Macedonian Cyrillic, Latin transliteration, mixed script, English | Covered by the live fixtures above. |
 | A place that isn't in our city list | Stays **unresolved**, and the driver must pick it manually. A model-invented city or pickup ID is thrown away (`lib/ai/resolve-location.ts`). |
 | A post with a date but no time | Departure is left empty for review instead of inventing a time. |
 | Seats or price not mentioned | Left empty; never guessed. |
@@ -49,7 +49,7 @@ while building show up in the history as a `fix(...)` commit following the featu
 
 ## Not tested / known gaps
 
-- Languages other than Macedonian, Albanian and English.
+- Languages other than Macedonian and English.
 - Load: the public OSRM server is rate-limited to one request per 1.2 s for the whole app.
 - A driver approving a booking at the exact moment the ride departs or is completed
   ([ticket 06](tickets/21-09-pero/06-atomic-booking-decisions.md), deferred).

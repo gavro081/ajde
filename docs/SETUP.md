@@ -139,7 +139,7 @@ Natural-language search has a separate live evaluator:
 npm run eval:search
 ```
 
-Its eight fixtures cover English, Macedonian Cyrillic and transliteration, Albanian, landmarks,
+Its fixtures cover English, Macedonian Cyrillic and transliteration, landmarks,
 unknown places, missing fields, relative dates, and unsupported preference wording. See
 [the recorded search evaluation](../ride-share-app/fixtures/search/README.md). Normal `npm test` runs
 use mocked model responses and consume no OpenAI credits; both live evaluators do consume credits.
