@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const db = vi.hoisted(() => ({ userId: "driver" as string | null, grant: true, rpc: vi.fn(), error: false }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({
@@ -12,6 +12,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({
 import { POST } from "./route";
 const request = (body: unknown = { originCity: "Skopje", destinationCity: "Bitola" }) => new Request("http://localhost/api/rides/distance", { method: "POST", body: JSON.stringify(body) });
 beforeEach(() => { db.userId = "driver"; db.grant = true; db.error = false; db.rpc.mockReset().mockImplementation(async () => ({ data: db.grant, error: null })); vi.unstubAllGlobals(); });
+afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); vi.useRealTimers(); });
 it("accepts two city-name strings, resolves catalog coordinates and returns road kilometres", async () => {
   const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ code: "Ok", routes: [{ distance: 174255.6 }] }));
   vi.stubGlobal("fetch", transport);
@@ -46,4 +47,76 @@ it("handles timeouts without returning a guessed distance", async () => {
   const result = await POST(request());
   expect(result.status).toBe(502);
   expect(await result.json()).not.toHaveProperty("distanceKm");
+});
+
+it.each([undefined, "false", "invalid", "true"])("keeps existing road estimates available with pipeline flag %s", async flag => {
+  vi.stubEnv("AI_IMPORT_PIPELINE_ENABLED", flag);
+  const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ code: "Ok", routes: [{ distance: 174255.6 }] }));
+  vi.stubGlobal("fetch", transport);
+  const response = await POST(request({ originCity: "  SKOPJE ", destinationCity: "Битола" }));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ distanceKm: 174.3 });
+  expect(db.rpc).toHaveBeenCalledWith("try_ride_routing_request");
+  expect(transport.mock.calls[0][1]).toMatchObject({
+    headers: { "User-Agent": "StudentRideShare/1.0 (non-commercial ride offer demo)" }, cache: "no-store",
+  });
+});
+
+it("preserves the routing permit denial retry body and header", async () => {
+  db.grant = false;
+  const transport = vi.fn(); vi.stubGlobal("fetch", transport);
+  const response = await POST(request());
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("2");
+  expect(await response.json()).toEqual({ error: "Waiting for the routing service.", retryAfterMs: 1300 });
+  expect(transport).not.toHaveBeenCalled();
+});
+
+it("does not request routing when canonical cities are unavailable", async () => {
+  db.error = true;
+  const transport = vi.fn(); vi.stubGlobal("fetch", transport);
+  const response = await POST(request());
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({ error: "Cities are unavailable. Enter km manually." });
+  expect(db.rpc).not.toHaveBeenCalled();
+  expect(transport).not.toHaveBeenCalled();
+});
+
+it("does not contact the provider when the routing permit service fails", async () => {
+  db.rpc.mockResolvedValue({ data: null, error: { message: "offline" } });
+  const transport = vi.fn(); vi.stubGlobal("fetch", transport);
+  const response = await POST(request());
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({ error: "Routing is unavailable. Enter km manually." });
+  expect(transport).not.toHaveBeenCalled();
+});
+
+it.each(["network", "http", "json"])("returns the existing manual-entry error for %s transport failure", async failure => {
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    if (failure === "network") throw new TypeError("network unavailable");
+    return failure === "http" ? new Response("unavailable", { status: 503 }) : new Response("invalid json");
+  }));
+  const response = await POST(request());
+  expect(response.status).toBe(502);
+  expect(await response.json()).toEqual({ error: "Road distance is unavailable. Enter km manually." });
+});
+
+it("aborts routing after the existing eight-second request limit", async () => {
+  vi.useFakeTimers();
+  vi.spyOn(AbortSignal, "timeout").mockImplementation(milliseconds => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new DOMException("Timeout", "TimeoutError")), milliseconds);
+    return controller.signal;
+  });
+  vi.stubGlobal("fetch", vi.fn((_input: unknown, init?: RequestInit) => new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+  })));
+  let completed = false;
+  const pending = POST(request()).then(response => { completed = true; return response; });
+  await vi.advanceTimersByTimeAsync(7999);
+  expect(completed).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  const response = await pending;
+  expect(response.status).toBe(502);
+  expect(await response.json()).toEqual({ error: "Road distance is unavailable. Enter km manually." });
 });
