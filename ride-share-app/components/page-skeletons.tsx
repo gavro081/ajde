@@ -62,11 +62,11 @@ export function RideDetailSkeleton() {
   </SkeletonMain>;
 }
 
-export function FormPageSkeleton({ width = "max-w-4xl", fields = 6, title, subtitle }: { width?: string; fields?: number; title?: string; subtitle?: string }) {
+export function FormPageSkeleton({ width = "max-w-4xl", fields = 6, title, subtitle, backLink = true }: { width?: string; fields?: number; title?: string; subtitle?: string; backLink?: boolean }) {
   return <SkeletonMain label="Loading form…" className="px-4 py-10 sm:px-6">
     <div className={`mx-auto ${width}`}>
-      <Bone className="h-4 w-24" />
-      <div className="mt-8">{title ? <><h1 className="page-heading">{title}</h1>{subtitle ? <p className="mt-3 max-w-2xl text-slate-600">{subtitle}</p> : null}</> : <Heading />}</div>
+      {backLink ? <Bone className="mb-8 h-4 w-24" /> : null}
+      <div>{title ? <><h1 className="page-heading">{title}</h1>{subtitle ? <p className="mt-3 max-w-2xl text-slate-600">{subtitle}</p> : null}</> : <Heading />}</div>
       <div className="surface-card mt-8 p-5 sm:p-8">
         {Array.from({ length: fields }, (_, index) => <div key={index} className={index ? "mt-6" : ""}><Bone className="h-4 w-32" /><Bone className="mt-2 h-[52px] rounded-[.9rem]" /></div>)}
         <Bone className="mt-8 h-[52px] w-44 rounded-[.9rem]" />
@@ -118,5 +118,53 @@ export function ItinerarySkeleton() {
   return <SkeletonMain label="Loading shared itinerary…" className="mx-auto w-full max-w-xl px-4 py-12">
     <Bone className="h-9 w-64" /><Bone className="mt-3 h-4 w-full" />
     <div className="surface-card mt-6 p-6"><Bone className="h-7 w-48" /><Bone className="mt-5 h-4 w-40" /><Bone className="mt-2 h-4 w-56" /><Bone className="mt-5 h-12 w-48" /></div>
+  </SkeletonMain>;
+}
+
+function FieldSkeleton({ label = "w-24", className = "", children }: { label?: string; className?: string; children?: ReactNode }) {
+  return <div className={className}><Bone className={`h-5 ${label}`} /><Bone className="mt-2 h-[59px] rounded-xl" />{children}</div>;
+}
+
+function CollapsedSectionSkeleton({ width, className = "mt-5" }: { width: string; className?: string }) {
+  return <div className={`flex h-[53px] items-center border-t border-slate-100 ${className}`}><Bone className={`h-5 ${width}`} /></div>;
+}
+
+/**
+ * Mirrors app/rides/new for a driver with one saved car: heading, the AI description box with the
+ * import prompt, then the ride form. Heights match the rendered page so content swaps in without a jump.
+ */
+export function OfferRideSkeleton({ heading }: { heading: ReactNode }) {
+  return <SkeletonMain label="Loading ride form…" className="px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-4xl">
+      {heading}
+      <div className="surface-card mt-8 p-4 sm:p-6">
+        <div className="rounded-xl bg-slate-50 p-4">
+          <Bone className="h-[23px] w-44" />
+          <Bone className="mt-2 h-[84px] rounded-[.9rem]" />
+          <div className="mt-[15px] flex items-center justify-between gap-2"><Bone className="h-4 w-72 max-w-[60%]" /><Bone className="h-11 w-24 rounded-[.9rem]" /></div>
+          <Bone className="mt-3 h-[118px] rounded-xl sm:h-[70px]" />
+        </div>
+        <div className="mt-[67px]">
+          <Bone className="h-[38px] w-32" />
+          <div className="mt-[17px] grid gap-4 sm:grid-cols-2"><FieldSkeleton label="w-12" /><FieldSkeleton label="w-8" /></div>
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <FieldSkeleton className="col-span-2" label="w-20" /><FieldSkeleton label="w-28" />
+            <FieldSkeleton label="w-32"><Bone className="mt-1 h-[39px]" /></FieldSkeleton>
+          </div>
+          <Bone className="mt-4 h-[19px] w-56" />
+          <CollapsedSectionSkeleton className="mt-4" width="w-64" />
+        </div>
+        <div className="mt-5 flex h-[133px] flex-col justify-center gap-3 rounded-2xl border border-slate-200 p-4 sm:p-5">
+          <Bone className="h-8 w-28" />
+          <div className="flex items-center justify-between"><div><Bone className="h-5 w-36" /><Bone className="mt-2 h-4 w-48" /></div><Bone className="h-9 w-20 rounded-lg" /></div>
+        </div>
+        {["w-64", "w-28", "w-52"].map((width) => <CollapsedSectionSkeleton key={width} width={width} />)}
+        <div className="mt-5 flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
+          <Bone className="h-4 w-44 sm:mr-auto sm:self-center" />
+          <Bone className="h-[52px] rounded-[.9rem] sm:w-32" />
+          <Bone className="h-[52px] rounded-[.9rem] sm:w-36" />
+        </div>
+      </div>
+    </div>
   </SkeletonMain>;
 }

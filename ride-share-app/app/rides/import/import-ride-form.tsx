@@ -105,13 +105,18 @@ export function ImportRideForm({ cities }: { cities: { id: number; name_en: stri
           />
           <span className="mt-1 block text-right text-xs text-slate-500">{text.length}/5000</span>
         </label>
-        <button
-          className="btn-primary disabled:opacity-50"
-          disabled={pending}
-          type="submit"
-        >
-          {pending ? "Parsing…" : "Create review draft"}
-        </button>
+        <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[.8125rem] text-slate-500">
+            No post to import? <Link href="/rides/new" className="font-semibold text-brand-700 hover:underline">Create a ride manually</Link>
+          </p>
+          <button
+            className="btn-primary disabled:opacity-50"
+            disabled={pending}
+            type="submit"
+          >
+            {pending ? "Parsing…" : "Create review draft"}
+          </button>
+        </div>
       </form>
 
       {error ? (

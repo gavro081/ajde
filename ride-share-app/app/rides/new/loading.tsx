@@ -1,5 +1,7 @@
-import { FormPageSkeleton } from "@/components/page-skeletons";
+import { OfferRideSkeleton } from "@/components/page-skeletons";
+
+import { OfferRideHeading } from "./offer-heading";
 
 export default function NewRideLoading() {
-  return <FormPageSkeleton title="Where are you headed?" subtitle="Set your route, choose your car, and offer a seat." />;
+  return <OfferRideSkeleton heading={<OfferRideHeading />} />;
 }

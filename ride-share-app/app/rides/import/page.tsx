@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/server";
 
@@ -17,8 +16,7 @@ export default async function ImportRidePage() {
   return (
     <><main id="main-content" className="px-4 py-10 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-3xl">
-        <Link href="/rides/new" className="mb-5 inline-flex text-sm font-semibold text-brand-700 hover:underline">Create a ride manually</Link>
-        <h1 className="page-heading mt-3">
+        <h1 className="page-heading">
           Import a ride post
         </h1>
         <p className="mt-3 max-w-2xl text-slate-600">
