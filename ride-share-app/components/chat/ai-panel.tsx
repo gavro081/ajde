@@ -15,6 +15,7 @@ export function ChatAiPanel({ rideId, latest, onUnavailable }: {
 }) {
   const panelId = useId();
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<AiAnswer | null>(null);
   const [lastRequest, setLastRequest] = useState<AiRequest | null>(null);
@@ -45,8 +46,15 @@ export function ChatAiPanel({ rideId, latest, onUnavailable }: {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!closing) return;
+    // Fallback for browsers that suppress animationend (for example in a hidden tab).
+    const timer = window.setTimeout(() => { setOpen(false); setClosing(false); }, 240);
+    return () => window.clearTimeout(timer);
+  }, [closing]);
+
   async function run(payload: AiRequest) {
-    if (request.current) return;
+    if (request.current || closing) return;
     const controller = new AbortController();
     request.current = controller;
     const current = ++sequence.current;
@@ -75,7 +83,12 @@ export function ChatAiPanel({ rideId, latest, onUnavailable }: {
   }
   function close() {
     sequence.current++; request.current?.abort(); request.current = null;
-    setPending(false); setOpen(false);
+    setPending(false);
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setOpen(false);
+    } else {
+      setClosing(true);
+    }
   }
   const stale = answer && latest && compareMessages(latest, answer.cutoff) > 0;
 
@@ -88,6 +101,12 @@ export function ChatAiPanel({ rideId, latest, onUnavailable }: {
       <span className="text-xs text-slate-500">Only you see the answer</span>
     </div>
     {open ? <dialog ref={panel} id={panelId} aria-label="Private chat assistant" aria-describedby={`${panelId}-privacy`}
+      data-closing={closing || undefined}
+      onAnimationEnd={event => {
+        if (closing && event.target === event.currentTarget && event.animationName === "chat-ai-close") {
+          setOpen(false); setClosing(false);
+        }
+      }}
       onCancel={event => { event.preventDefault(); close(); }}
       onKeyDown={event => {
         if (event.key !== "Tab") return;
@@ -105,12 +124,16 @@ export function ChatAiPanel({ rideId, latest, onUnavailable }: {
         const rect = event.currentTarget.getBoundingClientRect();
         if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) close();
       }}
-      className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-0 text-slate-950 shadow-2xl backdrop:bg-slate-950/50">
+      className="chat-ai-dialog fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-0 text-slate-950 shadow-2xl backdrop:bg-slate-950/50">
       <div className="flex max-h-[90dvh] flex-col">
       <header className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-7">
         <div><h2 className="text-lg font-semibold">Ask about this chat</h2><p className="mt-1 text-sm text-slate-500">Only you see these questions and answers.</p></div>
         <button type="button" autoFocus onClick={close} className="btn-secondary shrink-0 px-3 py-2 text-sm" aria-label="Close AI panel">Close</button>
       </header>
+      <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-3 sm:px-7">
+        <button type="button" disabled={pending || closing} className="btn-secondary min-h-9 px-3 py-2 text-sm disabled:opacity-50"
+          onClick={() => void run({ rideId, mode: "summary" })}>Summarize chat</button>
+      </div>
       <div className="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-7">
       <p id={`${panelId}-privacy`} className="mb-4 text-xs leading-5 text-slate-500">Using AI sends this room’s messages to OpenAI, including anything members typed into them.</p>
       <form className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4" onSubmit={event => { event.preventDefault(); if (question.trim()) void run({ rideId, mode: "question", question: question.trim() }); }}>

@@ -27,14 +27,27 @@ const http = require('node:http');
     await page.getByRole('button',{name:'Ask about chat',exact:true}).click();
     await expect(dialog.getByText('You asked',{exact:true})).toBeVisible();
     await expect(dialog.getByRole('heading',{name:'AI answer'})).toBeVisible();
+    await dialog.getByRole('button',{name:'Summarize chat',exact:true}).click();
+    await expect(dialog.getByRole('heading',{name:'Chat summary'})).toBeVisible();
+    await expect(dialog.getByRole('button',{name:'Summarize chat',exact:true})).toBeEnabled();
+    expect(await dialog.evaluate(d=>getComputedStyle(d).animationName)).toBe('chat-ai-open');
     await page.screenshot({path:'.test-dist/chat/modal-desktop.png'});
     await page.setViewportSize({width:375,height:850});
     await page.screenshot({path:'.test-dist/chat/modal-mobile.png'});
     expect(await dialog.evaluate(d=>d.scrollWidth<=d.clientWidth)).toBe(true);
+    await page.evaluate(() => {
+      window.modalAnimations = [];
+      document.querySelector('dialog').addEventListener('animationend', event => window.modalAnimations.push(event.animationName));
+    });
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
+    expect(await page.evaluate(()=>window.modalAnimations.includes('chat-ai-close'))).toBe(true);
     await expect(page.getByRole('button',{name:'Ask AI',exact:true})).toBeFocused();
     expect(await page.evaluate(()=>document.body.style.overflow)).toBe('');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.getByRole('button',{name:'Ask AI',exact:true}).click();
+    await page.getByRole('button',{name:'Close AI panel'}).click();
+    await expect(dialog).toHaveCount(0);
     console.log('PASS: native modal, focus containment/restoration, Escape, distinct question/answer cards, desktop/mobile layout');
   } finally {if(browser)await browser.close(); await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1});

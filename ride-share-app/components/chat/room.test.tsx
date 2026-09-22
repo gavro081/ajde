@@ -23,7 +23,7 @@ const initial: RoomPage = { viewerId: "driver", members: ["driver", "one", "two"
 // jsdom lacks native dialog methods; browser fixtures cover top-layer behavior.
 HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
 HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
-beforeEach(() => { mocks.channels = []; mocks.load.mockReset().mockResolvedValue({ ok: true, value: initial }); mocks.send.mockReset(); mocks.remove.mockClear(); mocks.session.mockReset().mockResolvedValue({ data: { session: { access_token: "test-token" } } }); mocks.setAuth.mockReset().mockResolvedValue(undefined); });
+beforeEach(() => { vi.stubGlobal("matchMedia", () => ({ matches: true })); mocks.channels = []; mocks.load.mockReset().mockResolvedValue({ ok: true, value: initial }); mocks.send.mockReset(); mocks.remove.mockClear(); mocks.session.mockReset().mockResolvedValue({ data: { session: { access_token: "test-token" } } }); mocks.setAuth.mockReset().mockResolvedValue(undefined); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe("ride room client", () => {
   it("shows one roster and escapes markup instead of interpreting it", async () => {
@@ -164,7 +164,7 @@ it("keeps realtime history updating during an AI request and restores sending af
   vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
   mocks.send.mockResolvedValue({ ok: true, value: message });
   render(<RideRoom aiEnabled={true} rideId={rideId} initial={initial} />);
-  fireEvent.click(screen.getByRole("button", { name: "Summarize chat" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "Summarize chat" })[0]);
   await waitFor(() => expect(mocks.channels).toHaveLength(1));
   mocks.load.mockResolvedValue({ ok: true, value: { ...initial, messages: [message] } });
   await act(async () => mocks.channels[0].event({ new: message }));
@@ -182,7 +182,7 @@ it.each(["SIGNED_OUT", "SIGNED_IN"])("clears pending AI and room history on auth
   const fetcher = vi.fn(() => new Promise<Response>(resolve => { finish = resolve; }));
   vi.stubGlobal("fetch", fetcher);
   render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, messages: [message] }} />);
-  fireEvent.click(screen.getByRole("button", { name: "Summarize chat" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "Summarize chat" })[0]);
   act(() => mocks.authChange(event, event === "SIGNED_OUT" ? null : { user: { id: "another-member" } }));
   expect(screen.getByRole("heading", { name: "Ride room unavailable" })).toBeDefined();
   expect(fetcher.mock.calls.length).toBe(1);
