@@ -42,6 +42,8 @@ Fill in `.env.local` without committing it:
 | `OPENAI_LOCATION_MODEL` | Optional location-fallback override | Defaults to `gpt-5-mini` |
 | `OPENAI_SEARCH_MODEL` | Optional natural-language search override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
 | `OPENAI_EXPLAIN_MODEL` | Optional match-explanation override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
+| `OPENAI_CHAT_MODEL` | Optional chat-assistant override | Falls back to `OPENAI_MODEL` |
+| `CHAT_AI_ENABLED` | Chat summary / Ask AI buttons | Optional; set `false` to turn the chat assistant off |
 | `FUEL_PRICE_PETROL_MKD_L` | Petrol cost estimate | Optional at startup; verify the current MKD/L value before a demo |
 | `FUEL_PRICE_DIESEL_MKD_L` | Diesel cost estimate | Optional at startup; verify the current MKD/L value before a demo |
 | `DEV_AUTH_BYPASS` | Local sign-in without sending email | Optional; honored only when exactly `true` outside production |

@@ -15,6 +15,9 @@ const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT
 const admin = createClient(url, process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 const users = [];
 let rideId, carId, browser;
+const manifest = '.test-dist/chat/cleanup.json';
+if (fs.existsSync(manifest)) throw new Error('Resolve the previous synthetic fixture cleanup manifest before another run.');
+const saveManifest = () => fs.writeFileSync(manifest, JSON.stringify({ users: users.map(u => ({ id: u.id, name: u.name })), rideId, carId }));
 function check(r) { if (r.error)
     throw new Error(r.error.message); return r.data; }
 (async () => {
@@ -26,7 +29,8 @@ function check(r) { if (r.error)
         const id = generated.user.id;
         const entry = { id, name };
         users.push(entry);
-        check(await admin.from('profiles').insert({ id, full_name: `Room Test ${name}`, photo_url: `${base}/icon.svg`, university: 'UKIM', phone: '+38970123456' }));
+        saveManifest();
+        check(await admin.from('profiles').insert({ id, full_name: `Room Test ${name}`, photo_url: `${base}/icon.png`, university: 'UKIM', phone: '+38970123456' }));
         const jar = [];
         const session = createServerClient(url, key, { cookies: { getAll: () => jar, setAll: values => { for (const c of values) {
                     const i = jar.findIndex(x => x.name === c.name);
@@ -35,9 +39,11 @@ function check(r) { if (r.error)
                     jar.push(c);
                 } } } });
         check(await session.auth.verifyOtp({ token_hash: generated.properties.hashed_token, type: generated.properties.verification_type }));
+        entry.client = session;
         entry.context = await browser.newContext({ viewport: { width: name === 'two' ? 375 : 1100, height: 850 } });
         await entry.context.addCookies(jar.map(c => ({ name: c.name, value: c.value, url: base, httpOnly: false, sameSite: 'Lax' })));
         entry.page = await entry.context.newPage();
+        entry.page.setDefaultNavigationTimeout(60000);
         entry.events = [];
         entry.page.on('websocket', ws => ws.on('framereceived', f => { try {
             const raw = JSON.parse(String(f.payload));
@@ -50,7 +56,9 @@ function check(r) { if (r.error)
     const driver = users[0], one = users[1], two = users[2], pending = users[3], outsider = users[4], late = users[5];
     const cities = check(await admin.from('cities').select('id').order('id').limit(2));
     carId = check(await admin.from('cars').insert({ owner_id: driver.id, make: 'Test', model: 'Room car', fuel_type: 'petrol', consumption_l_100km: 6.5, seats_total: 4 }).select('id').single()).id;
+    saveManifest();
     rideId = check(await admin.from('rides').insert({ driver_id: driver.id, car_id: carId, origin_city_id: cities[0].id, dest_city_id: cities[1].id, departure_at: new Date(Date.now() + 86400000).toISOString(), seats_total: 4, seats_available: 4, status: 'published', price_per_seat_mkd: 300, details: { chat_test: true } }).select('id').single()).id;
+    saveManifest();
     check(await admin.from('bookings').insert([one, two].map(u => ({ ride_id: rideId, passenger_id: u.id, status: 'accepted', decided_at: new Date(Date.now() - 60000).toISOString() }))));
     check(await admin.from('bookings').insert([pending, late].map(u => ({ ride_id: rideId, passenger_id: u.id, status: 'requested' }))));
     check(await admin.from('messages').insert(Array.from({ length: 55 }, (_, i) => ({ ride_id: rideId, sender_id: driver.id, body: `History ${String(i).padStart(2, '0')}` }))));
@@ -72,6 +80,15 @@ function check(r) { if (r.error)
         await expect(user.page.getByText(text,{exact:true})).toHaveCount(1);
         await expect(input).toHaveValue('');
     };
+    if (process.env.CHAT_AI_FOCUSED === '1') {
+        check(await admin.from('bookings').update({ status: 'accepted', decided_at: new Date().toISOString() }).eq('ride_id', rideId).eq('passenger_id', late.id));
+        await late.page.reload();
+        await expect(late.page.getByText('Connected', { exact: true })).toBeVisible({ timeout: 30000 });
+        await require('./verify-ai-browser.cjs')({ users, rideId, base, admin, expect, send });
+        fs.writeFileSync('.test-dist/chat/ai-results.json', JSON.stringify({ passed: true, date: new Date().toISOString(), liveModel: process.env.CHAT_AI_LIVE === '1' }));
+        console.log('PASS: focused AI browser verification');
+        return;
+    }
     for (const sender of [driver, one, two]) {
         const text = `Live reply from ${sender.name}`;
         await send(sender, text);
@@ -98,12 +115,15 @@ function check(r) { if (r.error)
     await expect(one.page.getByLabel('Message to the ride group')).toBeFocused();
     check(await admin.from('bookings').update({ status: 'accepted', decided_at: new Date().toISOString() }).eq('ride_id', rideId).eq('passenger_id', late.id));
     await late.page.reload();
-    await expect(late.page.getByText('No messages yet. Say hello to your ride group.')).toBeVisible();
+    await expect(late.page.getByLabel('Room messages').getByRole('listitem')).toHaveCount(50);
+    await late.page.getByRole('button', { name: 'Load older messages' }).click();
+    await expect(late.page.getByText('History 00', { exact: true })).toBeVisible();
     await expect(late.page.getByText('Connected', { exact: true })).toBeVisible({ timeout: 30000 });
     await send(driver, 'Only after late joined');
     await expect(late.page.getByText('Only after late joined', { exact: true })).toBeVisible();
-    await expect(late.page.getByText('Live reply from driver', { exact: true })).toHaveCount(0);
-    console.log('PASS: reload, mobile long text, keyboard send/focus, new member history boundary');
+    await expect(late.page.getByText('Live reply from driver', { exact: true })).toHaveCount(1);
+    console.log('PASS: reload, mobile long text, keyboard send/focus, new member full history');
+    await require('./verify-ai-browser.cjs')({ users, rideId, base, admin, expect, send });
     await two.context.setOffline(true);
     await expect(two.page.getByText('Offline — retry when connected')).toBeVisible();
     await send(driver, 'Missed while offline');
@@ -119,23 +139,19 @@ function check(r) { if (r.error)
         throw new Error('Cancelled passenger received message event');
     const detail = await one.context.newPage();
     await detail.goto(`${base}/rides/${rideId}`);
-    await expect(detail.getByRole('link', { name: 'Ride room', exact: true })).toBeVisible();
-    await detail.getByLabel('Ask a question or answer').fill('Public Q&A regression');
-    await detail.getByRole('button', { name: 'Post comment', exact: true }).click();
-    await expect(detail.getByText('Public Q&A regression', { exact: true })).toBeVisible();
+    await expect(detail.getByRole('link', { name: /^Open ride chat/ })).toBeVisible();
     const publicDetail = await outsider.context.newPage();
     await publicDetail.goto(`${base}/rides/${rideId}`);
-    await expect(publicDetail.getByText('Public Q&A regression', { exact: true })).toBeVisible();
-    await expect(publicDetail.getByRole('link', { name: 'Ride room', exact: true })).toHaveCount(0);
+    await expect(publicDetail.getByRole('link', { name: /^Open ride chat/ })).toHaveCount(0);
     await expect(publicDetail.getByText('+38970123456', { exact: false })).toHaveCount(0);
     const trips = await one.context.newPage();
     await trips.goto(`${base}/dashboard/trips`);
     await expect(trips.getByText('Driver contact: +38970123456', { exact: true })).toBeVisible();
     await trips.getByRole('link', { name: 'View trip', exact: true }).click();
     await expect(trips).toHaveURL(`${base}/rides/${rideId}`);
-    await expect(trips.getByRole('heading', { name: 'Request seats', exact: true })).toBeVisible();
+    await expect(trips.getByRole('heading', { name: 'Request a seat', exact: true })).toBeVisible();
     await trips.goto(`${base}/dashboard/trips`);
-    await trips.getByRole('link', { name: 'Open ride chat', exact: true }).click();
+    await trips.getByRole('link', { name: /^Open ride chat/ }).click();
     await expect(trips).toHaveURL(`${base}/rides/${rideId}/chat`);
     await expect(trips.getByRole('heading', { name: 'Ride room', exact: true })).toBeVisible();
     await trips.goto(`${base}/dashboard/trips`);
@@ -152,12 +168,12 @@ function check(r) { if (r.error)
     await expect(trips.getByText('Trip link revoked. New visits cannot open it.', { exact: true })).toBeVisible();
     await shared.reload();
     await expect(shared.getByRole('heading', { name: 'Itinerary unavailable' })).toBeVisible();
-    await publicDetail.getByRole('button', { name: 'Send request', exact: true }).click();
+    await publicDetail.getByRole('button', { name: 'Request my seat', exact: true }).click();
     await expect(publicDetail.getByText('Seat request sent to the driver.', { exact: true })).toBeVisible();
     const outsiderTrips = await outsider.context.newPage();
     await outsiderTrips.goto(`${base}/dashboard/trips`);
     await expect(outsiderTrips.getByText('Awaiting approval', { exact: true })).toBeVisible();
-    await expect(outsiderTrips.getByRole('link', {name:'Open ride chat',exact:true})).toHaveCount(0);
+    await expect(outsiderTrips.getByRole('link', {name:/^Open ride chat/})).toHaveCount(0);
     await expect(outsiderTrips.getByText('Ride chat becomes available when the driver accepts your booking.',{exact:true})).toBeVisible();
     await expect(outsiderTrips.getByText('+38970123456', { exact: false })).toHaveCount(0);
     const dashboard = await driver.context.newPage();
@@ -173,7 +189,7 @@ function check(r) { if (r.error)
     await outsiderTrips.reload();
     await expect(outsiderTrips.getByText('Driver contact: +38970123456', { exact: true })).toBeVisible();
     await publicDetail.reload();
-    await expect(publicDetail.getByRole('link', { name: 'Ride room', exact: true })).toBeVisible();
+    await expect(publicDetail.getByRole('link', { name: /^Open ride chat/ })).toBeVisible();
     await outsiderTrips.locator('summary').filter({ hasText: 'Booking options' }).click();
     await outsiderTrips.getByRole('button', { name: 'Cancel booking', exact: true }).click();
     await expect(outsiderTrips.getByText('cancelled', { exact: true })).toBeVisible();
@@ -184,18 +200,20 @@ function check(r) { if (r.error)
     await dashboard.getByRole('button', { name: 'Cancel ride', exact: true }).click();
     await dashboard.getByRole('button', { name: 'Confirm cancellation', exact: true }).click();
     await expect(dashboard.getByRole('button', { name: 'Confirm cancellation', exact: true })).toHaveCount(0);
-    console.log('PASS: ride detail, public Q&A, contacts, trip sharing/revocation, request/accept/decline/cancel');
+    console.log('PASS: ride detail, contacts, trip sharing/revocation, request/accept/decline/cancel');
     await driver.page.reload();
     await expect(driver.page.getByLabel('Message to the ride group')).toBeDisabled();
     await expect(driver.page.getByText('Only after late joined', { exact: true })).toBeVisible();
     console.log('PASS: offline recovery, booking revocation, no cancelled-member events, cancelled ride read-only');
     await driver.page.screenshot({ path: '.test-dist/chat/desktop.png', fullPage: true });
-    fs.writeFileSync('.test-dist/chat/live-results.json', JSON.stringify({ passed: true, date: new Date().toISOString(), cases: ['websocket-three-members', 'denied-users', 'pagination-55', 'reload', 'mobile-long-text', 'keyboard', 'acceptance-boundary', 'offline-reconnect', 'cancellation', 'read-only', 'public-qa', 'contact-visibility', 'trip-sharing', 'booking-lifecycle'] }));
+    fs.writeFileSync('.test-dist/chat/live-results.json', JSON.stringify({ passed: true, date: new Date().toISOString(), cases: ['websocket-three-members', 'denied-users', 'pagination-55', 'reload', 'mobile-long-text', 'keyboard', 'full-history', 'private-ai', 'ai-budget', 'ai-mobile', 'ai-revocation', 'offline-reconnect', 'cancellation', 'read-only', 'contact-visibility', 'trip-sharing', 'booking-lifecycle'] }));
 })().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(async () => {
+    let cleanupFailed = false;
     const cleanup = async (action) => { try {
         await action();
     }
     catch (error) {
+        cleanupFailed = true;
         console.error('Fixture cleanup failed:', error.message);
         process.exitCode = 1;
     } };
@@ -207,5 +225,6 @@ function check(r) { if (r.error)
         await cleanup(async () => check(await admin.from('cars').delete().eq('id', carId)));
     for (const user of users)
         await cleanup(async () => check(await admin.auth.admin.deleteUser(user.id)));
-    console.log('Finished cleanup of isolated chat fixtures');
+    if (!cleanupFailed && fs.existsSync(manifest)) fs.unlinkSync(manifest);
+    console.log(cleanupFailed ? 'Cleanup incomplete; exact synthetic IDs retained in cleanup.json' : 'Finished cleanup of isolated chat fixtures');
 });

@@ -134,3 +134,13 @@
   .journey-card { padding: 1.5rem; }
   .filter-options { padding: 1.25rem; }
 }
+
+/* Keep the native dialog in the top layer until its exit animation finishes. */
+.chat-ai-dialog[open] { animation: chat-ai-open 220ms cubic-bezier(.2,.8,.2,1) both; }
+.chat-ai-dialog[open]::backdrop { animation: chat-ai-backdrop-in 220ms ease-out both; }
+.chat-ai-dialog[data-closing] { animation: chat-ai-close 180ms ease-in both; }
+.chat-ai-dialog[data-closing]::backdrop { animation: chat-ai-backdrop-out 180ms ease-in both; }
+@keyframes chat-ai-open { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes chat-ai-close { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(8px) scale(.98); } }
+@keyframes chat-ai-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes chat-ai-backdrop-out { from { opacity: 1; } to { opacity: 0; } }

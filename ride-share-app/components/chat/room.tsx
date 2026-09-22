@@ -6,6 +6,7 @@ import { ContactDetails } from "@/components/contact-details";
 import { loadRoom, sendRoomMessage } from "@/lib/chat/actions";
 import { isRoomEvent, mergeMessages, type Cursor, type Member, type Message, type RoomPage } from "@/lib/chat/contract";
 import { createClient } from "@/lib/supabase/client";
+import { ChatAiPanel } from "./ai-panel";
 
 export function ParticipantRoster({ members }: { members: Member[] }) {
   return <ul aria-label="Room participants" className="flex gap-2 lg:flex-col">
@@ -37,7 +38,11 @@ export function MessageList({ messages, viewerId }: { messages: Message[]; viewe
   </ol>;
 }
 
-export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPage }) {
+export function RideRoom({ rideId, initial, aiEnabled }: { rideId: string; initial: RoomPage; aiEnabled: boolean }) {
+  return <RideRoomSession key={`${rideId}:${initial.viewerId}`} rideId={rideId} initial={initial} aiEnabled={aiEnabled} />;
+}
+
+function RideRoomSession({ rideId, initial, aiEnabled }: { rideId: string; initial: RoomPage; aiEnabled: boolean }) {
   const [messages, setMessages] = useState(initial.messages);
   const messagesRef = useRef(initial.messages);
   const [members, setMembers] = useState(initial.members);
@@ -57,6 +62,11 @@ export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPag
   const prependHeight = useRef<number | null>(null);
   const live = useRef(true);
   const restoreFocus = useRef(false);
+
+  function loseAccess() {
+    messagesRef.current = [];
+    setMessages([]); setMembers([]); setBody(""); setUnavailable(true);
+  }
 
   useEffect(() => {
     if (!pending && restoreFocus.current) {
@@ -95,6 +105,13 @@ export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPag
     let refreshAgain = false;
     let connected = false;
     let offlineNow = !navigator.onLine;
+    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
+      if (active && (event === "SIGNED_OUT" || (session && session.user.id !== initial.viewerId))) {
+        active = false;
+        messagesRef.current = [];
+        setMessages([]); setMembers([]); setBody(""); setUnavailable(true);
+      }
+    });
 
     async function synchronize() {
       if (!active || offlineNow) return;
@@ -118,9 +135,6 @@ export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPag
             }
             setMembership(result.value.membership);
             setMembers(result.value.members);
-            // A cancelled/reaccepted passenger must lose the earlier acceptance window.
-            const joinedAt = result.value.membership.joinedAt;
-            if (joinedAt) messagesRef.current = messagesRef.current.filter(m => Date.parse(m.created_at) >= Date.parse(joinedAt));
             receive(result.value.messages);
             const hadCursor = cursor !== null;
             if (!hadCursor && result.value.nextCursor) setOlderCursor(result.value.nextCursor);
@@ -144,7 +158,7 @@ export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPag
         // Wait for the cookie-backed session before joining an RLS-protected feed.
         const { data: { session } } = await client.auth.getSession();
         if (!active) return;
-        if (!session) { setUnavailable(true); messagesRef.current = []; setMessages([]); return; }
+        if (!session) { setUnavailable(true); messagesRef.current = []; setMessages([]); setMembers([]); setBody(""); return; }
         await client.realtime.setAuth(session.access_token);
         if (!active) return;
         channel.subscribe(state => {
@@ -170,8 +184,9 @@ export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPag
       window.removeEventListener("online", online);
       window.removeEventListener("focus", refresh);
       void client.removeChannel(channel);
+      authListener.subscription.unsubscribe();
     };
-  }, [rideId, retry, unavailable]);
+  }, [rideId, retry, unavailable, initial.viewerId]);
 
   function send() {
     if (pending || !body.trim() || !membership.canSend || unavailable) return;
@@ -227,16 +242,19 @@ export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPag
         <span role="status" className="font-medium">{status}</span>
         <button type="button" className="min-h-0 font-semibold text-brand-700 underline" onClick={() => setRetry(value => value + 1)}>Retry connection</button>
       </div>
-      <p className="hidden text-sm leading-6 text-slate-600 lg:block">The driver and all currently accepted passengers can read new room messages. Your history begins when your booking is accepted. Messages are kept as a ride record.</p>
+      <p className="text-sm leading-6 text-slate-600">The driver and all currently accepted passengers can read the entire room history, including messages sent before they joined. Messages are kept as a ride record.</p>
       <Link className="btn-secondary hidden lg:inline-flex" href={`/rides/${rideId}`}>Ride details</Link>
     </aside>
 
     <div className="surface-card flex min-h-0 flex-1 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
-        <h1 className="font-display text-xl font-extrabold tracking-[-.03em]">Ride room</h1>
-        <span className="text-xs text-slate-500">{messages.length} message{messages.length === 1 ? "" : "s"}</span>
+      <header className="shrink-0 border-b border-slate-100">
+        <div className="flex items-center justify-between gap-3 px-5 py-3.5">
+          <h1 className="font-display text-xl font-extrabold tracking-[-.03em]">Ride room</h1>
+          <span className="text-xs text-slate-500">{messages.length} message{messages.length === 1 ? "" : "s"}</span>
+        </div>
+        {aiEnabled ? <ChatAiPanel rideId={rideId} latest={messages.at(-1) ?? null} onUnavailable={loseAccess} /> : null}
       </header>
-      <div ref={timeline} tabIndex={0} aria-label="Message history" className="min-h-40 flex-1 overflow-y-auto overscroll-contain" onScroll={() => {
+      <div ref={timeline} tabIndex={0} aria-label="Message history" className="h-64 flex-none overflow-y-auto overscroll-contain lg:h-auto lg:min-h-20 lg:flex-1" onScroll={() => {
         const node = timeline.current;
         if (node) nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
       }}>

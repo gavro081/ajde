@@ -142,8 +142,8 @@ are deferred direct-message data and inaccessible through room policies. The bod
 1–4000 trimmed characters (chat's application limit is 2000). Sender and any recipient must differ.
 Deleting the ride or a referenced participant cascades. No second room/membership table exists.
 
-Only the driver and currently accepted passengers can read room messages. Passengers see rows
-created at or after their accepted booking's `decided_at`; the driver sees the whole room history.
+Only the driver and currently accepted passengers can read room messages. All current members see the whole room history, including messages before acceptance.
+Accepted bookings must have a non-null `decided_at` no later than the current statement time.
 Cancelled bookings lose access immediately. Cancelled rides retain authorized read-only history.
 Sends require the authenticated sender, a real driver, null recipient, a non-cancelled ride, and
 `statement_timestamp() <= departure_at + interval '48 hours'` (inclusive, matching chat).
@@ -211,6 +211,13 @@ bookings 1--* trip_shares
 ```
 
 ## Database behavior
+
+- `chat_ai_budgets` stores an Auth user UUID and at most five recent admission timestamps, with
+  cascading account deletion, RLS and no public/anonymous/authenticated table privileges.
+  `try_chat_ai_request()` derives the identity from `auth.uid()` and takes a row lock before
+  pruning admissions older than one minute and admitting up to five requests. Its fixed empty
+  search path and authenticated-only execute grant protect a shared budget across rooms/instances.
+  It stores no prompts, chat text or AI responses. Missing identities cannot obtain a permit.
 
 - `create_ride_offer(jsonb,jsonb,uuid,boolean)` publishes an offer and selects/creates its owned
   vehicle in one transaction. It derives the driver from `auth.uid()`, verifies import and vehicle

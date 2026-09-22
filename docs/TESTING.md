@@ -5,7 +5,7 @@
 Run from `ride-share-app/`:
 
 ```sh
-npm test            # 595 tests in 44 files, ~4 s, no network and no OpenAI credits
+npm test            # 650 tests in 50 files, ~4 s, no network and no OpenAI credits
 npm run lint
 npx tsc --noEmit
 ```

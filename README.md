@@ -33,8 +33,8 @@ and often leaves with empty seats.
 3. **Offer a ride:** type "Skopje to Ohrid Saturday 4pm, back Sunday evening, 3 seats", or paste an
    existing group post. Review the draft, pick your car, see the suggested fair price per seat, publish.
 4. Request a seat. The driver accepts or declines. Contacts are revealed only after acceptance.
-5. Ask questions under the ride, chat in a private ride room, and share your trip with family
-   through a link that expires.
+5. Ask questions under the ride, chat in a private ride room (with AI summaries and "Ask AI" to
+   catch up on what was agreed), and share your trip with family through a link that expires.
 6. After the trip, the driver marks it completed. Both sides rate each other, and the CO₂ saved is counted.
 
 ## How the AI works
@@ -58,6 +58,7 @@ flowchart TD
 | Turn a free-text trip description into one draft per trip | [`lib/ai/parse-offer-description.ts`](ride-share-app/lib/ai/parse-offer-description.ts) | Return trips, shared details and "Saturday 4pm" in Skopje time |
 | Map a place name the aliases missed onto our city list | [`lib/ai/openai-location-fallback.ts`](ride-share-app/lib/ai/openai-location-fallback.ts) | Spelling variants and transliterations |
 | Turn a search phrase into filters | [`lib/ai/parse-search-query.ts`](ride-share-app/lib/ai/parse-search-query.ts) | "Ohrid slednive nekolku dena okolu 5" |
+| Summarise a ride chat and answer questions about it, citing the messages | [`lib/ai/chat-assistant.ts`](ride-share-app/lib/ai/chat-assistant.ts) | Catching up on a long chat: "where are we meeting, and who's bringing a big bag?" |
 | Explain why a ride matches your search | [`lib/ai/explain-match.ts`](ride-share-app/lib/ai/explain-match.ts) | (falls back to plain facts) |
 | **PLACEHOLDER / TODO:** screenshot → reader → parser → checker that calls tools | _in progress, not merged_ ([plan](archived-plans/2026-09-22/22-09-ai-pipeline.md)) | Photos of group chats |
 
@@ -94,7 +95,7 @@ set -a; . ./.env.local; set +a
 for m in supabase/migrations/*.sql; do psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$m" || break; done
 
 npm run dev                       # http://localhost:3000
-npm test                          # 595 tests, no network needed
+npm test                          # 650 tests, no network needed
 ```
 
 Sign-in uses a magic link, sent only to domains in `STUDENT_EMAIL_DOMAINS`. For local testing
@@ -105,7 +106,7 @@ without email, set `DEV_AUTH_BYPASS=true` and `SUPABASE_SECRET_KEY`. The bypass 
 **Finished and working end to end:** student sign-in and onboarding; manual, described and
 imported ride offers; car catalog with fuel-cost and CO₂ suggestion; automatic road distance;
 feed with filters and AI search; seat requests with accept, decline and cancel; contact reveal
-after acceptance; ride Q&A; share-my-trip links; private ride chat; ride completion; ratings;
+after acceptance; ride Q&A; share-my-trip links; private ride chat with AI summaries and questions; ride completion; ratings;
 personal and platform CO₂ counters.
 
 **Not finished:**

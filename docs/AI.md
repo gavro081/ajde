@@ -69,6 +69,15 @@ draft opens in its own tab and must be published separately. Seats and price are
 ambiguous times are flagged for review, and **Undo fill** restores the form. Full behaviour:
 [ride-share-app/RIDE_OFFERS.md](../ride-share-app/RIDE_OFFERS.md).
 
+## Chat summaries and questions (`lib/ai/chat-assistant.ts`, `lib/chat/ai-service.ts`)
+
+In a private ride room, a member can press **Summarize chat** or **Ask AI** ("what did we agree
+about pickup?"). The model gets the full room transcript the member is allowed to read and must
+answer with source excerpts from real messages, so a newly accepted passenger can catch up on
+what was agreed before they joined. Answers are private, marked out of date when new messages
+arrive, rate-limited, and can be switched off with `CHAT_AI_ENABLED=false`. Privacy and limits:
+[SAFETY.md](SAFETY.md#ai-chat-assistance).
+
 ## Road distance (not AI)
 
 Once both cities are known, `/api/rides/distance` asks the public OSRM router for the city-to-city

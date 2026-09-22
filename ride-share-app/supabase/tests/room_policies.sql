@@ -55,15 +55,21 @@ reset role;
 update public.bookings set decided_at=statement_timestamp() where passenger_id='91000000-0000-4000-8000-000000000004';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000004',true);
-select pg_temp.assert_true((select count(*) from public.messages)=0,'new member cannot read old history');
+select pg_temp.assert_true((select count(*) from public.messages)=1,'new member reads old history');
 insert into public.messages(ride_id,sender_id,body) values ('92000000-0000-4000-8000-000000000001',auth.uid(),'New member reply');
-select pg_temp.assert_true((select count(*) from public.messages)=1,'new member sees own reply');
+select pg_temp.assert_true((select count(*) from public.messages)=2,'new member sees old history and own reply');
 reset role;
 update public.bookings set status='cancelled' where passenger_id='91000000-0000-4000-8000-000000000002';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000002',true);
 select pg_temp.assert_true((select count(*) from public.messages)=0,'cancelled member immediately loses history');
 select pg_temp.denied($q$insert into public.messages(ride_id,sender_id,body) values ('92000000-0000-4000-8000-000000000001',auth.uid(),'cancelled')$q$);
+reset role;
+-- Reacceptance restores all earlier messages, not just the second acceptance window.
+update public.bookings set status='accepted', decided_at=statement_timestamp()
+where passenger_id='91000000-0000-4000-8000-000000000002';
+set local role authenticated;
+select pg_temp.assert_true((select count(*) from public.messages)=2,'reaccepted member regains full history');
 reset role;
 update public.rides set status='cancelled' where id='92000000-0000-4000-8000-000000000001';
 set local role authenticated;

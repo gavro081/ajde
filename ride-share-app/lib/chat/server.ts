@@ -42,7 +42,6 @@ export async function queryRoom(input: unknown): Promise<Result<RoomPage>> {
       .select("id, full_name, photo_url, phone, social_url, instagram, facebook").in("id", ids);
     if (rosterError || !profiles) return database;
     let query = supabase.from("messages").select(messageColumns).eq("ride_id", rideId).is("recipient_id", null);
-    if (membership.joinedAt) query = query.gte("created_at", membership.joinedAt);
     const forward = direction === "newer" && cursor !== null;
     if (cursor) {
       const op = forward ? "gt" : "lt";
