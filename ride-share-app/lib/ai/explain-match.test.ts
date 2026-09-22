@@ -45,7 +45,7 @@ describe("batched match explanations", () => {
     let calls = 0;
     const result = await explainMatch(rides, context, async ({ rides: batch }) => {
       calls += 1;
-      return batch.map((ride) => ({ rideId: ride.rideId, explanation: `This ride goes to ${ride.destinationName}.` }));
+      return batch.map((ride) => ({ rideId: ride.rideId, explanation: `This ride goes to ${ride.to}.` }));
     });
     expect(calls).toBe(1);
     expect(result).toHaveLength(2);
@@ -118,5 +118,74 @@ describe("batched match explanations", () => {
         context,
       ),
     ).toBe(false);
+  });
+});
+
+describe("explanations for daily time windows", () => {
+  // Reported bug: a 17:00 Skopje departure (15:00 UTC) was explained as "before the requested
+  // timeAfter of 17:00" because the model received a UTC instant next to a local clock time.
+  const gostivarRide: ExplainRideFact = {
+    rideId: "40000000-0000-4000-8000-000000000003",
+    originCityId: 10,
+    originName: "Gostivar",
+    destinationCityId: 1,
+    destinationName: "Skopje",
+    departureAt: "2026-09-27T15:00:00+00:00",
+    seatsAvailable: 3,
+    pricePerSeatMkd: 250,
+  };
+  const afterFive: SearchQueryResult = {
+    originId: 10,
+    destinationId: 1,
+    departureAfter: null,
+    departureBefore: null,
+    dateFrom: null,
+    dateTo: null,
+    timeAfter: "17:00",
+    timeBefore: null,
+    requestedSeats: null,
+    confidence: 0.9,
+    warnings: [],
+  };
+  const answer = (explanation: string) => async () => [{ rideId: gostivarRide.rideId, explanation }];
+
+  it("sends the model readable Skopje-local facts without IDs or UTC instants", async () => {
+    let sent: unknown;
+    await explainMatch([gostivarRide], afterFive, async (input) => { sent = input; return []; });
+    expect(sent).toEqual({
+      search: { from: "Gostivar", to: "Skopje", dates: null, dailyTime: "at or after 17:00" },
+      rides: [{ rideId: gostivarRide.rideId, from: "Gostivar", to: "Skopje", departs: "Sun 27 Sept at 17:00", seatsAvailable: 3, pricePerSeatMkd: 250 }],
+    });
+    expect(JSON.stringify(sent)).not.toMatch(/CityId|15:00|T\d{2}:/);
+  });
+
+  it("describes overnight windows and date ranges", async () => {
+    let sent: { search: unknown } | undefined;
+    await explainMatch([gostivarRide], { ...afterFive, timeBefore: "09:00", dateFrom: "2026-09-26", dateTo: "2026-09-28" },
+      async (input) => { sent = input; return []; });
+    expect(sent?.search).toMatchObject({ dates: "Sat 26 Sept to Mon 28 Sept", dailyTime: "17:00–09:00 (overnight)" });
+  });
+
+  it.each([
+    ["the reported contradiction", "Matches the route from Gostivar (10) to Skopje (1), but its departure at 15:00 is before the requested timeAfter of 17:00."],
+    ["a claim that it does not match", "Gostivar to Skopje on Sunday does not match your time."],
+    ["a UTC-converted time", "Gostivar to Skopje, leaving Sunday at 15:00."],
+    ["an internal field name", "Gostivar to Skopje, after your timeAfter."],
+  ])("replaces %s with the factual template", async (_, explanation) => {
+    const [result] = await explainMatch([gostivarRide], afterFive, answer(explanation));
+    expect(result.explanation).toBe("Matches because it leaves from Gostivar, goes to Skopje, departs Sun 27 Sept at 17:00.");
+  });
+
+  it("keeps a correct explanation that uses the local time", async () => {
+    const explanation = "Gostivar to Skopje on Sun 27 Sept at 17:00, right at the start of your evening window.";
+    const [result] = await explainMatch([gostivarRide], afterFive, answer(explanation));
+    expect(result.explanation).toBe(explanation);
+  });
+
+  it("only explains rides inside the daily window, comparing instants not strings", () => {
+    const ride = { origin_city_id: 10, dest_city_id: 1, departure_at: "2026-09-27T15:00:00+00:00", seats_available: 3 };
+    expect(explanationRideMatchesContext(ride, afterFive)).toBe(true);
+    expect(explanationRideMatchesContext({ ...ride, departure_at: "2026-09-27T14:59:00+00:00" }, afterFive)).toBe(false);
+    expect(explanationRideMatchesContext(ride, { ...afterFive, departureAfter: "2026-09-27T15:00:00.000Z" })).toBe(true);
   });
 });

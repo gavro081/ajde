@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { matchesDepartureTime } from "../rides/ride-filters";
 import { searchQueryResultSchema } from "./search-query-schema";
 
 export const MAX_EXPLAINED_RIDES = 24;
@@ -35,12 +36,19 @@ export function explanationRideMatchesContext(
     departureAfter: string | null;
     departureBefore: string | null;
     requestedSeats: number | null;
+    timeAfter?: string | null;
+    timeBefore?: string | null;
   },
 ) {
+  // Compare instants, not strings: the database returns "+00:00" while search bounds use "Z".
+  const departure = Date.parse(ride.departure_at);
   if (context.originId !== null && ride.origin_city_id !== context.originId) return false;
   if (context.destinationId !== null && ride.dest_city_id !== context.destinationId) return false;
-  if (context.departureAfter !== null && ride.departure_at < context.departureAfter) return false;
-  if (context.departureBefore !== null && ride.departure_at >= context.departureBefore) return false;
+  if (context.departureAfter !== null && departure < Date.parse(context.departureAfter)) return false;
+  if (context.departureBefore !== null && departure >= Date.parse(context.departureBefore)) return false;
   if (context.requestedSeats !== null && ride.seats_available < context.requestedSeats) return false;
-  return true;
+  return matchesDepartureTime(ride.departure_at, {
+    timeAfter: context.timeAfter ?? null,
+    timeBefore: context.timeBefore ?? null,
+  });
 }
