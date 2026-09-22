@@ -1,6 +1,7 @@
 # Local reference datasets
 co2.csv
-docs/
+# Brand source files (kept locally; app icons live in ride-share-app/app and public/)
+logos/
 .worktrees/
 .scratch/
 # Supabase CLI state
