@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 
-import { parseDriverRideFilter } from "./trip-tabs";
+import { parseTripStatusFilter } from "./trip-tabs";
 
 it.each([
   ["completed", "completed"],
@@ -11,5 +11,5 @@ it.each([
   ["draft", "active"],
   ["ALL", "active"],
 ])("maps the driver trip filter %j to %j", (value, expected) => {
-  expect(parseDriverRideFilter(value)).toBe(expected);
+  expect(parseTripStatusFilter(value)).toBe(expected);
 });
