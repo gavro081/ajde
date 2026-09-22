@@ -266,6 +266,19 @@ unresolved place clears model IDs and forces manual review. Additional guards cl
 departure times and flag low-confidence output. The raw post and structured result are stored
 together for the review step.
 
+Search dates and clock times are independent. Time-only searches apply to all upcoming rides;
+date ranges apply the clock window on each selected day in `Europe/Skopje`, including DST changes.
+The manual filters expose optional from/through dates and at-or-after/before times. A from date
+alone means that single day; through dates are inclusive. Clock starts are inclusive and ends
+exclusive; a start later than its end selects an overnight window on the selected calendar dates.
+“Next few days” / “slednive nekolku dena” defaults to today plus the following two days, with a
+review warning. “Nakaj 5” defaults to around 17:00 (16:00–18:00), with an afternoon-assumption warning.
+The interpretation and editable controls show these choices. `dateFrom`/`dateTo` and
+`timeAfter`/`timeBefore` are independent result fields; legacy `after`/`before` URL bounds remain
+supported. The feed scans ordered pages until it finds 100 matches or exhausts the range, so
+filtering out early rides does not hide later matches. This avoids a database migration, though
+very broad time-only searches may need to read many pages.
+
 `parseSearchQuery` separately turns a short search such as “Bitola Friday after 4” into nullable,
 schema-validated origin, destination, time-bound, and seat fields. Canonical locations are resolved
 against the same database vocabulary, unsupported criteria remain warnings, and only validated URL
@@ -373,7 +386,7 @@ the application for chat or ratings. See the linked verification guides for repe
   are not implemented. Rating moderation, appeals, and AI spam/safety screening are also deferred.
 - The local auth bypass requires a server admin key; it is guarded from production but should remain
   disabled during normal testing.
-- Parser accuracy has only been measured on five curated post fixtures, and search on eight curated
+- Parser accuracy has only been measured on five curated post fixtures, and search on twelve curated
   fixtures; model output can vary and both paths require user-visible review/fallback behavior.
 - Date-only posts deliberately leave departure empty for manual review; “after 6” uses 18:00 as an
   earliest boundary and adds a warning.

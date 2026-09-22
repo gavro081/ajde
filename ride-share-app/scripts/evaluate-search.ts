@@ -52,6 +52,9 @@ async function main() {
       destination: result.destinationId === fixture.expected.destinationId,
       seats: result.requestedSeats === fixture.expected.requestedSeats,
       departure: result.departureAfter === fixture.expected.departureAfter,
+      departureBefore: !("departureBefore" in fixture.expected) || result.departureBefore === fixture.expected.departureBefore,
+      timeAfter: !("timeAfter" in fixture.expected) || result.timeAfter === fixture.expected.timeAfter,
+      timeBefore: !("timeBefore" in fixture.expected) || result.timeBefore === fixture.expected.timeBefore,
     };
     const success = Object.values(checks).every(Boolean);
     if (success) passed += 1;
@@ -59,7 +62,8 @@ async function main() {
       fixture: fixture.name,
       result: success ? "✓" : "review",
       route: `${result.originId ?? "?"}→${result.destinationId ?? "?"}`,
-      departure: result.departureAfter ?? "?",
+      departure: result.departureAfter ?? "any",
+      time: `${result.timeAfter ?? "any"}–${result.timeBefore ?? "any"}`,
       seats: result.requestedSeats ?? "?",
       warnings: result.warnings.length,
     });
@@ -67,6 +71,7 @@ async function main() {
 
   console.table(rows);
   console.log(`Exact expected fields: ${passed}/${fixtures.length}`);
+  if (passed !== fixtures.length) process.exitCode = 1;
 }
 
 main().catch((error: unknown) => {

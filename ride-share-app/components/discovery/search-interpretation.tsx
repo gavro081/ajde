@@ -12,7 +12,13 @@ export function SearchInterpretation({
   const criteria = [
     result.originId ? `From ${cityNames.get(result.originId) ?? "unknown city"}` : null,
     result.destinationId ? `To ${cityNames.get(result.destinationId) ?? "unknown city"}` : null,
-    formatBounds(result.departureAfter, result.departureBefore) ?? "Any upcoming date",
+    result.dateFrom || result.dateTo
+      ? [result.dateFrom ?? "Today", result.dateTo && result.dateTo !== result.dateFrom ? result.dateTo : null].filter(Boolean).join(" – ")
+      : formatBounds(result.departureAfter, result.departureBefore) ?? "Any upcoming date",
+    result.timeAfter && result.timeBefore
+      ? `${result.timeAfter}–${result.timeBefore}${result.timeAfter > result.timeBefore ? " (overnight)" : ""} each day (Skopje)`
+      : result.timeAfter ? `At or after ${result.timeAfter} each day (Skopje)`
+      : result.timeBefore ? `Before ${result.timeBefore} each day (Skopje)` : null,
   ].filter((value): value is string => Boolean(value));
 
   return (

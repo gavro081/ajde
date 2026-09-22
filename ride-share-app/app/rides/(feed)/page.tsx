@@ -53,9 +53,9 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
           />
         ) : null}
 
-        <details className="filter-options mt-2 px-4 py-2" open={Boolean(filters.origin || filters.destination || filters.date || filters.sameGenderOnly || firstParam(rawParams.manual))}>
-        <summary>Filter by city or date</summary>
-        <form aria-label="Filter rides" className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <details className="filter-options mt-2 px-4 py-2" open={Boolean(filters.origin || filters.destination || filters.date || filters.dateTo || filters.timeAfter || filters.timeBefore || filters.sameGenderOnly || firstParam(rawParams.manual))}>
+        <summary>Filter by city, date or time</summary>
+        <form key={currentParams} aria-label="Filter rides" className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {naturalQuery ? <input type="hidden" name="q" value={naturalQuery} /> : null}
           {firstParam(rawParams.search) === "1" ? <input type="hidden" name="search" value="1" /> : null}
           {firstParam(rawParams.interpretation) ? (
@@ -73,9 +73,19 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
               {cities?.map((city) => <option key={city.id} value={city.id}>{city.name_en}</option>)}
             </select>
           </label>
-          <label className="text-sm font-semibold text-slate-600">Date <span className="font-normal text-slate-500">(optional)</span>
+          <label className="text-sm font-semibold text-slate-600">From date <span className="font-normal text-slate-500">(optional)</span>
             <input name="date" type="date" defaultValue={filters.date ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal text-slate-950" />
           </label>
+          <label className="text-sm font-semibold text-slate-600">Through date <span className="font-normal text-slate-500">(optional)</span>
+            <input name="dateTo" type="date" defaultValue={filters.dateTo ?? ""} min={filters.date ?? undefined} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal text-slate-950" />
+          </label>
+          <label className="text-sm font-semibold text-slate-600">At or after <span className="font-normal text-slate-500">(optional)</span>
+            <input name="timeAfter" type="time" defaultValue={filters.timeAfter ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal text-slate-950" />
+          </label>
+          <label className="text-sm font-semibold text-slate-600">Before <span className="font-normal text-slate-500">(optional)</span>
+            <input name="timeBefore" type="time" defaultValue={filters.timeBefore ?? ""} className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal text-slate-950" />
+          </label>
+          <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-3">Dates are optional. A from date alone selects one day; a through date includes that day. Times apply every day in Skopje time. If the end time is earlier, the window crosses midnight.</p>
           <label className="flex items-center gap-2 self-end rounded-xl px-1 py-2.5 text-sm font-semibold text-slate-600">
             <input
               name="sameGender"
