@@ -8,14 +8,21 @@ Macedonian or English, and AI turns it into a ride listing they check before pub
 
 ## Who it is for
 
-**A student studying in Skopje who goes to his home town most weekends.**
+**A student studying in Skopje who goes to their home town most weekends.**
 Today they scroll six or more Facebook and Viber groups, one per route. Each gets 10–20 posts a day,
 all in free text, and a post is buried within minutes. The driver on the other side guesses a price
 and often leaves with empty seats.
 
 - **We talked to students before building.** We interviewed student friends who live in different
-  cities and travel home from Skopje, and fed what they told us into what we built and in which order.
-  <!-- TODO: add 2–3 short quotes or findings (name/city optional), e.g. "…" — Ana, Bitola -->
+  cities and travel home from Skopje. What we learned:
+  - **Buses are often full.** Students can't get on, or they go to the station much earlier just
+    to get a seat.
+  - **Buses are slower and less convenient** than a car going the same way.
+  - **The other option is driving, and many students drive alone.** Several of them make the same
+    trip in separate cars when they could split one car's fuel cost and save the fuel and CO₂.
+
+  That is what Ajde is built around: find a seat in a car already going your way, and fill the
+  empty seats in yours.
 - **The problem is real, not assumed.** The landing page shows real ride posts from these groups
   this week ([`public/landing/`](ride-share-app/public/landing),
   [`about-sections.tsx`](ride-share-app/components/landing/about-sections.tsx)). Those posts are
