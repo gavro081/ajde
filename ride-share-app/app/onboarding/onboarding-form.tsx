@@ -198,15 +198,13 @@ export function OnboardingForm({ userId, initial }: { userId: string; initial: I
         <select
           id="gender"
           name="gender"
-          defaultValue={initial?.gender ?? ""}
+          defaultValue={initial?.gender === "woman" || initial?.gender === "man" ? initial.gender : ""}
           aria-describedby="gender-help"
           className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
         >
           <option value="">Choose an option</option>
-          <option value="woman">Woman</option>
-          <option value="man">Man</option>
-          <option value="non_binary">Non-binary</option>
-          <option value="prefer_not_to_say">Prefer not to say</option>
+          <option value="woman">Female</option>
+          <option value="man">Male</option>
         </select>
         <p id="gender-help" className="field-help">Shown on your profile and used for same-gender ride preferences. You can leave this blank.</p>
       </div>
