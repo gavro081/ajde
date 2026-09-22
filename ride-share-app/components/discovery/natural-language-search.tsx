@@ -67,16 +67,16 @@ export function NaturalLanguageSearch({
   }
 
   return (
-    <section className="mt-3">
-      <label className="sr-only" htmlFor="natural-search">Describe the ride you need</label>
-      <form className="flex flex-col gap-4 sm:flex-row" onSubmit={submit}>
+    <section className="mt-10">
+      <label className="block text-sm font-semibold text-slate-600" htmlFor="natural-search">Describe the ride you need</label>
+      <form className="mt-4 flex flex-col gap-4 sm:flex-row" onSubmit={submit}>
         <input
           id="natural-search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           maxLength={300}
           placeholder="Try “Skopje to Bitola tomorrow”"
-          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
+          className="min-h-[52px] min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-950 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
         />
         <button
           type="submit"
