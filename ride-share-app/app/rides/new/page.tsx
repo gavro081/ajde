@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { OfferRideHeading } from "./offer-heading";
 
 import { parsedRidePostSchema } from "@/lib/ai/parsed-ride-post";
 import type { RideDraft } from "@/lib/rides/ride-draft";
@@ -122,19 +122,11 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
   }
 
   return (
-    <><main id="main-content" className="px-4 py-6 text-slate-950 sm:px-6">
+    <><main id="main-content" className="px-4 py-10 text-slate-950 sm:px-6">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-6">
-          <Link href="/dashboard/trips?view=driver" className="mb-3 inline-flex text-sm font-semibold text-brand-700 hover:underline">← My trips</Link>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Offer a ride
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Set your route, choose your car, and offer a seat.
-          </p>
-        </div>
+        <OfferRideHeading />
 
-        <div className="surface-card p-4 sm:p-6">
+        <div className="surface-card mt-8 p-4 sm:p-6">
           <OfferWorkspace
             userId={user.id}
             carModels={carModelsResult.data}
@@ -147,7 +139,6 @@ export default async function NewRidePage({ searchParams }: NewRidePageProps) {
             isImportedDraft={initialDraft.source === "imported"}
           />
         </div>
-        <p className="mt-4 text-center text-sm text-slate-500">Already posted in a group? <Link href="/rides/import" className="font-semibold text-brand-700 hover:underline">Import your post</Link></p>
       </div>
     </main></>
   );

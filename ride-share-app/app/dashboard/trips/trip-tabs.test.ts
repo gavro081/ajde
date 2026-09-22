@@ -1,0 +1,15 @@
+import { expect, it } from "vitest";
+
+import { parseTripStatusFilter } from "./trip-tabs";
+
+it.each([
+  ["completed", "completed"],
+  ["cancelled", "cancelled"],
+  ["all", "all"],
+  ["active", "active"],
+  [undefined, "active"],
+  ["draft", "active"],
+  ["ALL", "active"],
+])("maps the trip status filter %j to %j", (value, expected) => {
+  expect(parseTripStatusFilter(value)).toBe(expected);
+});

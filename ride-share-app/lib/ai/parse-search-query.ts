@@ -302,7 +302,13 @@ async function runOpenAISearchModel({
             "'nakaj 5' / 'накај 5' / 'around 5' means timeMode=around, startTime=17:00, endTime=null " +
             "unless morning context specifies 05:00; warn about the afternoon assumption. Around uses " +
             "a one-hour tolerance each side, not an after filter. For between times, an end before " +
-            "the start means an overnight clock window. For a date without a time use timeMode=day. Unknown or " +
+            "the start means an overnight clock window. Standard working hours (работно време / rabotno vreme) " +
+            "are 09:00–17:00. Outside working hours (надвор од работно време, nadvor od rabotno vreme) " +
+            "means timeMode=between, startTime=17:00, endTime=09:00 (overnight). After working hours " +
+            "(по работно време, posle rabotno vreme, after work) means timeMode=after, startTime=17:00. " +
+            "During working hours (во работно време, vo rabotno vreme) means timeMode=between 09:00–17:00. " +
+            "Before work (пред работа, pred rabota) means timeMode=before, endTime=09:00. " +
+            "For a date without a time use timeMode=day. Unknown or " +
             'unsupported criteria stay null and receive a warning. A search without any date or time is ' +
             'valid and means any upcoming departure: leave dateLocal null with no warning. Every booking ' +
             'is exactly one seat, so leave requestedSeats null. Never infer gender preferences.',

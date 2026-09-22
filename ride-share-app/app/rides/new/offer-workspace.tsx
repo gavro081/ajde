@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import { RideForm, type RideFormProps, type Car } from "./ride-form";
-import { createRide, type CreateRideFormState } from "./actions";
-import { type OfferValues } from "@/lib/rides/offer-values";
 import { emptyOfferDraft, offerInterpretationSchema } from "@/lib/rides/offer-interpretation";
-import { applyOfferTrip, createOfferTab, editOfferTab, type OfferTab } from "@/lib/rides/offer-tabs";
-import { OfferDistance, type UpdateOfferTab } from "./offer-distance";
 import { offerRecoverySchema, validateRecoveredTab } from "@/lib/rides/offer-recovery";
+import { applyOfferTrip, createOfferTab, editOfferTab, type OfferTab } from "@/lib/rides/offer-tabs";
+import { type OfferValues } from "@/lib/rides/offer-values";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import { createRide, type CreateRideFormState } from "./actions";
+import { OfferDistance, type UpdateOfferTab } from "./offer-distance";
+import { RideForm, type Car, type RideFormProps } from "./ride-form";
 
 export type OfferWorkspaceProps = Omit<RideFormProps, "values" | "onChange" | "onSubmit" | "state" | "pending" | "onCarSaved" | "onCarSaving"> & { userId: string };
 const idle: CreateRideFormState = { status: "idle", message: "", fieldErrors: {} };
@@ -167,13 +168,30 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
       origin={props.cities.find(city => String(city.id) === item.values.originCityId)?.name_en}
       destination={props.cities.find(city => String(city.id) === item.values.destinationCityId)?.name_en} update={update} />)}
     <div className="rounded-xl bg-slate-50 p-4">
-    <label className="block text-sm font-semibold text-slate-900">Describe your rides<textarea ref={descriptionRef} rows={2} className="field mt-2 resize-y bg-white font-normal" maxLength={6000} placeholder="Going skp to bt 4pm Saturday with a Clio" value={text} onChange={event => { setText(event.target.value); interpretationEpoch.current += 1; }} /></label>
+    <div className="flex items-center gap-2">
+      <label htmlFor="offer-description" className="text-sm font-semibold text-slate-900">Describe your rides</label>
+      <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[.6875rem] font-semibold text-brand-700" aria-hidden="true">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9L12 2zM19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9L19 14z" /></svg>
+        AI
+      </span>
+    </div>
+    <textarea id="offer-description" ref={descriptionRef} rows={2} className="field mt-2 resize-y bg-white font-normal" maxLength={6000} placeholder="e.g. Going Skopje to Bitola 4pm Saturday in my Clio, 3 seats, back Sunday evening" aria-describedby="offer-description-hint" value={text} onChange={event => { setText(event.target.value); interpretationEpoch.current += 1; }} />
     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-    <p className="text-[.8125rem] text-slate-500">{filled ? "Review the details below before publishing." : "Fill the details from a description, or enter them below."}</p>
+    <p id="offer-description-hint" className="text-[.8125rem] text-slate-500">{filled ? "Review the details below before publishing." : "Write it like a message and AI fills in the form for you. Or enter the details below."}</p>
     {filled
       ? <button className="btn-secondary min-h-11 px-3 py-2 text-[.8125rem] disabled:opacity-50" type="button" disabled={savingCar || interpreting || publishing.length > 0} onClick={startOver}>Start over</button>
       : <button className="btn-secondary min-h-11 px-3 py-2 text-[.8125rem] disabled:opacity-50" type="button" disabled={savingCar || interpreting || !text.trim() || publishing.length > 0}
         onClick={() => { void fill(); }}>{interpreting ? "Filling…" : "Fill form"}</button>}
+    </div>
+    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-brand-200 bg-white p-3 sm:flex-nowrap">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-700" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-slate-900">Already posted in a group?</p>
+        <p className="text-[.8125rem] text-slate-500">Paste your Facebook or Viber post and we’ll turn it into a ride.</p>
+      </div>
+      <Link href="/rides/import" className="btn-secondary min-h-11 w-full border-brand-200 px-4 py-2 text-[.8125rem] text-brand-800 hover:bg-brand-50 sm:w-auto">Import your post</Link>
     </div>
     </div>
     {message && <p role="status">{message}{snapshot && <> <button type="button" className="font-semibold underline" onClick={restoreSnapshot}>Undo</button></>}</p>}

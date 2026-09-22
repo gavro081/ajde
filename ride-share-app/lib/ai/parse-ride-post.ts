@@ -58,7 +58,8 @@ function parserPrompt(context: Required<Pick<ParseRidePostContext, "now" | "time
 The posts may mix Macedonian Cyrillic, Latin transliteration, Albanian, and English. Distinguish an
 offered ride from somebody requesting a ride. Never turn a request into an offer. Use null for any
 unknown value and add a concise warning for ambiguity. A whole-car price or negotiable price is not
-a per-seat price, so return null for pricePerSeatMkd and warn. Relative dates must be interpreted
+a per-seat price, so return null for pricePerSeatMkd and warn. An explicitly free ride (free, besplatno,
+бесплатно, gratis, falas) has pricePerSeatMkd=0. Relative dates must be interpreted
 from ${context.now.toISOString()} in the ${context.timezone} timezone. Add a needs_review warning
 when wording leaves the date or time uncertain. departureAt must be null unless the post provides
 both a date (explicit or relative) and a time. Never use 00:00 as a placeholder for a missing time.

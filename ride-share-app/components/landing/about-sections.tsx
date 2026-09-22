@@ -1,4 +1,3 @@
-import { Brand } from "@/components/brand";
 import facebookGroups from "@/public/landing/facebook-groups.png";
 import postBitolaSchedule from "@/public/landing/post-bitola-schedule.png";
 import postBitola from "@/public/landing/post-bitola.png";
@@ -10,6 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import styles from "./landing.module.css";
+import { ScrollReveal } from "./scroll-reveal";
 
 // Shown beside the groups screenshot on desktop; offsets and tilts make the stack feel hand-placed.
 const posts = [
@@ -69,7 +69,7 @@ function CarIcon() {
 }
 
 export function AboutSections() {
-  return <div className="bg-[#0f1511]">
+  return <ScrollReveal className="bg-[#0f1511]">
     <section id="about" aria-labelledby="vision-heading" className={`${styles.reveal} mx-auto max-w-5xl px-5 pb-24 pt-20 text-center text-white sm:px-10 lg:pb-32 lg:pt-28`}>
       <Label dark>Our vision</Label>
       <h2 id="vision-heading" className="mx-auto mt-4 max-w-4xl font-display text-[clamp(2.3rem,5.4vw,4.4rem)] font-extrabold leading-[1] tracking-[-0.05em]">
@@ -199,21 +199,10 @@ export function AboutSections() {
       </div>
     </section>
 
-    <footer className="border-t border-white/10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-8 text-sm text-[#a3b8aa] sm:px-10 md:flex-row md:items-center md:justify-between">
-        <Brand inverse />
-        <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
-          <Link href="/rides" className="hover:text-white">Find a ride</Link>
-          <Link href="/rides/new" className="hover:text-white">Offer a ride</Link>
-          <a href="#about" className="hover:text-white">About</a>
-        </nav>
-        <p>© {new Date().getFullYear()} ajde. Made in Skopje.</p>
-      </div>
-      <div className="mx-auto max-w-6xl px-5 pb-8 sm:px-10">
-        <p className="border-t border-white/10 pt-6 text-xs leading-relaxed text-[#a3b8aa]">
-          Completed trips with accepted passengers; demo rides excluded. Participants count each driver or passenger once. Savings assume each passenger seat replaces a separate car; petrol and diesel trips with valid distance and consumption only.
-        </p>
-      </div>
-    </footer>
-  </div>;
+    <div className="mx-auto max-w-6xl px-5 pb-8 sm:px-10">
+      <p className="border-t border-white/10 pt-6 text-xs leading-relaxed text-[#a3b8aa]">
+        Completed trips with accepted passengers; demo rides excluded. Participants count each driver or passenger once. Savings assume each passenger seat replaces a separate car; petrol and diesel trips with valid distance and consumption only.
+      </p>
+    </div>
+  </ScrollReveal>;
 }

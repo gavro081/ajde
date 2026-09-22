@@ -108,3 +108,16 @@ it.each(["morning", "afternoon", "попладне"])("does not invent an exact 
   });
   expect(result.trips[0].timeLocal).toBeNull();
 });
+
+it.each(["17h", "vo 17h", "17 h", "17ч", "17:00", "5pm", "8h"])("accepts the 24-hour time wording %s", async timeEvidence => {
+  const text = `vozam Skopje Bitola, utre ${timeEvidence} imam mesto za trojca`;
+  const timeLocal = timeEvidence === "8h" ? "08:00" : "17:00";
+  const result = await parseOfferDescription({ text, mode: "create" }, { ...context,
+    modelRunner: async () => ({ recurring: false, trips: [{ ...raw.trips[0],
+      draft: { ...raw.trips[0].draft, seatsTotal: 3, origin: { cityId: null, pickupPointId: null, rawText: "Skopje" }, destination: { cityId: null, pickupPointId: null, rawText: "Bitola" } },
+      mentioned: ["origin", "destination", "departureDate", "departureTime", "seatsTotal"],
+      dateLocal: "2026-09-22", weekday: null, dateEvidence: "utre", timeLocal, timeEvidence, carText: null }] }),
+  });
+  expect(result.trips[0].draft).toMatchObject({ origin: { cityId: 1 }, destination: { cityId: 3 }, seatsTotal: 3,
+    departureAt: timeEvidence === "8h" ? "2026-09-22T06:00:00.000Z" : "2026-09-22T15:00:00.000Z", warnings: [] });
+});

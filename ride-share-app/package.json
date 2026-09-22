@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run --exclude '.test-dist/**'",
+    "test:live": "vitest run --config vitest.live.config.ts",
     "test:locations": "vitest run lib/ai/resolve-location.test.ts"
   },
   "dependencies": {

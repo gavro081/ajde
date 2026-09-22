@@ -3,6 +3,7 @@
 import { formatDeparture } from "@/lib/rides/ride-presentation";
 import { SeatAvailability } from "@/components/seat-availability";
 import type { RideView } from "@/lib/rides/ride-view";
+import { formatSeatPrice, seatPriceCaption } from "@/lib/rides/ride-price";
 
 export function RideCard({ ride, explanation }: { ride: RideView; explanation?: string }) {
   const departure = new Date(ride.departure_at);
@@ -26,8 +27,8 @@ export function RideCard({ ride, explanation }: { ride: RideView; explanation?: 
           <span className="block text-[.6875rem] leading-4 text-slate-500">Skopje time</span>
         </time>
         <div className="shrink-0 text-right">
-          <p className="text-2xl font-bold leading-7 tracking-tight">{ride.price_per_seat_mkd === null ? "Flexible" : `${ride.price_per_seat_mkd} MKD`}</p>
-          <p className="text-[.6875rem] leading-4 text-slate-500">per seat</p>
+          <p className="text-2xl font-bold leading-7 tracking-tight">{formatSeatPrice(ride.price_per_seat_mkd)}</p>
+          <p className="text-[.6875rem] leading-4 text-slate-500">{seatPriceCaption(ride.price_per_seat_mkd)}</p>
         </div>
       </div>
       {ride.originPickup || ride.destinationPickup ? (

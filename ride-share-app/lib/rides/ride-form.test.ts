@@ -53,6 +53,13 @@ describe("validateRideSubmission", () => {
     expect(validateRideSubmission(form, NOW).draft.success).toBe(true);
   });
 
+  it.each([["an empty price", ""], ["a zero price", "0"]])("publishes %s as a free ride", (_, price) => {
+    const form = validFormData();
+    form.set("pricePerSeatMkd", price);
+    const { draft } = validateRideSubmission(form, NOW);
+    expect(draft.success && draft.data.pricePerSeatMkd).toBe(0);
+  });
+
   it("normalizes and validates a complete HTML form submission", () => {
     const result = validateRideSubmission(validFormData(), NOW);
 

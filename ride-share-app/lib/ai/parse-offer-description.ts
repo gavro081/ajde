@@ -40,7 +40,7 @@ Whenever a weekday or date is supplied, include departureDate in mentioned; when
 Return null for missing dates or times; never invent missing components.
 Preserve location rawText from the user, including pickup names. Only use catalog IDs but code independently resolves the rawText.
 carText is the exact vehicle phrase. Preserve make/model when recognizable, but do not infer fuel or consumption from a family such as Clio. Never guess offered seats or price.
-Price is MKD per passenger seat. Preserve explicit supported notes/tags/preferences; do not reinterpret 'women only' as same gender unless that is explicitly the intended preference.
+Price is MKD per passenger seat. An explicitly free ride (free, besplatno, бесплатно, gratis, falas) has pricePerSeatMkd=0 and pricePerSeatMkd in mentioned. Preserve explicit supported notes/tags/preferences; do not reinterpret 'women only' as same gender unless that is explicitly the intended preference.
 All drafts are native with importId=null, distanceKm=null. Never compute distance, publish, or invoke tools. Surface uncertainty in warnings.
 Return all schema fields. 'departureAt' can be null: code derives it from validated local date/time.`,
     input: JSON.stringify({ request, catalog, now: now.toISOString(), localNow: skopjeLocal(now.toISOString()) }),
@@ -106,6 +106,7 @@ function explicitTime(value: string) {
     && /\b(?:morning|afternoon|evening|night|nautro|utro|popladne|navecer|navecher|nokj)\b/.test(normalized);
   return /\b(?:1[0-2]|0?[1-9])(?::[0-5]\d)?\s*[ap]\.?m\.?\b/i.test(value)
     || /\b(?:[01]?\d|2[0-3]):[0-5]\d\b/.test(value)
+    || /\b(?:[01]?\d|2[0-3])\s*h\b/i.test(value)
     || /\b(?:1[3-9]|2[0-3])\b/.test(value)
     || /\b(?:midnight|noon|polnokj|polnok|pladne)\b/.test(normalized)
     || qualifiedHour;
