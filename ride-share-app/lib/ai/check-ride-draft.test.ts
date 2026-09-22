@@ -22,6 +22,13 @@ function call(callId = "road-1", args: unknown = { originCityId: 1, destinationC
 const final = { output: [], output_parsed: { findings: [] } };
 
 describe("checkRideDraft", () => {
+  it.each(["", "x".repeat(301), null, 503])("rejects mixed success/error evidence even when the error payload is malformed", async error => {
+    const runner = vi.fn<CheckerModelRunner>().mockResolvedValueOnce({ output: [call()] }).mockResolvedValueOnce(final);
+    const result = await checkRideDraft(draft(), { cities, tools: { road_distance: async () => ({ distanceKm: 52, error }) }, modelRunner: runner });
+    expect(result.status).toBe("unavailable");
+    expect(result.parsed.draft.distanceKm).toBeNull();
+    expect(result.trace[0].result).toHaveProperty("error");
+  });
   it("projects canonical names and structured fields without raw text, notes, or extra catalog fields", async () => {
     const parsed = draft();
     parsed.draft.notes = "private notes";

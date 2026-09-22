@@ -6,7 +6,8 @@
 model and tool boundaries. [`ride-check-contract.ts`](ride-check-contract.ts) is the browser-safe
 metadata contract; [`ride-check-tools.ts`](ride-check-tools.ts) binds authenticated services.
 The server-only [`import-pipeline-config.ts`](import-pipeline-config.ts) disables the pipeline unless
-`AI_IMPORT_PIPELINE_ENABLED=true`. Only road-distance checking is delivered in this increment.
+`AI_IMPORT_PIPELINE_ENABLED=true`. Model-selected tools cover road distance, deterministic
+[`fair-price arithmetic`](fair-price-tool.ts), and [`possible duplicate rides`](similar-rides-tool.ts).
 The checker never receives source text or notes, never publishes, and fails open with a review
 warning. See the root README for loop limits, evidence guards, configuration, and capability evidence.
 

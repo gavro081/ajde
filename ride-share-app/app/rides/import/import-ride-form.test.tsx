@@ -49,3 +49,18 @@ it("does not present an empty trace as a successful check", async () => {
   await submit({ status: "checked", trace: [] }, true);
   expect(screen.getByText(/No tool evidence was returned/)).toBeTruthy();
 });
+
+it("retains all three tool summaries through the import response boundary", async () => {
+  await submit({ status: "checked", trace: [road, {
+    callId: "fair-1", tool: "fair_price", args: { distanceKm: 60, availableSeats: 3, fuelType: null, consumptionL100Km: null },
+    result: { pricePerSeatMkd: 140, totalTripCostMkd: 420, assumptions: { distanceKm: 60, availableSeats: 3, fuelType: "petrol", consumptionL100Km: 7, fuelPriceMkdL: 100, defaultFuelType: true, defaultConsumption: true, tollsMkd: 0 } },
+  }, {
+    callId: "similar-1", tool: "find_similar_rides", args: { originCityId: 1, destinationCityId: 2, departureAt: "2026-09-23T15:00:00Z" },
+    result: { rides: [{ id: "20000000-0000-4000-8000-000000000001", departureAt: "2026-09-23T15:30:00Z", pricePerSeatMkd: 150, seatsAvailable: 2 }] },
+  }] }, true);
+  expect(screen.getByText(/Fair share: 140 MKD per seat/)).toBeTruthy();
+  expect(screen.getByText(/default approximation/)).toBeTruthy();
+  expect(screen.getByText(/Possible duplicates:/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: /150 MKD per seat/ }).getAttribute("href")).toBe("/rides/20000000-0000-4000-8000-000000000001");
+  expect(screen.getByRole("link", { name: "Continue to editable ride form" })).toBeTruthy();
+});

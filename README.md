@@ -21,7 +21,7 @@ be saved or published.
 | Car catalog and manual cars | Implemented | Catalog selection prefills fuel/consumption; overrides create a driver-owned snapshot |
 | Fuel-price and CO2 estimate | Implemented | Petrol/diesel arithmetic using server-configured fuel prices; suggestion remains editable |
 | Group-post import and review | Implemented | Structured OpenAI parsing, warnings/confidence, saved import, and editable ride prefill |
-| Tool-using import checker | Implemented locally, disabled by default | Model-selected road-distance evidence, bounded execution, editable distance fill, and fail-open review; price and duplicate tools are pending |
+| Tool-using import checker | Implemented locally, disabled by default | Model-selected road distance, deterministic fair share, and possible duplicate evidence; bounded execution and fail-open review |
 | Screenshot import | Pending | Text-only importing remains available |
 | Authentication and onboarding | Implemented | Student-domain magic links, guarded local bypass, callback, profile completion, photo upload, and server-side route protection |
 | Public profiles | Implemented | Deliberately limited projection excludes phone and social contact fields |
@@ -72,6 +72,10 @@ flowchart LR
   Flag -->|yes| Checker[Bounded checker]
   Checker -->|model-selected road_distance| Road[Canonical city road routing]
   Road --> Checker
+  Checker -->|model-selected fair_price| Price[Deterministic fuel-cost arithmetic]
+  Price --> Checker
+  Checker -->|model-selected find_similar_rides| Similar[Visible published/full rides]
+  Similar --> Checker
   Checker --> Import[(imports + check evidence)]
   Flag -->|no| Import
   Import --> Review[Human review]
@@ -273,6 +277,8 @@ posts retain their existing review path.
 | Model-selected tool | Evidence | Limits |
 | --- | --- | --- |
 | `road_distance` | [Shared road routing](ride-share-app/lib/rides/road-distance.ts) using canonical city reference coordinates | Editable city-to-city estimate; shared permit and eight-second routing timeout |
+| `fair_price` | [Deterministic fair-share calculator](ride-share-app/lib/ai/fair-price-tool.ts) reusing `calculateRideEstimate` and server fuel-price configuration | Actual available seats divide the cost; unknown/unsupported fuel defaults to petrol and missing consumption to 7 L/100 km, explicitly labelled; no configured fuel price means unavailable |
+| `find_similar_rides` | [Authenticated similar-ride query](ride-share-app/lib/ai/similar-rides-tool.ts) | Same directed canonical route, published/full status, inclusive ±3 hours, at most five matches |
 
 The [authenticated tool adapters](ride-share-app/lib/ai/ride-check-tools.ts) use the caller's Supabase
 client. The checker validates tool arguments, successful results, and their relevance to the draft;
@@ -284,14 +290,27 @@ records actual observations and the verified fallback, separately from productio
 
 Code fills only a missing distance from successful routing and preserves all existing values,
 confidence, and warnings. Findings require successful relevant evidence; arbitrary model prose
-cannot supply a distance or unsupported price, duplicate, departure, or capacity claims. Whole-check
+cannot supply a distance or unsupported departure, capacity, or source-text claims. Whole-check
 failure preserves the draft and adds “Automatic plausibility check was unavailable.” An empty or
 failed trace never implies an all-clear. The [review summary](ride-share-app/app/rides/import/ride-check-summary.tsx)
 shows readable evidence and errors before explicit continuation to the editable form. Human review
 and the existing publication validation remain required; native ride-description AI fill is unchanged.
 
-Current delivery includes distance checking only. Fair-price checking, possible duplicate lookup,
-and screenshot reading are pending subsequent local slices. No image is accepted by this increment.
+Fair-price arithmetic is deterministic code, not AI. The model chooses when to request the tool;
+code validates its calculation basis and warns only when the driver's price divided by the positive
+estimate is strictly below **0.3** or above **2.5**. Exact boundaries are accepted, missing/zero
+estimates cannot justify division, and the driver's price is never replaced. The summary shows
+distance, offered seats, pump price, consumption, default assumptions, and excluded tolls. A known
+hybrid/electric/LPG/other fuel is treated as an explicitly labelled petrol approximation by this
+limited calculator; the driver must review its suitability.
+
+Similar rides are **possible duplicates**, not a broad semantic duplicate detector. Review shows
+their departure in Skopje time, per-seat price, available seats, and links. A successful empty search
+is distinguished from an unavailable one. No match prevents publication or changes the draft.
+
+Current delivery includes all three checker tools. Screenshot reading is pending a subsequent local
+slice; no image is accepted by this increment. [Local verification](docs/verification/ai-import-pipeline.md)
+records deterministic tests and distinguishes them from live evidence.
 
 
 `parseRidePost` uses the OpenAI Responses API with a Zod-backed structured-output schema. It is
