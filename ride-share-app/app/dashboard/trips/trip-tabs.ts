@@ -8,13 +8,13 @@ export const tripTabs = [
 export const tripTabsClass = "mt-8 inline-flex max-w-full gap-1 rounded-2xl border border-slate-300 bg-slate-200/70 p-1 shadow-[inset_0_1px_2px_rgb(11_42_23_/_6%)]";
 export const tripTabClass = "rounded-xl px-4 py-3 text-sm font-semibold transition-colors";
 
-export const driverRideFilters = [
+export const tripStatusFilters = [
   { value: "active", label: "Active", statuses: ["draft", "published", "full"] },
   { value: "completed", label: "Completed", statuses: ["completed"] },
   { value: "cancelled", label: "Cancelled", statuses: ["cancelled"] },
   { value: "all", label: "All", statuses: null },
 ] as const;
-export type DriverRideFilter = (typeof driverRideFilters)[number]["value"];
-export function parseDriverRideFilter(value: string | undefined): DriverRideFilter {
-  return driverRideFilters.find((filter) => filter.value === value)?.value ?? "active";
+export type TripStatusFilter = (typeof tripStatusFilters)[number]["value"];
+export function parseTripStatusFilter(value: string | undefined): TripStatusFilter {
+  return tripStatusFilters.find((filter) => filter.value === value)?.value ?? "active";
 }

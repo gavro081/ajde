@@ -10,6 +10,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import styles from "./landing.module.css";
+import { ScrollReveal } from "./scroll-reveal";
 
 // Shown beside the groups screenshot on desktop; offsets and tilts make the stack feel hand-placed.
 const posts = [
@@ -69,7 +70,7 @@ function CarIcon() {
 }
 
 export function AboutSections() {
-  return <div className="bg-[#0f1511]">
+  return <ScrollReveal className="bg-[#0f1511]">
     <section id="about" aria-labelledby="vision-heading" className={`${styles.reveal} mx-auto max-w-5xl px-5 pb-24 pt-20 text-center text-white sm:px-10 lg:pb-32 lg:pt-28`}>
       <Label dark>Our vision</Label>
       <h2 id="vision-heading" className="mx-auto mt-4 max-w-4xl font-display text-[clamp(2.3rem,5.4vw,4.4rem)] font-extrabold leading-[1] tracking-[-0.05em]">
@@ -215,5 +216,5 @@ export function AboutSections() {
         </p>
       </div>
     </footer>
-  </div>;
+  </ScrollReveal>;
 }
