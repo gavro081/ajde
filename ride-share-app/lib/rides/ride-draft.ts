@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { latestDeparture, RIDE_LIMITS } from "./ride-limits";
 
 export const RIDE_TAGS = [
   "flexible_pickup",
@@ -107,9 +108,10 @@ const publishableRideDraftBaseSchema = rideDraftSchema.extend({
   origin: rideDraftLocationSchema.extend({ cityId: z.number().int().positive() }),
   destination: rideDraftLocationSchema.extend({ cityId: z.number().int().positive() }),
   departureAt: z.iso.datetime({ offset: true }),
-  seatsTotal: z.number().int().min(1).max(8),
+  seatsTotal: z.number().int().min(RIDE_LIMITS.seats.min).max(RIDE_LIMITS.seats.max),
   carId: z.uuid(),
-  pricePerSeatMkd: z.number().int().nonnegative(),
+  pricePerSeatMkd: z.number().int().min(RIDE_LIMITS.priceMkd.min).max(RIDE_LIMITS.priceMkd.max, "Price per seat must be between 0 and 3,000 MKD"),
+  distanceKm: z.number().min(RIDE_LIMITS.distanceKm.min, "Distance must be at least 1 km").max(RIDE_LIMITS.distanceKm.max, "Distance must be no more than 600 km").nullable(),
   genderPreference: z.enum(["any", "same_as_driver"]),
 });
 
@@ -140,6 +142,10 @@ export function createPublishableRideDraftSchema({
         message: "Departure time must be in the future",
         path: ["departureAt"],
       });
+    }
+
+    if (new Date(draft.departureAt).getTime() > latestDeparture(now).getTime()) {
+      context.addIssue({ code: "custom", message: "Departure must be within the next 90 days", path: ["departureAt"] });
     }
 
     if (draft.source === "native" && draft.importId !== null) {

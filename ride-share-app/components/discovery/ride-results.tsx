@@ -64,7 +64,7 @@ export function RideResults({
   }, [requestKey, rides, searchContext]);
 
   return (
-    <div className="mt-7 grid gap-7 lg:grid-cols-2">
+    <div className="mt-3 grid gap-4 lg:grid-cols-2">
       {rides.map((ride) => (
         <RideCard key={ride.id} ride={ride} explanation={explanations[ride.id]} />
       ))}

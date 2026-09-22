@@ -102,20 +102,22 @@ export function ChipRow({ options, value, onChoose }: { options: { label: string
 }
 
 /** Month grid; past days are disabled. `value` is yyyy-mm-dd or empty. */
-export function MonthCalendar({ value, onChoose, today }: { value: string; onChoose: (value: string) => void; today: Date }) {
+export function MonthCalendar({ value, onChoose, today, maxDate }: { value: string; onChoose: (value: string) => void; today: Date; maxDate?: Date }) {
   const [month, setMonth] = useState(() => {
-    const base = value ? fromIsoDate(value) : today;
+    const selected = value ? fromIsoDate(value) : today;
+    const base = selected < today ? today : maxDate && selected > maxDate ? maxDate : selected;
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
   const leading = (month.getDay() + 6) % 7;
   const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const isCurrentMonth = month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
+  const isLastMonth = maxDate ? month.getFullYear() === maxDate.getFullYear() && month.getMonth() === maxDate.getMonth() : false;
 
   return <div>
     <div className="flex items-center justify-between">
       <button type="button" aria-label="Previous month" disabled={isCurrentMonth} onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="grid size-8 min-h-0 place-items-center rounded-full hover:bg-[#f1f4f1] disabled:opacity-30">‹</button>
       <p className="font-display text-[15px] font-bold" aria-live="polite">{month.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</p>
-      <button type="button" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid size-8 min-h-0 place-items-center rounded-full hover:bg-[#f1f4f1]">›</button>
+      <button type="button" aria-label="Next month" disabled={isLastMonth} onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="grid size-8 min-h-0 place-items-center rounded-full hover:bg-[#f1f4f1] disabled:opacity-30">›</button>
     </div>
     <div className="mt-2 grid grid-cols-7 gap-0.5 text-center">
       {weekdays.map((day) => <span key={day} className="py-1 text-[13px] font-semibold text-[#849182]">{day}</span>)}
@@ -125,7 +127,7 @@ export function MonthCalendar({ value, onChoose, today }: { value: string; onCho
         const key = isoDate(date);
         const selected = key === value;
         const isToday = key === isoDate(today);
-        return <button key={key} type="button" disabled={date < today} onClick={() => onChoose(key)} aria-pressed={selected}
+        return <button key={key} type="button" disabled={date < today || Boolean(maxDate && date > maxDate)} onClick={() => onChoose(key)} aria-pressed={selected}
           aria-label={date.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
           className={`mx-auto grid size-9 min-h-0 place-items-center rounded-full text-sm font-medium ${selected ? "bg-[#16201a] text-white" : isToday ? "text-[#15803d] ring-2 ring-inset ring-[#22c55e]" : "hover:bg-[#f1f4f1]"} disabled:text-[#c7d1c4] disabled:hover:bg-transparent`}>
           {index + 1}

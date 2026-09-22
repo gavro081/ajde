@@ -8,6 +8,7 @@ import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
 import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
 import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
 import { DateTimeField } from "@/components/date-time-field";
+import { RIDE_LIMITS } from "@/lib/rides/ride-limits";
 
 import { saveCar, type CreateRideFormState } from "./actions";
 
@@ -141,7 +142,7 @@ export function RideForm({
     (model) => model.id.toString() === catalogModelId,
   );
   const selectedExistingCar = cars.find((car) => car.id === existingCarId);
-  const selectedCarCapacity = carMode === "existing" ? selectedExistingCar?.seats_total : undefined;
+  const selectedCarCapacity = carMode === "existing" ? selectedExistingCar?.seats_total : Number(values.carSeatsTotal) || undefined;
   const estimateFuelType =
     carMode === "existing"
       ? selectedExistingCar?.fuel_type
@@ -193,7 +194,12 @@ export function RideForm({
       // React resets forms after a resolved action, including validation failures.
       // Keep every entered value until the successful save navigates away.
       onReset={(event) => event.preventDefault()}
-      className="ride-form space-y-8"
+      onInvalidCapture={(event) => {
+        // Reveal invalid optional fields before the browser tries to focus them.
+        const details = (event.target as HTMLElement).closest("details");
+        if (details) details.open = true;
+      }}
+      className="ride-form space-y-5"
       aria-busy={pending || savingCar}
     >
       <input type="hidden" name="source" value={initialDraft.source} />
@@ -275,9 +281,11 @@ export function RideForm({
             Available seats
             <input
               className={inputClass}
-              max={selectedCarCapacity ?? 8}
-              min={1}
+              max={Math.min(selectedCarCapacity ?? RIDE_LIMITS.seats.max, RIDE_LIMITS.seats.max)}
+              min={RIDE_LIMITS.seats.min}
+              step={1}
               name="seatsTotal"
+              placeholder={`1–${Math.min(selectedCarCapacity ?? RIDE_LIMITS.seats.max, RIDE_LIMITS.seats.max)}`}
               aria-invalid={Boolean(state.fieldErrors.seatsTotal) || undefined}
               aria-describedby={state.fieldErrors.seatsTotal ? "seats-hint seats-error" : "seats-hint"}
               onChange={(event) => setSeatsTotal(event.target.value)}
@@ -285,7 +293,7 @@ export function RideForm({
               type="number"
               value={seatsTotal}
             />
-            <span id="seats-hint" className="mt-1 block text-xs font-normal text-slate-500">Choose how many seats to offer for this ride</span>
+            <span id="seats-hint" className="sr-only">Choose how many seats to offer for this ride</span>
             <FieldError id="seats-error" errors={state.fieldErrors.seatsTotal} />
           </label>
           <label className="font-medium text-slate-800">
@@ -293,7 +301,10 @@ export function RideForm({
             <input
               ref={priceRef}
               className={`${inputClass} ${priceFilled ? "ring-4 ring-brand-200" : ""}`}
-              min={0}
+              min={RIDE_LIMITS.priceMkd.min}
+              max={RIDE_LIMITS.priceMkd.max}
+              title="0–3,000 MKD per seat; 0 means a free ride"
+              placeholder="0–3,000"
               name="pricePerSeatMkd"
               aria-invalid={Boolean(state.fieldErrors.pricePerSeatMkd) || undefined}
               aria-describedby={state.fieldErrors.pricePerSeatMkd ? "price-error" : undefined}
@@ -306,7 +317,9 @@ export function RideForm({
             <FieldError id="price-error" errors={state.fieldErrors.pricePerSeatMkd} />
           </label>
         </div>
-        <p className="text-xs text-slate-500">Enter departure in Skopje local time, wherever your device is located.</p>
+        <p className="text-[.75rem] text-slate-500">Departure is in Skopje local time.</p>
+        <details className="ride-form-options" open={Boolean(originPickupId || destinationPickupId || state.fieldErrors["origin.pickupPointId"] || state.fieldErrors["destination.pickupPointId"])}>
+        <summary>Pickup & drop-off points <span className="font-normal text-slate-500">· optional</span></summary>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="font-medium text-slate-800">
             Pickup point
@@ -341,6 +354,7 @@ export function RideForm({
             </select>
           </label>
         </div>
+        </details>
       </section>
 
       <fieldset ref={carFieldsRef} disabled={pending || savingCar} className="rounded-2xl border border-slate-200 p-4 sm:p-5">
@@ -434,6 +448,7 @@ export function RideForm({
                     className={inputClass}
                     onChange={(event) => setCatalogQuery(event.target.value)}
                     placeholder="Golf, Astra, Clio…"
+                    maxLength={RIDE_LIMITS.modelLength}
                     type="search"
                     value={catalogQuery}
                   />
@@ -483,7 +498,8 @@ export function RideForm({
                     className={inputClass}
                     value={values.carMake}
                     onChange={(event) => onChange({ ...values, carMake: event.target.value })}
-                    maxLength={80}
+                    minLength={1}
+                    maxLength={RIDE_LIMITS.makeLength}
                     name="carMake"
                     required
                   />
@@ -494,7 +510,8 @@ export function RideForm({
                     className={inputClass}
                     value={values.carModel}
                     onChange={(event) => onChange({ ...values, carModel: event.target.value })}
-                    maxLength={120}
+                    minLength={1}
+                    maxLength={RIDE_LIMITS.modelLength}
                     name="carModel"
                     required
                   />
@@ -542,7 +559,7 @@ export function RideForm({
         <FieldError errors={state.fieldErrors.carId} />
       </fieldset>
 
-      <details className="card-options" open={Boolean(distanceKm || state.fieldErrors.distanceKm?.length)}>
+      <details className="ride-form-options" open={Boolean(state.fieldErrors.distanceKm?.length)}>
       <summary>Estimate fuel costs & CO₂ savings</summary>
       <RideEstimatePanel
         consumption={estimateConsumption}
@@ -555,7 +572,7 @@ export function RideForm({
       />
       </details>
 
-      <details className="card-options" open={values.tags.length > 0 || values.genderPreference !== "any" || Boolean(state.fieldErrors.tags?.length || state.fieldErrors.genderPreference?.length)}>
+      <details className="ride-form-options" open={values.tags.length > 0 || values.genderPreference !== "any" || Boolean(state.fieldErrors.tags?.length || state.fieldErrors.genderPreference?.length)}>
         <summary>Preferences</summary>
         <fieldset>
           <legend className="font-medium text-slate-800">Ride</legend>
@@ -595,18 +612,21 @@ export function RideForm({
         </label>
       </details>
 
+      <details className="ride-form-options" open={Boolean(values.notes || state.fieldErrors.notes?.length)}>
+      <summary>Notes for passengers <span className="font-normal text-slate-500">· optional</span></summary>
       <label className="block font-medium text-slate-800">
         Notes
         <textarea
           className={`${inputClass} min-h-28 resize-y`}
           value={values.notes}
           onChange={(event) => onChange({ ...values, notes: event.target.value })}
-          maxLength={2_000}
+          maxLength={RIDE_LIMITS.notesLength}
           name="notes"
           placeholder="Luggage, timing, or pickup details passengers should know"
         />
         <FieldError errors={state.fieldErrors.notes} />
       </label>
+      </details>
 
       {state.message ? (
         <div
@@ -626,7 +646,7 @@ export function RideForm({
       ) : null}
 
       <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
-        <p className="text-sm text-slate-500 sm:mr-auto sm:max-w-xs">Drafts are private. Published rides are visible to students, and you approve each seat request.</p>
+        <p className="text-[.8125rem] text-slate-500 sm:mr-auto sm:max-w-xs">You approve each seat request.</p>
         <button
           className="btn-secondary disabled:opacity-50"
           disabled={pending || savingCar || state.status === "success"}
@@ -685,7 +705,11 @@ function RideEstimatePanel({
   if (
     supportedFuel &&
     fuelPrice &&
-    Object.values(numericInput).every((value) => Number.isFinite(value) && value > 0)
+    Object.values(numericInput).every((value) => Number.isFinite(value) && value > 0) &&
+    numericInput.distanceKm >= RIDE_LIMITS.distanceKm.min && numericInput.distanceKm <= RIDE_LIMITS.distanceKm.max &&
+    numericInput.consumptionL100Km >= RIDE_LIMITS.consumptionL100Km.min && numericInput.consumptionL100Km <= RIDE_LIMITS.consumptionL100Km.max &&
+    numericInput.seats <= RIDE_LIMITS.seats.max &&
+    Number.isInteger(Number(tolls)) && Number(tolls) >= RIDE_LIMITS.tollsMkd.min && Number(tolls) <= RIDE_LIMITS.tollsMkd.max
   ) {
     try {
       estimate = calculateRideEstimate({ ...numericInput, fuelType: supportedFuel, tollsMkd });
@@ -705,7 +729,10 @@ function RideEstimatePanel({
           Estimated route distance (km)
           <input
             className={inputClass}
-            min="0.1"
+            min={RIDE_LIMITS.distanceKm.min}
+            max={RIDE_LIMITS.distanceKm.max}
+            title="1–600 km"
+            placeholder="1–600"
             name="distanceKm"
             onChange={(event) => onDistanceChange(event.target.value)}
             step="0.1"
@@ -718,7 +745,9 @@ function RideEstimatePanel({
           <input
             className={inputClass}
             inputMode="numeric"
-            min="0"
+            min={RIDE_LIMITS.tollsMkd.min}
+            max={RIDE_LIMITS.tollsMkd.max}
+            title="0–2,000 MKD for the whole trip"
             onChange={(event) => setTolls(event.target.value)}
             onFocus={(event) => event.currentTarget.select()}
             step="1"
@@ -757,12 +786,14 @@ function RideEstimatePanel({
           />
           <div className="sm:col-span-2 lg:col-span-4">
             <button
-              className="btn-primary"
+              className="btn-primary disabled:opacity-50"
+              disabled={estimate.pricePerSeatMkd > RIDE_LIMITS.priceMkd.max}
               onClick={() => onUseSuggestion(estimate.pricePerSeatMkd)}
               type="button"
             >
               Use {estimate.pricePerSeatMkd} MKD suggestion
             </button>
+            {estimate.pricePerSeatMkd > RIDE_LIMITS.priceMkd.max && <p className="mt-2 text-sm text-amber-800">This estimate exceeds the 3,000 MKD limit. Review the distance, consumption and tolls.</p>}
             <p className="mt-2 text-xs text-brand-900/70">
               Assumes {fuelPrice} MKD/L{tollsMkd > 0 ? `, ${Math.round(tollsMkd)} MKD in tolls` : ""} and {supportedFuel === "petrol" ? "2.31" : "2.68"} kg CO₂
               per litre. Potential savings assume every offered seat replaces one separate car on
@@ -802,7 +833,10 @@ function NewCarFields({
         Consumption (L/100 km)
         <input
           className={inputClass}
-          min="0.1"
+          min={RIDE_LIMITS.consumptionL100Km.min}
+          max={RIDE_LIMITS.consumptionL100Km.max}
+          title="0.5–30 L/100 km"
+          placeholder="0.5–30"
           name="consumptionL100Km"
           onChange={(event) => onConsumptionChange(event.target.value)}
           required
@@ -817,8 +851,9 @@ function NewCarFields({
           className={inputClass}
           value={values.carSeatsTotal}
           onChange={(event) => onChange({ ...values, carSeatsTotal: event.target.value })}
-          max={8}
-          min={1}
+          max={RIDE_LIMITS.seats.max}
+          min={RIDE_LIMITS.seats.min}
+          step={1}
           name="carSeatsTotal"
           required
           type="number"
@@ -831,6 +866,7 @@ function NewCarFields({
           value={values.carColor}
           onChange={(event) => onChange({ ...values, carColor: event.target.value })}
           name="carColor"
+          maxLength={RIDE_LIMITS.colorLength}
         />
       </label>
       <label className="font-medium text-slate-800">
@@ -840,6 +876,9 @@ function NewCarFields({
           value={values.plateLast3}
           onChange={(event) => onChange({ ...values, plateLast3: event.target.value })}
           maxLength={3}
+          minLength={3}
+          pattern="[A-Za-z0-9]{3}"
+          title="Exactly 3 letters or numbers"
           name="plateLast3"
           placeholder="123"
         />

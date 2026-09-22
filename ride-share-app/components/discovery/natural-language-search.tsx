@@ -67,8 +67,8 @@ export function NaturalLanguageSearch({
   }
 
   return (
-    <section className="mt-10">
-      <label className="mb-4 block text-xl font-medium" htmlFor="natural-search">Describe the ride you need</label>
+    <section className="mt-3">
+      <label className="sr-only" htmlFor="natural-search">Describe the ride you need</label>
       <form className="flex flex-col gap-4 sm:flex-row" onSubmit={submit}>
         <input
           id="natural-search"
