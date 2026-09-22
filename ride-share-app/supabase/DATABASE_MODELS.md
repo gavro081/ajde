@@ -212,6 +212,13 @@ bookings 1--* trip_shares
 
 ## Database behavior
 
+- `chat_ai_budgets` stores an Auth user UUID and at most five recent admission timestamps, with
+  cascading account deletion, RLS and no public/anonymous/authenticated table privileges.
+  `try_chat_ai_request()` derives the identity from `auth.uid()` and takes a row lock before
+  pruning admissions older than one minute and admitting up to five requests. Its fixed empty
+  search path and authenticated-only execute grant protect a shared budget across rooms/instances.
+  It stores no prompts, chat text or AI responses. Missing identities cannot obtain a permit.
+
 - `create_ride_offer(jsonb,jsonb,uuid,boolean)` publishes an offer and selects/creates its owned
   vehicle in one transaction. It derives the driver from `auth.uid()`, verifies import and vehicle
   ownership, validates required fields, and relies on the city/pickup constraints for route integrity.

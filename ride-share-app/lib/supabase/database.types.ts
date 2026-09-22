@@ -156,6 +156,21 @@ export type Database = {
           },
         ]
       }
+      chat_ai_budgets: {
+        Row: {
+          admitted_at: string[]
+          user_id: string
+        }
+        Insert: {
+          admitted_at?: string[]
+          user_id: string
+        }
+        Update: {
+          admitted_at?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
       cities: {
         Row: {
           aliases: string[]
@@ -723,6 +738,10 @@ export type Database = {
       recalculate_ride_seats: {
         Args: { target_ride_id: string }
         Returns: undefined
+      }
+      try_chat_ai_request: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       try_ride_routing_request: {
         Args: Record<PropertyKey, never>

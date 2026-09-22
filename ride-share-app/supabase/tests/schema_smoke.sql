@@ -259,3 +259,5 @@ rollback;
 \ir room_policies.sql
 
 \ir ride_offers.sql
+
+\ir chat_ai.sql
