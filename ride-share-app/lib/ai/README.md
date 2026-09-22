@@ -5,8 +5,9 @@
 [`readScreenshot`](read-screenshot.ts) accepts validated image bytes and an optional model runner,
 returning at most ten verbatim posts with kind/confidence. [`screenshot-contract.ts`](screenshot-contract.ts)
 is browser-safe. The authenticated screenshot route is gated before reading a request body and
-never parses, persists, or publishes a ride. The driver selects and edits a transcript before
-explicitly entering the existing parser/checker flow. Images and unselected transcripts are not
+never parses, persists, or publishes a ride. Facebook screenshot mode lets the driver select one
+transcript before explicitly entering the parser/checker flow and editable ride form. Viber text
+mode instead provides an editable text box. Images and unselected transcripts are not
 saved by the application. See root README for privacy limits and input/error contracts.
 
 ## Import plausibility checking

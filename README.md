@@ -22,7 +22,7 @@ be saved or published.
 | Fuel-price and CO2 estimate | Implemented | Petrol/diesel arithmetic using server-configured fuel prices; suggestion remains editable |
 | Group-post import and review | Implemented | Structured OpenAI parsing, warnings/confidence, saved import, and editable ride prefill |
 | Tool-using import checker | Implemented locally, disabled by default | Model-selected road distance, deterministic fair share, and possible duplicate evidence; bounded execution and fail-open review |
-| Screenshot import | Implemented locally, disabled by default | One PNG/JPEG/WebP up to 4 MB, separate detected posts, editable selection, then explicit parsing; text-only importing remains available |
+| Screenshot import | Implemented locally, disabled by default | Facebook screenshot / Viber text toggle; one PNG/JPEG/WebP up to 4 MB, detected-post selection, then explicit parsing and editable review |
 | Authentication and onboarding | Implemented | Student-domain magic links, guarded local bypass, callback, profile completion, photo upload, and server-side route protection |
 | Public profiles | Implemented | Deliberately limited projection excludes phone and social contact fields |
 | Location normalization | Implemented | Deterministic name/alias matching first, structured model fallback on misses, and canonical-ID validation |
@@ -67,7 +67,7 @@ key. OpenAI credentials, database credentials, and fuel-price assumptions remain
 ```mermaid
 flowchart LR
   Screenshot[Screenshot upload] --> Reader[Separate screenshot reader]
-  Reader --> Selection[Driver selects and edits one post]
+  Reader --> Selection[Driver selects one post]
   Selection --> Parse
   Post[Group post] --> Parse[Structured parser]
   Parse --> Validate[Schema + canonical-ID guards]
@@ -274,8 +274,9 @@ It returns up to ten nonempty posts with visible offer/request/other kinds, usin
 input and the verified `OPENAI_MODEL` fallback. No separate vision-model setting was needed.
 
 The [screenshot selection UI](ride-share-app/app/rides/import/screenshot-import.tsx) lets the driver
-choose **one** post into the existing editable textarea. Request and other posts remain selectable.
-The driver can correct transcription before explicitly choosing **Create review draft**, which
+choose **one** post in **Facebook screenshot** mode. **Viber text** mode instead shows an editable
+text box. The toggle preserves each mode's input and sets the source automatically; only the active
+mode is submitted by **Create review draft**. Request and other posts remain selectable. The flow
 reuses the parser → canonical guards → checker/tools → review → editable form path. Upload and
 selection alone neither parse a ride nor persist an import. Reader failures leave text importing
 available. The reader and parser remain separate model jobs with a human checkpoint between them.
