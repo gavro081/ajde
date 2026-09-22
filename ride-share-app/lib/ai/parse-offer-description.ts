@@ -106,6 +106,7 @@ function explicitTime(value: string) {
     && /\b(?:morning|afternoon|evening|night|nautro|utro|popladne|navecer|navecher|nokj)\b/.test(normalized);
   return /\b(?:1[0-2]|0?[1-9])(?::[0-5]\d)?\s*[ap]\.?m\.?\b/i.test(value)
     || /\b(?:[01]?\d|2[0-3]):[0-5]\d\b/.test(value)
+    || /\b(?:[01]?\d|2[0-3])\s*h\b/i.test(value)
     || /\b(?:1[3-9]|2[0-3])\b/.test(value)
     || /\b(?:midnight|noon|polnokj|polnok|pladne)\b/.test(normalized)
     || qualifiedHour;
