@@ -871,7 +871,7 @@ function NewCarFields({
         />
       </label>
       <label className="font-medium text-slate-800">
-        Last 2 plate characters (optional)
+        Last 3 plate characters (optional)
         <input
           className={inputClass}
           value={values.plateLast3}
