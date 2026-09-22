@@ -5,7 +5,7 @@ keep extra cars off the road. Drivers describe a trip the way they'd write it in
 upload a screenshot of their Facebook post, and AI turns it into a checked ride listing they review
 before publishing.
 
-**Live demo:** [ride-share-app-delta.vercel.app](https://ride-share-app-delta.vercel.app) · **Backup video:** _TODO: video link_
+**Live demo:** [ride-share-app-delta.vercel.app](https://ride-share-app-delta.vercel.app) · **Demo video:** [demo.mp4](demo.mp4)
 
 ## Who it is for
 
