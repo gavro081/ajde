@@ -142,8 +142,8 @@ are deferred direct-message data and inaccessible through room policies. The bod
 1–4000 trimmed characters (chat's application limit is 2000). Sender and any recipient must differ.
 Deleting the ride or a referenced participant cascades. No second room/membership table exists.
 
-Only the driver and currently accepted passengers can read room messages. Passengers see rows
-created at or after their accepted booking's `decided_at`; the driver sees the whole room history.
+Only the driver and currently accepted passengers can read room messages. All current members see the whole room history, including messages before acceptance.
+Accepted bookings must have a non-null `decided_at` no later than the current statement time.
 Cancelled bookings lose access immediately. Cancelled rides retain authorized read-only history.
 Sends require the authenticated sender, a real driver, null recipient, a non-cancelled ride, and
 `statement_timestamp() <= departure_at + interval '48 hours'` (inclusive, matching chat).

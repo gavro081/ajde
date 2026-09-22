@@ -118,9 +118,6 @@ export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPag
             }
             setMembership(result.value.membership);
             setMembers(result.value.members);
-            // A cancelled/reaccepted passenger must lose the earlier acceptance window.
-            const joinedAt = result.value.membership.joinedAt;
-            if (joinedAt) messagesRef.current = messagesRef.current.filter(m => Date.parse(m.created_at) >= Date.parse(joinedAt));
             receive(result.value.messages);
             const hadCursor = cursor !== null;
             if (!hadCursor && result.value.nextCursor) setOlderCursor(result.value.nextCursor);
@@ -227,7 +224,7 @@ export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPag
         <span role="status" className="font-medium">{status}</span>
         <button type="button" className="min-h-0 font-semibold text-brand-700 underline" onClick={() => setRetry(value => value + 1)}>Retry connection</button>
       </div>
-      <p className="hidden text-sm leading-6 text-slate-600 lg:block">The driver and all currently accepted passengers can read new room messages. Your history begins when your booking is accepted. Messages are kept as a ride record.</p>
+      <p className="text-sm leading-6 text-slate-600">The driver and all currently accepted passengers can read the entire room history, including messages sent before they joined. Messages are kept as a ride record.</p>
       <Link className="btn-secondary hidden lg:inline-flex" href={`/rides/${rideId}`}>Ride details</Link>
     </aside>
 

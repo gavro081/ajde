@@ -98,12 +98,14 @@ function check(r) { if (r.error)
     await expect(one.page.getByLabel('Message to the ride group')).toBeFocused();
     check(await admin.from('bookings').update({ status: 'accepted', decided_at: new Date().toISOString() }).eq('ride_id', rideId).eq('passenger_id', late.id));
     await late.page.reload();
-    await expect(late.page.getByText('No messages yet. Say hello to your ride group.')).toBeVisible();
+    await expect(late.page.getByLabel('Room messages').getByRole('listitem')).toHaveCount(50);
+    await late.page.getByRole('button', { name: 'Load older messages' }).click();
+    await expect(late.page.getByText('History 00', { exact: true })).toBeVisible();
     await expect(late.page.getByText('Connected', { exact: true })).toBeVisible({ timeout: 30000 });
     await send(driver, 'Only after late joined');
     await expect(late.page.getByText('Only after late joined', { exact: true })).toBeVisible();
-    await expect(late.page.getByText('Live reply from driver', { exact: true })).toHaveCount(0);
-    console.log('PASS: reload, mobile long text, keyboard send/focus, new member history boundary');
+    await expect(late.page.getByText('Live reply from driver', { exact: true })).toHaveCount(1);
+    console.log('PASS: reload, mobile long text, keyboard send/focus, new member full history');
     await two.context.setOffline(true);
     await expect(two.page.getByText('Offline — retry when connected')).toBeVisible();
     await send(driver, 'Missed while offline');
@@ -190,7 +192,7 @@ function check(r) { if (r.error)
     await expect(driver.page.getByText('Only after late joined', { exact: true })).toBeVisible();
     console.log('PASS: offline recovery, booking revocation, no cancelled-member events, cancelled ride read-only');
     await driver.page.screenshot({ path: '.test-dist/chat/desktop.png', fullPage: true });
-    fs.writeFileSync('.test-dist/chat/live-results.json', JSON.stringify({ passed: true, date: new Date().toISOString(), cases: ['websocket-three-members', 'denied-users', 'pagination-55', 'reload', 'mobile-long-text', 'keyboard', 'acceptance-boundary', 'offline-reconnect', 'cancellation', 'read-only', 'public-qa', 'contact-visibility', 'trip-sharing', 'booking-lifecycle'] }));
+    fs.writeFileSync('.test-dist/chat/live-results.json', JSON.stringify({ passed: true, date: new Date().toISOString(), cases: ['websocket-three-members', 'denied-users', 'pagination-55', 'reload', 'mobile-long-text', 'keyboard', 'full-history', 'offline-reconnect', 'cancellation', 'read-only', 'public-qa', 'contact-visibility', 'trip-sharing', 'booking-lifecycle'] }));
 })().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(async () => {
     const cleanup = async (action) => { try {
         await action();

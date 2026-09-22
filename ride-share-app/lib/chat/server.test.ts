@@ -65,11 +65,11 @@ describe("room history and mutations", () => {
     expect(result.ok && result.value.messages[0].body).toBe("1");
     expect(result.ok && result.value.nextCursor?.id).toBe(uuid(60));
   });
-  it("excludes pre-acceptance history, other rides, and legacy direct messages", async () => {
+  it("includes pre-acceptance history while excluding other rides and direct messages", async () => {
     db.tables.messages.push({ ...db.tables.messages[0], id: uuid(200), created_at: "2026-09-21T11:59:59Z" },
       { ...db.tables.messages[0], id: uuid(201), ride_id: uuid(2) }, { ...db.tables.messages[0], id: uuid(202), recipient_id: "driver" });
-    const result = await queryRoom({ rideId });
-    expect(result.ok && result.value.messages.every(m => ![uuid(200), uuid(201), uuid(202)].includes(m.id))).toBe(true);
+    const result = await queryRoom({ rideId, cursor: { id: uuid(10), created_at: "2026-09-21T12:00:00Z" } });
+    expect(result.ok && result.value.messages.map(m => m.id)).toEqual([uuid(200)]);
   });
   it.each(["", "unrelated"])("refuses history and sends for %s", async user => {
     db.user = user;
@@ -82,6 +82,10 @@ describe("room history and mutations", () => {
     db.tables.bookings[0].status = "cancelled";
     expect((await queryRoom({ rideId })).ok).toBe(false);
     expect((await insertRoomMessage({ rideId, body: "Hi" })).ok).toBe(false);
+    db.tables.bookings[0].status = "accepted";
+    db.tables.bookings[0].decided_at = new Date().toISOString();
+    const restored = await queryRoom({ rideId });
+    expect(restored.ok && restored.value.messages.length).toBe(50);
   });
   it("derives the sender and inserts exactly one shared message", async () => {
     const result = await insertRoomMessage({ rideId, body: " Hi " });

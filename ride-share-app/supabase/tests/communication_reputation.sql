@@ -52,7 +52,7 @@ select pg_temp.assert_true((select count(*) = 2 from public.messages), 'First pa
 insert into public.messages (ride_id, sender_id, body)
 values ('10000000-0000-0000-0000-000000000010', auth.uid(), 'Passenger reply');
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003', true);
-select pg_temp.assert_true((select count(*) = 2 from public.messages), 'New passenger cannot see pre-acceptance history');
+select pg_temp.assert_true((select count(*) = 3 from public.messages), 'New passenger sees pre-acceptance history');
 
 do $$ declare person uuid; begin
   for person in select ('00000000-0000-0000-0000-' || lpad(n::text, 12, '0'))::uuid from generate_series(4, 7) n loop

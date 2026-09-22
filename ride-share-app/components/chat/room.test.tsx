@@ -19,7 +19,7 @@ vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({ removeChannel: 
 import { RideRoom } from "./room";
 const rideId = "92000000-0000-4000-8000-000000000001";
 const message: Message = { id: "92000000-0000-4000-8000-000000000002", ride_id: rideId, recipient_id: null, sender_id: "driver", body: "Hello room", created_at: "2026-09-21T12:00:00Z", sender: { full_name: "Driver", photo_url: "/photo.png" } };
-const initial: RoomPage = { viewerId: "driver", members: ["driver", "one", "two"].map(id => ({ id, full_name: id, photo_url: "/photo.png", isDriver: id === "driver", phone: "+38970123456", social_url: "https://x.com/" + id, instagram: null, facebook: null })), messages: [], nextCursor: null, membership: { role: "driver", joinedAt: null, canSend: true, closesAt: "2099-09-21T12:00:00Z" } };
+const initial: RoomPage = { viewerId: "driver", members: ["driver", "one", "two"].map(id => ({ id, full_name: id, photo_url: "/photo.png", isDriver: id === "driver", phone: "+38970123456", social_url: "https://x.com/" + id, instagram: null, facebook: null })), messages: [], nextCursor: null, membership: { role: "driver", canSend: true, closesAt: "2099-09-21T12:00:00Z" } };
 beforeEach(() => { mocks.channels = []; mocks.load.mockReset().mockResolvedValue({ ok: true, value: initial }); mocks.send.mockReset(); mocks.remove.mockClear(); mocks.session.mockReset().mockResolvedValue({ data: { session: { access_token: "test-token" } } }); mocks.setAuth.mockReset().mockResolvedValue(undefined); });
 afterEach(cleanup);
 describe("ride room client", () => {

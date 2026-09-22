@@ -14,7 +14,7 @@ export const sendSchema = z.object({
 export type Cursor = z.infer<typeof cursorSchema>;
 export type RoomRide = Pick<Tables<"rides">, "id" | "driver_id" | "status" | "departure_at">;
 export type RoomBooking = Pick<Tables<"bookings">, "passenger_id" | "status" | "decided_at">;
-export type Membership = { role: "driver" | "passenger"; joinedAt: string | null; canSend: boolean; closesAt: string };
+export type Membership = { role: "driver" | "passenger"; canSend: boolean; closesAt: string };
 export type Denial = "signed_out" | "unclaimed" | "not_member";
 export type Member = { id: string; full_name: string; photo_url: string; isDriver: boolean; phone: string | null; social_url: string | null; instagram: string | null; facebook: string | null };
 export type Message = Cursor & { ride_id: string; sender_id: string; recipient_id: null; body: string; sender: Pick<Member, "full_name" | "photo_url"> | null };
@@ -30,7 +30,7 @@ export function roomMembership(userId: string | null, ride: RoomRide, bookings: 
     b.decided_at !== null && Date.parse(b.decided_at) <= now);
   if (!driver && !booking) return { ok: false, reason: "not_member" };
   const closes = Date.parse(ride.departure_at) + 48 * 60 * 60 * 1000;
-  return { ok: true, value: { role: driver ? "driver" : "passenger", joinedAt: driver ? null : booking!.decided_at,
+  return { ok: true, value: { role: driver ? "driver" : "passenger",
     canSend: ride.status !== "cancelled" && now <= closes, closesAt: new Date(closes).toISOString() } };
 }
 
