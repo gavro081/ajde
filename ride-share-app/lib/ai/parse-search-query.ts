@@ -127,7 +127,7 @@ export async function parseSearchQuery(
       warnings,
     ),
   ]);
-  const bounds = materializeDepartureBounds(modelOutput.data, timeZone, warnings);
+  const bounds = materializeDepartureBounds(modelOutput.data, now, timeZone, warnings);
 
   const result = searchQueryResultSchema.safeParse({
     originId,
@@ -177,39 +177,34 @@ async function resolveCityId(
 
 function materializeDepartureBounds(
   output: SearchModelOutput,
+  now: Date,
   timeZone: string,
   warnings: SearchWarning[],
 ) {
-  if (!output.dateLocal) {
-    if (output.timeMode || output.startTime || output.endTime) {
-      warnings.push({
-        field: "departure",
-        code: "needs_review",
-        message: "A time was provided without a date; choose the date manually.",
-      });
-    }
-    return { after: null, before: null };
-  }
+  const hasTime = Boolean(output.startTime || output.endTime || (output.timeMode && output.timeMode !== "day"));
+  if (!output.dateLocal && !hasTime) return { after: null, before: null };
 
-  const day = localDayUtcBounds(output.dateLocal, timeZone);
+  // A time without a date ("nadvor od rabotno vreme", "after 5") means today.
+  const date = output.dateLocal ?? localDate(now, timeZone);
+  const day = localDayUtcBounds(date, timeZone);
   if (!output.timeMode || output.timeMode === "day") return { after: day.start, before: day.end };
 
   if (output.timeMode === "after" && output.startTime) {
     return {
-      after: atLocalTime(output.dateLocal, output.startTime, timeZone),
+      after: atLocalTime(date, output.startTime, timeZone),
       before: day.end,
     };
   }
   if (output.timeMode === "before" && output.endTime) {
     return {
       after: day.start,
-      before: atLocalTime(output.dateLocal, output.endTime, timeZone),
+      before: atLocalTime(date, output.endTime, timeZone),
     };
   }
   if (output.timeMode === "between" && output.startTime && output.endTime) {
     return {
-      after: atLocalTime(output.dateLocal, output.startTime, timeZone),
-      before: atLocalTime(output.dateLocal, output.endTime, timeZone),
+      after: atLocalTime(date, output.startTime, timeZone),
+      before: atLocalTime(date, output.endTime, timeZone),
     };
   }
 
@@ -219,6 +214,10 @@ function materializeDepartureBounds(
     message: "The time range was incomplete, so the entire selected day is shown.",
   });
   return { after: day.start, before: day.end };
+}
+
+function localDate(instant: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);
 }
 
 function atLocalTime(date: string, time: string, timeZone: string) {
@@ -258,7 +257,12 @@ async function runOpenAISearchModel({
             `Interpret relative dates in ${timeZone}. Preserve only the words naming origin and ` +
             "destination in originText/destinationText. A lone place such as ‘Bitola Friday after 4’ " +
             "is a destination, never an invented origin. Use 16:00 for contextually afternoon ‘after 4’; " +
-            "warn when genuinely ambiguous. For a date without a time use timeMode=day. Unknown or " +
+            "warn when genuinely ambiguous. Standard working hours (работно време / rabotno vreme) are " +
+            "09:00–17:00. Outside or after working hours (надвор од работно време, по работно време, " +
+            "nadvor od rabotno vreme, posle rabotno vreme, after work) means timeMode=after with " +
+            "startTime=17:00; during working hours (во работно време, vo rabotno vreme) means " +
+            "timeMode=between 09:00–17:00; before work (пред работа, pred rabota) means timeMode=before " +
+            "with endTime=09:00. A time without a date means today, so leave dateLocal null. For a date without a time use timeMode=day. Unknown or " +
             "unsupported criteria stay null and receive a warning. A search without any date or time is " +
             "valid and means any upcoming departure: leave dateLocal null with no warning. Every booking " +
             "is exactly one seat, so leave requestedSeats null. Never infer gender preferences.",

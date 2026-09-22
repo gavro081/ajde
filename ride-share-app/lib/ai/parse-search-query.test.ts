@@ -112,6 +112,29 @@ describe("natural-language search parsing", () => {
     expect(result.warnings[0]?.code).toBe("unsupported");
   });
 
+  it.each([
+    ["after", "17:00", null, "2026-09-21T15:00:00.000Z", "2026-09-21T22:00:00.000Z"],
+    ["before", null, "09:00", "2026-09-20T22:00:00.000Z", "2026-09-21T07:00:00.000Z"],
+    ["between", "09:00", "17:00", "2026-09-21T07:00:00.000Z", "2026-09-21T15:00:00.000Z"],
+  ] as const)("applies a %s time without a date to today", async (timeMode, startTime, endTime, departureAfter, departureBefore) => {
+    const result = await parseSearchQuery("Bitola nadvor od rabotno vreme", {
+      candidates,
+      now: new Date("2026-09-21T10:00:00Z"),
+      modelRunner: async () => ({ ...baseOutput, dateLocal: null, timeMode, startTime, endTime }),
+    });
+    expect(result).toMatchObject({ destinationId: 3, departureAfter, departureBefore, warnings: [] });
+  });
+
+  it("uses the Skopje date for today, not the UTC date", async () => {
+    // 23:30 UTC on the 21st is already 01:30 on the 22nd in Skopje.
+    const result = await parseSearchQuery("Bitola after work", {
+      candidates,
+      now: new Date("2026-09-21T23:30:00Z"),
+      modelRunner: async () => ({ ...baseOutput, dateLocal: null, timeMode: "after", startTime: "17:00" }),
+    });
+    expect(result.departureAfter).toBe("2026-09-22T15:00:00.000Z");
+  });
+
   it("classifies provider failures without weakening manual search", async () => {
     await expect(
       parseSearchQuery("Bitola Friday", {
