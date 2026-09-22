@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { departureInstant, type OfferValues } from "@/lib/rides/offer-values";
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 
-import type { Tables } from "@/lib/supabase/database.types";
-import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
-import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
-import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
 import { DateTimeField } from "@/components/date-time-field";
+import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
+import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
+import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
 import { RIDE_LIMITS } from "@/lib/rides/ride-limits";
+import type { Tables } from "@/lib/supabase/database.types";
 
 import { saveCar, type CreateRideFormState } from "./actions";
 
@@ -297,7 +297,8 @@ export function RideForm({
             <FieldError id="seats-error" errors={state.fieldErrors.seatsTotal} />
           </label>
           <label className="font-medium text-slate-800">
-            Price per seat (MKD)
+            Price per seat (MKD) 
+            {/* <span className="font-normal text-slate-500">(optional)</span> */}
             <input
               ref={priceRef}
               className={`${inputClass} ${priceFilled ? "ring-4 ring-brand-200" : ""}`}
@@ -870,7 +871,7 @@ function NewCarFields({
         />
       </label>
       <label className="font-medium text-slate-800">
-        Last 3 plate characters (optional)
+        Last 2 plate characters (optional)
         <input
           className={inputClass}
           value={values.plateLast3}
