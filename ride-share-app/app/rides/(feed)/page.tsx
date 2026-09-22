@@ -35,6 +35,10 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
   const rides = await getRideFeed(filters, { passengerGender });
   const genderUnavailable = filters.sameGenderOnly && !passengerGender;
   const cityNames = new Map((cities ?? []).map((city) => [city.id, city.name_en]));
+  // An AI search already shows its interpretation above, so its filters start collapsed and
+  // can be expanded to refine. Manually applied or hand-entered filters stay visible.
+  const hasFilters = Boolean(filters.origin || filters.destination || filters.date || filters.dateTo || filters.timeAfter || filters.timeBefore || filters.sameGenderOnly);
+  const filtersOpen = firstParam(rawParams.manual) === "1" || (hasFilters && firstParam(rawParams.search) !== "1");
 
   return (
     <div className="text-slate-950">
@@ -54,7 +58,7 @@ export default async function RideFeedPage({ searchParams }: RideFeedPageProps) 
           />
         ) : null}
 
-        <details className="filter-options mt-6 px-6 py-4" open={Boolean(filters.origin || filters.destination || filters.date || filters.dateTo || filters.timeAfter || filters.timeBefore || filters.sameGenderOnly || firstParam(rawParams.manual))}>
+        <details className="filter-options mt-6 px-6 py-4" open={filtersOpen}>
         <summary>Filter by city, date or time</summary>
         <form key={currentParams} aria-label="Filter rides" className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {naturalQuery ? <input type="hidden" name="q" value={naturalQuery} /> : null}
