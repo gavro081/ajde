@@ -88,3 +88,30 @@ writes. A remote/demo publication walkthrough was intentionally not run under th
 Screenshot delivery was completed locally before the supplied 14:00 Europe/Skopje cutoff. The
 default-off flag controls the completed reader and checker together; the earlier checker commit
 `0568285` remains available independently.
+
+## Final integration and optional live evidence
+
+All ticket branches #4–#10 were merged into local `feature/ai-import-pipeline` in dependency order.
+The optional [live observations](ai-import-live.md) ran after screenshot integration: screenshot
+extraction passed twice; the first live price assertion failed because the fair-price executor
+was not called, and the unchanged-fixture rerun passed. Both outcomes are retained. This does not
+claim reliable model tool selection or live routing/database coverage.
+
+The independent [standards and specification reviews](ai-import-review.md) found no blocking
+issues. The screenshot UI now shares the existing upload validation helper. One optional
+dispatcher maintainability observation remains deferred; no specification gaps were identified.
+
+Final verification on 22 September 2026, after integrating #10 and the review fix:
+
+- `npm test`: **788 tests across 59 files passed**, including combined checker and selected-post
+  import behavior. Opt-in live checks are excluded from this count.
+- `npm run lint`: passed.
+- `npm run build`: passed, including the production TypeScript check and route generation.
+- The earlier local 375 × 812 UI checks passed for enabled and disabled flows, with no horizontal
+  overflow and no publication requests. No application behavior beyond shared upload validation
+  changed after those checks; the corresponding component tests passed again in the final suite.
+
+The feature remains disabled by default. No migration, deployment, push, pull request, remote
+merge, issue edit, or publication was performed. Original unrelated working-tree changes were
+preserved. All completed feature work and its tests/documentation were committed locally before
+the source specification's delivery cutoffs.

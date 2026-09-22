@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ChangeEvent } from "react";
-import { MAX_SCREENSHOT_BYTES, SCREENSHOT_MIME_TYPES, screenshotResponseSchema, type ScreenshotPost } from "@/lib/ai/screenshot-contract";
+import { isSupportedScreenshot, screenshotResponseSchema, type ScreenshotPost } from "@/lib/ai/screenshot-contract";
 
 type Props = {
   disabled: boolean;
@@ -20,7 +20,7 @@ export function ScreenshotImport({ disabled, onBusyChange, onSelect }: Props) {
     if (!image) return;
     setPosts([]);
     setError("");
-    if (!SCREENSHOT_MIME_TYPES.some(type => type === image.type) || image.size === 0 || image.size > MAX_SCREENSHOT_BYTES) {
+    if (!isSupportedScreenshot(image.type, image.size)) {
       setError("Choose one PNG, JPEG, or WebP screenshot up to 4 MB.");
       return;
     }
