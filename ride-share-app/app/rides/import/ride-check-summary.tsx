@@ -1,13 +1,16 @@
 import type { RideCheckMetadata, CheckTraceEntry } from "@/lib/ai/ride-check-contract";
+import { FairPriceSummary } from "./fair-price-summary";
 
 type City = { id: number; name_en: string };
 
 function Evidence({ entry, cities }: { entry: CheckTraceEntry; cities: City[] }) {
+  if (entry.tool === "fair_price") return <FairPriceSummary entry={entry} />;
   const label = entry.tool === "road_distance" ? "Road distance" : "Check";
   if ("error" in entry.result) return <li>{label} unavailable: {entry.result.error.slice(0, 300)}</li>;
-  if (entry.tool === "road_distance" && "distanceKm" in entry.result && entry.args) {
-    const origin = cities.find(city => city.id === entry.args?.originCityId)?.name_en ?? "Origin city";
-    const destination = cities.find(city => city.id === entry.args?.destinationCityId)?.name_en ?? "Destination city";
+  if (entry.tool === "road_distance" && "distanceKm" in entry.result && entry.args && "originCityId" in entry.args) {
+    const args = entry.args;
+    const origin = cities.find(city => city.id === args.originCityId)?.name_en ?? "Origin city";
+    const destination = cities.find(city => city.id === args.destinationCityId)?.name_en ?? "Destination city";
     return <li>Road distance {origin} → {destination}: {entry.result.distanceKm} km (editable city-to-city estimate).</li>;
   }
   return <li>Check evidence unavailable.</li>;
