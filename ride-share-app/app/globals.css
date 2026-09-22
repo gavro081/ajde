@@ -61,7 +61,6 @@
   .brand { color: var(--foreground); }
   .brand-label { overflow: hidden; max-width: 12rem; white-space: nowrap; transition: max-width 380ms cubic-bezier(.2, .8, .2, 1), opacity 240ms ease; }
   .site-header[data-scrolled] .brand-label { max-width: 0; opacity: 0; }
-  .brand-mark { background: var(--ink); color: #4ade80; }
   .site-nav { display: flex; flex: 1; align-items: center; gap: .5rem; }
   .site-nav-links { display: flex; align-items: center; gap: .125rem; margin-inline: auto; }
   .site-nav-account { display: flex; align-items: center; gap: .25rem; }
