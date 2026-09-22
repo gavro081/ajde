@@ -12,6 +12,7 @@ import { formatDeparture, getRide } from "@/lib/rides/ride-view";
 import { createClient } from "@/lib/supabase/server";
 
 import { requestBooking } from "../actions";
+import { formatSeatPrice, seatPriceCaption } from "@/lib/rides/ride-price";
 
 export const metadata: Metadata = { title: "Ride details" };
 
@@ -61,7 +62,7 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
             </div>
             <div className="mt-6 flex flex-wrap items-center justify-between gap-5 border-b border-slate-100 pb-6">
               <SeatAvailability available={ride.seats_available} total={ride.seats_total} />
-              <div className="text-right"><p className="font-display text-2xl font-extrabold tracking-tight">{ride.price_per_seat_mkd === null ? "Flexible" : `${ride.price_per_seat_mkd} MKD`}</p><p className="text-sm text-slate-500">per seat</p></div>
+              <div className="text-right"><p className="font-display text-2xl font-extrabold tracking-tight">{formatSeatPrice(ride.price_per_seat_mkd)}</p><p className="text-sm text-slate-500">{seatPriceCaption(ride.price_per_seat_mkd)}</p></div>
             </div>
             {ride.notes ? <div className="mt-6"><h2 className="font-bold">Driver notes</h2><p className="mt-2 whitespace-pre-wrap text-slate-600">{ride.notes}</p></div> : null}
             {ride.tags.length ? <div className="mt-5 flex flex-wrap gap-2">{ride.tags.map((tag) => <span key={tag} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">{tag.replaceAll("_", " ")}</span>)}</div> : null}

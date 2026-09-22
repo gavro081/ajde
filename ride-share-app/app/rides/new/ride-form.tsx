@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { departureInstant, type OfferValues } from "@/lib/rides/offer-values";
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 
-import type { Tables } from "@/lib/supabase/database.types";
-import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
-import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
-import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
 import { DateTimeField } from "@/components/date-time-field";
+import type { FuelPriceConfig } from "@/lib/rides/fuel-price-config";
+import { RIDE_TAGS, type RideDraft } from "@/lib/rides/ride-draft";
+import { calculateRideEstimate } from "@/lib/rides/ride-estimate";
 import { RIDE_LIMITS } from "@/lib/rides/ride-limits";
+import type { Tables } from "@/lib/supabase/database.types";
 
 import { saveCar, type CreateRideFormState } from "./actions";
 
@@ -297,23 +297,24 @@ export function RideForm({
             <FieldError id="seats-error" errors={state.fieldErrors.seatsTotal} />
           </label>
           <label className="font-medium text-slate-800">
-            Price per seat (MKD)
+            Price per seat (MKD) 
+            {/* <span className="font-normal text-slate-500">(optional)</span> */}
             <input
               ref={priceRef}
               className={`${inputClass} ${priceFilled ? "ring-4 ring-brand-200" : ""}`}
               min={RIDE_LIMITS.priceMkd.min}
               max={RIDE_LIMITS.priceMkd.max}
-              title="0–3,000 MKD per seat; 0 means a free ride"
-              placeholder="0–3,000"
+              title="0–3,000 MKD per seat; leave empty or enter 0 for a free ride"
+              placeholder="Free"
               name="pricePerSeatMkd"
               aria-invalid={Boolean(state.fieldErrors.pricePerSeatMkd) || undefined}
-              aria-describedby={state.fieldErrors.pricePerSeatMkd ? "price-error" : undefined}
+              aria-describedby={state.fieldErrors.pricePerSeatMkd ? "price-hint price-error" : "price-hint"}
               onChange={(event) => setPricePerSeatMkd(event.target.value)}
-              required
               step={1}
               type="number"
               value={pricePerSeatMkd}
             />
+            <span id="price-hint" className="mt-1 block text-[.75rem] font-normal text-slate-500">Leave empty or enter 0 to offer the ride free of charge.</span>
             <FieldError id="price-error" errors={state.fieldErrors.pricePerSeatMkd} />
           </label>
         </div>

@@ -15,6 +15,7 @@ describe("room membership", () => {
   });
   it("rejects signed-out, unrelated, unclaimed and future-acceptance users", () => {
     expect(roomMembership(null, ride, bookings, now).ok).toBe(false);
+    expect(roomMembership("one", ride, [{ ...bookings[0], decided_at: null }], now).ok).toBe(false);
     expect(roomMembership("other", ride, bookings, now).ok).toBe(false);
     expect(roomMembership("one", { ...ride, driver_id: null }, bookings, now).ok).toBe(false);
     expect(roomMembership("one", ride, [{ ...bookings[0], decided_at: new Date(now + 1).toISOString() }], now).ok).toBe(false);

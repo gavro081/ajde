@@ -6,7 +6,7 @@ This document defines how code is written, committed, and merged in this reposit
 
 - Use **Conventional Commits**: `<type>(<scope>): <description>`
 - Max 1-2 sentences, no body, no footer.
-- **Never add an LLM co-author line** (no `Co-authored-by: Codex` / `Claude` / etc.) — commits must look human-authored.
+- Don't add LLM co-author trailers (`Co-authored-by: Codex` / `Claude` / etc.). We don't hide AI use: how we used AI coding agents is documented in the README's "How we built it" section.
 - Write in the imperative mood ("add", not "added" or "adds").
 
 **Types:**

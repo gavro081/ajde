@@ -32,6 +32,22 @@ it("shows road evidence, its editable scope, and explicit form continuation", as
   expect(transport.mock.calls[0][0]).toBe("/api/parse");
 });
 
+it.each([0, null])("keeps incoming free-price presentation and manual entry alongside import evidence for price %j", async price => {
+  const response = payload({ status: "checked", trace: [road] });
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ...response, parsed: {
+    ...response.parsed, draft: { ...response.parsed.draft, pricePerSeatMkd: price },
+  } })));
+  render(<ImportRideForm cities={cities} pipelineEnabled />);
+  expect(screen.getByRole("link", { name: "Create a ride manually" }).getAttribute("href")).toBe("/rides/new");
+  expect(screen.getByRole("button", { name: "Facebook screenshot" })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText(/Post text/), { target: { value: "Skopje Veles tomorrow at 17h, free" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create review draft" }));
+  await screen.findByText("Review the extracted details");
+  expect(screen.getByText(price === 0 ? "Free" : "Not stated (free unless you add one)")).toBeTruthy();
+  expect(screen.getByText(/Road distance.*52 km/)).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Continue to editable ride form" })).toBeTruthy();
+});
+
 it("hides check UI while disabled even if a response includes earlier metadata", async () => {
   await submit({ status: "checked", trace: [road] }, false);
   expect(screen.queryByText("How we checked this")).toBeNull();

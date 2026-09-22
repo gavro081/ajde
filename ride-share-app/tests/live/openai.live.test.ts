@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+import { explainMatch } from "@/lib/ai/explain-match";
 import { createOpenAILocationFallback } from "@/lib/ai/openai-location-fallback";
 import { parseOfferDescription } from "@/lib/ai/parse-offer-description";
 import { parseRidePost } from "@/lib/ai/parse-ride-post";
@@ -194,5 +195,26 @@ describe("ride search: a passenger's query becomes feed filters", () => {
       timeAfter: null,
       timeBefore: null,
     });
+  });
+});
+
+describe("match explanations on ride cards", () => {
+  it("describes a matching ride in Skopje time and never argues that it does not match", async () => {
+    // 15:00 UTC is 17:00 in Skopje: exactly the start of a 17:00–09:00 window.
+    const ride = {
+      rideId: "11111111-1111-4111-8111-111111111111",
+      originCityId: CITY.gostivar, originName: "Gostivar",
+      destinationCityId: CITY.skopje, destinationName: "Skopje",
+      departureAt: "2026-09-27T15:00:00+00:00", seatsAvailable: 3, pricePerSeatMkd: 250,
+    };
+    const [result] = await explainMatch([ride], {
+      originId: CITY.gostivar, destinationId: CITY.skopje, departureAfter: null, departureBefore: null,
+      dateFrom: null, dateTo: null, timeAfter: "17:00", timeBefore: "09:00",
+      requestedSeats: null, confidence: 0.9, warnings: [],
+    });
+    show("explanation", result);
+
+    expect(result.explanation).toContain("17:00");
+    expect(result.explanation).not.toMatch(/15:00|not|before the|timeAfter|\(\d+\)/);
   });
 });

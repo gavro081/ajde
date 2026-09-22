@@ -85,11 +85,16 @@ describe("createPublishableRideDraftSchema", () => {
           "departureAt",
           "seatsTotal",
           "carId",
-          "pricePerSeatMkd",
           "genderPreference",
         ]),
       );
+      expect(result.error.issues.map((issue) => issue.path.join("."))).not.toContain("pricePerSeatMkd");
     }
+  });
+
+  it("publishes a ride without a price as free (0 MKD)", () => {
+    const result = publishableSchema.safeParse(validDraft({ pricePerSeatMkd: null }));
+    expect(result.success && result.data.pricePerSeatMkd).toBe(0);
   });
 
   it("rejects a route whose origin and destination are the same", () => {

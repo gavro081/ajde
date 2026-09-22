@@ -46,7 +46,7 @@ it("fills cities and Skopje departure before requesting kilometres with their na
   await waitFor(() => expect(screen.getByRole("button", { name: /^Departure/ }).textContent).toContain("16:00"));
   await waitFor(() => expect(screen.getByLabelText("Estimated route distance (km)")).toHaveProperty("value", "174.3"));
   expect(screen.getByLabelText("Available seats", { exact: false })).toHaveProperty("value", "");
-  expect(screen.getByLabelText("Price per seat (MKD)")).toHaveProperty("value", "");
+  expect(screen.getByLabelText(/Price per seat/)).toHaveProperty("value", "");
   expect(publish).not.toHaveBeenCalled();
 });
 

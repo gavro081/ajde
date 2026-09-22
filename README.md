@@ -1,526 +1,199 @@
-# Student Ride Share — Skopje
+# Ajde - student ride sharing between Macedonian cities
 
-A student-focused ride-sharing prototype for people studying in Skopje who travel home to other
-cities and want to share real fuel costs instead of searching through several Viber or Facebook
-groups.
+Ajde helps students in Skopje find a shared ride home to their city, split the real fuel cost, and
+keep extra cars off the road. Drivers describe a trip the way they'd write it in a Viber group, in
+Macedonian or English, and AI turns it into a ride listing they check before publishing.
 
-The most distinctive workflow turns an informal Macedonian, mixed-script, or Albanian group post
-into a structured **draft**. The driver reviews and edits every extracted field before anything can
-be saved or published.
+**Live demo:** _TODO: deployed URL_ · **Backup video:** _TODO: video link_
 
-> This repository is under active hackathon development. The Tier 1 journey and all planned Tier 2
-> features, private ride rooms, and post-ride ratings are implemented. Production authorization
-> remains unfinished outside the message/rating tables.
+## Who it is for
 
-## Feature status
+**A student studying in Skopje who goes to their home town most weekends.**
+Today they scroll six or more Facebook and Viber groups, one per route. Each gets 10–20 posts a day,
+all in free text, and a post is buried within minutes. The driver on the other side guesses a price
+and often leaves with empty seats.
 
-| Area | Status | Notes |
+- **We talked to students before building.** We interviewed student friends who live in different
+  cities and travel home from Skopje. What we learned:
+  - **Buses are often full.** Students can't get on, or they go to the station much earlier just
+    to get a seat.
+  - **Buses are slower and less convenient** than a car going the same way.
+  - **The other option is driving, and many students drive alone.** Several of them make the same
+    trip in separate cars when they could split one car's fuel cost and save the fuel and CO₂.
+
+  That is what Ajde is built around: find a seat in a car already going your way, and fill the
+  empty seats in yours.
+- **The problem is real, not assumed.** The landing page shows real ride posts from these groups
+  this week ([`public/landing/`](ride-share-app/public/landing),
+  [`about-sections.tsx`](ride-share-app/components/landing/about-sections.tsx)). Those posts are
+  also why the AI has to read Cyrillic shorthand timetables.
+- **Why they'd still use it next month:** the trip home repeats every week, and the price split,
+  saved car and ratings carry over from one trip to the next.
+- **Green, honestly:** three passengers in one car means three fewer car trips. The CO₂ counter
+  only counts completed rides with a real distance and a petrol or diesel car, and excludes demo
+  data ([assumptions](docs/SAFETY.md#co2-impact-assumptions)).
+
+## What you can do in it
+
+1. Sign in with a university email (for example `@students.finki.ukim.mk`) and complete a profile with a photo.
+2. **Find a ride:** filter by route, date and seats, or just type "Bitola Friday after 4".
+3. **Offer a ride:** type "Skopje to Ohrid Saturday 4pm, back Sunday evening, 3 seats", or paste an
+   existing group post. Review the draft, pick your car, see the suggested fair price per seat, publish.
+4. Request a seat. The driver accepts or declines. Contacts are revealed only after acceptance.
+5. Ask questions under the ride, chat in a private ride room (with AI summaries and "Ask AI" to
+   catch up on what was agreed), and share your trip with family through a link that expires.
+6. After the trip, the driver marks it completed. Both sides rate each other, and the CO₂ saved is counted.
+
+## How the AI works
+
+```mermaid
+flowchart TD
+  A["Driver pastes a group post<br/>or types a trip description"] --> B["API route<br/>sign-in + length checks"]
+  B --> C["AI parser (OpenAI, structured output)<br/>gets: current Skopje time + our city list"]
+  C --> D{"Schema valid?"}
+  D -- no --> X["Readable error<br/>'Retry or enter details manually'"]
+  D -- yes --> E["Location resolver<br/>1. exact name / alias match<br/>2. AI fallback only on a miss<br/>3. unknown IDs thrown away"]
+  E --> F["Guards<br/>clear invented times · never guess seats or price<br/>low confidence → warnings"]
+  F --> G["Draft form: driver reviews and edits every field"]
+  G --> H["Road distance (OSRM) + fuel-price math<br/>→ suggested price and CO₂"]
+  H --> I["Server re-validates → ride published"]
+```
+
+| AI job | File | What would break without AI |
 | --- | --- | --- |
-| Database schema and seed catalog | Implemented | Core tables, seat-count triggers, 10 cities, pickup points, 50 car models, 25 demo profiles, and 50 future rides |
-| Manual ride creation | Implemented | Route, pickup points, time, seats, car, price, notes, tags, and gender preference |
-| Car catalog and manual cars | Implemented | Catalog selection prefills fuel/consumption; overrides create a driver-owned snapshot |
-| Fuel-price and CO2 estimate | Implemented | Petrol/diesel arithmetic using server-configured fuel prices; suggestion remains editable |
-| Group-post import and review | Implemented | Structured OpenAI parsing, warnings/confidence, saved import, and editable ride prefill |
-| Tool-using import checker | Implemented locally, disabled by default | Model-selected road distance, deterministic fair share, and possible duplicate evidence; bounded execution and fail-open review |
-| Screenshot import | Implemented locally, disabled by default | Facebook screenshot / Viber text toggle; one PNG/JPEG/WebP up to 4 MB, detected-post selection, then explicit parsing and editable review |
-| Authentication and onboarding | Implemented | Student-domain magic links, guarded local bypass, callback, profile completion, photo upload, and server-side route protection |
-| Public profiles | Implemented | Deliberately limited projection excludes phone and social contact fields |
-| Location normalization | Implemented | Deterministic name/alias matching first, structured model fallback on misses, and canonical-ID validation |
-| Feed and ride detail | Implemented | Authenticated route/date/seat filters, ride cards, seat fullness, driver/car context, and responsive detail pages |
-| Booking lifecycle | Implemented | Request, approve, decline, cancel, concurrency-safe seat holding, driver dashboard, passenger dashboard, and post-approval contact reveal |
-| Natural-language search | Implemented | Structured OpenAI interpretation produces canonical route/time/seat filters; manual filters remain usable when the provider fails |
-| AI match explanations | Implemented | Explanations are batched over server-reloaded visible rides and fall back to deterministic ride facts |
-| Same-gender discovery | Implemented | Optional declared-gender filter is independent from AI search and does not expose gender on ride cards |
-| Public ride Q&A | Implemented | Authenticated students can post on future published/full rides and delete their own comments |
-| Share my trip | Implemented | Accepted passengers can create and revoke signed-out itinerary links that expire 24 hours after departure |
-| Ride completion and CO2 impact | Implemented | Drivers complete/cancel rides; passenger and platform estimates count completed shared trips with explicit assumptions |
-| Private ride rooms | Implemented | Driver and accepted passengers share a Realtime room; acceptance-time history and a 48-hour send window |
-| Post-ride ratings | Implemented | Completed-ride counterpart ratings, private written feedback, and aggregate-only public reputation |
-| Production authorization | Partial | Messages and ratings have RLS; other public tables still need policies before production deployment |
+| Read a messy group post into a ride draft | [`lib/ai/parse-ride-post.ts`](ride-share-app/lib/ai/parse-ride-post.ts) | Posts mix Cyrillic, Latin, landmarks ("од Рамстор") and relative dates; regex can't keep up |
+| Turn a free-text trip description into one draft per trip | [`lib/ai/parse-offer-description.ts`](ride-share-app/lib/ai/parse-offer-description.ts) | Return trips, shared details and "Saturday 4pm" in Skopje time |
+| Map a place name the aliases missed onto our city list | [`lib/ai/openai-location-fallback.ts`](ride-share-app/lib/ai/openai-location-fallback.ts) | Spelling variants and transliterations |
+| Turn a search phrase into filters | [`lib/ai/parse-search-query.ts`](ride-share-app/lib/ai/parse-search-query.ts) | "Ohrid slednive nekolku dena okolu 5" |
+| Summarise a ride chat and answer questions about it, citing the messages | [`lib/ai/chat-assistant.ts`](ride-share-app/lib/ai/chat-assistant.ts) | Catching up on a long chat: "where are we meeting, and who's bringing a big bag?" |
+| Explain why a ride matches your search | [`lib/ai/explain-match.ts`](ride-share-app/lib/ai/explain-match.ts) | (falls back to plain facts) |
+| **PLACEHOLDER / TODO:** screenshot → reader → parser → checker that calls tools | _in progress, not merged_ ([plan](archived-plans/2026-09-22/22-09-ai-pipeline.md)) | Photos of group chats |
 
-## Architecture
+**When the AI is confidently wrong:** the model never publishes anything. It only fills a draft
+that a person reviews, and the server validates the draft again on submit. The model can't
+invent a city: every place ID must exist in our database or it's discarded. Invented departure
+times are cleared, and missing seats or prices stay empty. Uncertain output shows warnings in the
+form. If OpenAI is down, search falls back to the manual filters and the ride list still loads.
+The price and CO₂ numbers are deliberately plain arithmetic, not AI, so they can be checked by
+hand. More detail in [docs/AI.md](docs/AI.md).
 
-```mermaid
-flowchart LR
-  Browser[Browser]
-  Next[Next.js App Router]
-  Auth[Supabase Auth]
-  DB[(Supabase Postgres)]
-  Storage[Supabase Storage\nprofile photos]
-  OpenAI[OpenAI Responses API]
+### What is real and what is not
 
-  Browser --> Next
-  Next --> Auth
-  Next --> DB
-  Next --> Storage
-  Next -->|server-only parse, search, explain| OpenAI
-  OpenAI -->|schema-constrained output| Next
-  Next -->|raw post + parsed result| DB
-```
+| Real | Demo / assumption |
+| --- | --- |
+| Live OpenAI calls for parsing, search and explanations | 25 demo profiles and 50 demo rides, seeded so the feed isn't empty (flagged `demo_seed`, excluded from CO₂ totals) |
+| Supabase auth, database, photo storage and Realtime chat | Fuel prices are values we set in `.env`, not a live feed |
+| Road distance from the public OSRM router | Car fuel consumption is a representative, rounded value per catalog model |
+| Real group posts on the landing page and in the parser tests | No payments: the app suggests a price, and passengers settle with the driver themselves |
 
-The application lives in `ride-share-app/`. Next.js Server Components, Route Handlers, and Server
-Actions use a request-scoped Supabase client. The browser receives only Supabase's public project
-key. OpenAI credentials, database credentials, and fuel-price assumptions remain server-side.
+## How to run it
 
-### Import-to-ride boundary
-
-```mermaid
-flowchart LR
-  Screenshot[Screenshot upload] --> Reader[Separate screenshot reader]
-  Reader --> Selection[Driver selects one post]
-  Selection --> Parse
-  Post[Group post] --> Parse[Structured parser]
-  Parse --> Validate[Schema + canonical-ID guards]
-  Validate --> Flag{Pipeline enabled and offer?}
-  Flag -->|yes| Checker[Bounded checker]
-  Checker -->|model-selected road_distance| Road[Canonical city road routing]
-  Road --> Checker
-  Checker -->|model-selected fair_price| Price[Deterministic fuel-cost arithmetic]
-  Price --> Checker
-  Checker -->|model-selected find_similar_rides| Similar[Visible published/full rides]
-  Similar --> Checker
-  Checker --> Import[(imports + check evidence)]
-  Flag -->|no| Import
-  Import --> Review[Human review]
-  Review --> Form[Shared ride form]
-  Form --> Server[Server validation]
-  Server --> Ride[(cars + rides)]
-```
-
-Model output never publishes a ride directly. Imported and manually entered rides use the same
-draft contract, and the stricter publishable schema is checked again on the server.
-
-More detail:
-
-- [Database model](ride-share-app/supabase/DATABASE_MODELS.md)
-- [Parser fixture evaluation](ride-share-app/fixtures/posts/README.md)
-- [Ride-room setup and verification](ride-share-app/fixtures/chat/README.md)
-- [Rating verification](ride-share-app/fixtures/ratings/README.md)
-
-## Local setup
-
-### Requirements
-
-- Node.js 20.9 or newer
-- npm with lockfile-v3 support
-- A Supabase project
-- PostgreSQL `psql` for the documented migration and smoke-test commands
-- An OpenAI API key to use post import, AI search/explanations, or live evaluations
-
-The repository does not yet pin a specific Node/npm version. The latest verified environment used
-Node.js 23.7.0 and npm 11.2.0.
-
-### 1. Install
+You need Node.js 20.9+, a Supabase project, `psql`, and an OpenAI API key.
+[docs/SETUP.md](docs/SETUP.md) has every step and environment variable.
 
 ```sh
 git clone <repository-url>
 cd lightweight-repo/ride-share-app
 npm ci
+cp .env.example .env.local        # fill in Supabase URL/keys, DATABASE_URL, OPENAI_API_KEY, fuel prices
+
+# create the schema and demo data (run once against an empty Supabase database)
+set -a; . ./.env.local; set +a
+for m in supabase/migrations/*.sql; do psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$m" || break; done
+
+npm run dev                       # http://localhost:3000
+npm test                          # 650 tests, no network needed
 ```
 
-All following commands assume the current directory is `ride-share-app/`.
-
-### 2. Configure environment variables
-
-```sh
-cp .env.example .env.local
-```
-
-Fill in `.env.local` without committing it:
-
-| Variable | Required for | Notes |
-| --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Application startup and Supabase pages | Browser-visible project URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase access | Browser-visible public key; legacy projects may use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead |
-| `DATABASE_URL` | Migrations and schema smoke test | Use the session-pooler PostgreSQL URL on port 5432 |
-| `STUDENT_EMAIL_DOMAINS` | Student access policy | Server-only comma-separated exact domains |
-| `OPENAI_API_KEY` | Post parsing, location fallback, natural-language search, match explanations, and live evaluations | Server-only; never prefix it with `NEXT_PUBLIC_` |
-| `OPENAI_MODEL` | Optional ride-post parser override | Defaults to `gpt-5.4-mini` |
-| `AI_IMPORT_PIPELINE_ENABLED` | Server-only import pipeline switch | Disabled unless exactly `true`; normal server restart/redeploy required after an environment change |
-| `OPENAI_CHECK_MODEL` | Optional checker override | First nonempty value of this setting, `OPENAI_MODEL`, then verified `gpt-5.4-mini` |
-| `OPENAI_LOCATION_MODEL` | Optional location-fallback override | Defaults to `gpt-5-mini` |
-| `OPENAI_SEARCH_MODEL` | Optional natural-language search override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
-| `OPENAI_EXPLAIN_MODEL` | Optional match-explanation override | Falls back to `OPENAI_MODEL`, then `gpt-5.4-mini` |
-| `FUEL_PRICE_PETROL_MKD_L` | Petrol cost estimate | Optional at startup; verify the current MKD/L value before a demo |
-| `FUEL_PRICE_DIESEL_MKD_L` | Diesel cost estimate | Optional at startup; verify the current MKD/L value before a demo |
-| `DEV_AUTH_BYPASS` | Local sign-in without sending email | Optional; honored only when exactly `true` outside production |
-| `SUPABASE_SECRET_KEY` | Local development bypass | Preferred server-only admin key when the bypass is enabled |
-| `SUPABASE_SERVICE_ROLE_KEY` | Local development bypass | Legacy alternative to `SUPABASE_SECRET_KEY` |
-
-`.env.local` is ignored by Git. Only the blank `.env.example` contract is tracked.
-
-### 3. Create the database
-
-There is no committed Supabase CLI project configuration yet. Against a new Supabase database,
-load the local environment into the current shell, then apply the migration files once in filename
-order:
-
-```sh
-set -a
-. ./.env.local
-set +a
-
-for migration in supabase/migrations/*.sql; do
-  psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$migration" || exit 1
-done
-```
-
-Alternatively, paste each file into the Supabase SQL Editor in the same order. The initial migration
-creates the schema and is not intended to be reapplied to an existing database.
-
-Verify the migrated schema and triggers with the rollback-safe smoke test:
-
-```sh
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/schema_smoke.sql
-```
-
-### 4. Configure external services
-
-In Supabase:
-
-1. Copy the project URL and publishable/anon key into `.env.local`.
-2. Copy the session-pooler database connection string into `DATABASE_URL`.
-3. Enable email authentication for the magic-link flow.
-4. Allow the local and deployed `/auth/callback` URLs in Supabase Auth redirect configuration.
-5. Apply all migrations: the profile-photo bucket and its ownership policies are created by
-   `20260920130000_add_profile_photo_storage.sql`.
-
-The app checks `STUDENT_EMAIL_DOMAINS` before sending a link and again after callback/session
-creation. Exact domain matching is used; suffix matches are not accepted.
-
-### 5. Run
-
-```sh
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000). To check Supabase wiring while signed out, open
-`http://localhost:3000/api/health/supabase`; a response containing `"ok": true` and `"user": null`
-is a successful anonymous connectivity check.
-
-`/rides/new`, `/rides/import`, and `/api/parse` require a valid session. New users are sent through
-`/onboarding` until their name, university, and profile photo are complete.
-
-If hosted email is rate-limited during local development, set `DEV_AUTH_BYPASS=true` and configure
-`SUPABASE_SECRET_KEY` (or the legacy service-role key). The separate bypass button appears only
-outside production, still requires an allowed student-domain address, and creates an ordinary
-cookie-backed Supabase session.
-
-## Verification commands
-
-Run from `ride-share-app/`:
-
-```sh
-npm test
-npm run lint
-npx tsc --noEmit
-npx next build --webpack
-```
-
-The focused suite covers location resolution, ride-draft validation, form parsing, car selection,
-price/CO2 calculations, feed filters, booking eligibility, search and explanation contracts,
-sharing, comments, ride completion, impact queries, canonical parser guards, and fixture behavior.
-Run only the 13 location-resolver tests with `npm run test:locations`.
-
-The live parser evaluator makes real OpenAI requests:
-
-```sh
-npm run eval:parser
-```
-
-It fixes the evaluation timestamp for repeatable relative-date expectations and reports accuracy by
-classification, route, departure, seats, and price. The latest recorded result is 5/5 in each field
-on five curated fixtures; that is a regression signal, not a production-accuracy claim.
-
-Natural-language search has a separate live evaluator:
-
-```sh
-npm run eval:search
-```
-
-Its eight fixtures cover English, Macedonian Cyrillic and transliteration, Albanian, landmarks,
-unknown places, missing fields, relative dates, and unsupported preference wording. See
-[the recorded search evaluation](ride-share-app/fixtures/search/README.md). Normal `npm test` runs
-use mocked model responses and consume no OpenAI credits; both live evaluators do consume credits.
-
-## Current implemented flow
-
-The implemented product flow is:
-
-1. Sign in with an allowed student-domain address and complete the required profile onboarding.
-2. Browse `/rides`; use manual route/date/seat filters, optional same-gender discovery, or an
-   AI-interpreted natural-language query. Match explanations degrade safely if OpenAI is unavailable.
-3. Request one or more available seats. The passenger sees a pending request in `/dashboard/trips`.
-4. The driver accepts or declines from `/dashboard/driver`; accepted seats are held atomically.
-5. Accepted drivers and passengers can see each other's contact details. A passenger cancellation
-   releases the seats and reopens a full ride automatically.
-6. Drivers can create a ride manually, or paste a Viber/Facebook post into `/rides/import`, review
-   the structured draft, choose a car, check the estimate, and explicitly publish it.
-7. Students can use the public Q&A on an upcoming ride. Accepted passengers can create a limited
-   itinerary link for family, revoke it, or let it expire automatically 24 hours after departure.
-8. The driver completes or cancels the ride. Completed shared rides contribute to the personal and
-   platform estimated CO2 counters in the passenger dashboard.
-
-## How AI is used
-
-### Tool-backed import checking
-
-The [screenshot reader](ride-share-app/lib/ai/read-screenshot.ts) performs a separate job before
-parsing: transcribe the original language, scripts, emoji, and typos; split separate messages;
-omit surrounding interface text; and mark unreadable fragments `[?]`. The authenticated
-[screenshot endpoint](ride-share-app/app/api/parse/screenshot/route.ts) accepts one PNG, JPEG, or
-WebP with at most 4 MB of decoded bytes. MIME and size are checked before model invocation.
-It returns up to ten nonempty posts with visible offer/request/other kinds, using high-detail image
-input and the verified `OPENAI_MODEL` fallback. No separate vision-model setting was needed.
-
-The [screenshot selection UI](ride-share-app/app/rides/import/screenshot-import.tsx) lets the driver
-choose **one** post in **Facebook screenshot** mode. **Viber text** mode instead shows an editable
-text box. The toggle preserves each mode's input and sets the source automatically; only the active
-mode is submitted by **Create review draft**. Request and other posts remain selectable. The flow
-reuses the parser → canonical guards → checker/tools → review → editable form path. Upload and
-selection alone neither parse a ride nor persist an import. Reader failures leave text importing
-available. The reader and parser remain separate model jobs with a human checkpoint between them.
-
-The server-only [pipeline setting](ride-share-app/lib/ai/import-pipeline-config.ts) controls the new
-reader and import checker as a unit. Missing, false, or invalid settings preserve the existing text-only
-parse, persist, review, and editable-form flow without check metadata. The server sends only the
-resolved boolean to the browser; client requests cannot enable the feature. Older checked imports
-remain compatible with the existing draft schema while the setting is disabled.
-
-After the existing [parser and canonical guards](ride-share-app/lib/ai/parse-ride-post.ts),
-[`checkRideDraft`](ride-share-app/lib/ai/check-ride-draft.ts) receives a deliberate projection of
-canonical city IDs/names, structured ride fields, and a Europe/Skopje clock. It never receives the
-original post, location raw text, or notes. Only ride offers enter this step; requests and unknown
-posts retain their existing review path.
-
-When disabled, direct screenshot requests return 404 **before body/image processing**, including
-requests from a stale enabled client. Enabled screenshot requests require authentication. Missing
-provider configuration returns 503, model refusal 422, and provider failure 502; unreadable images
-suggest pasting text instead.
-
-| Model-selected tool | Evidence | Limits |
-| --- | --- | --- |
-| `road_distance` | [Shared road routing](ride-share-app/lib/rides/road-distance.ts) using canonical city reference coordinates | Editable city-to-city estimate; shared permit and eight-second routing timeout |
-| `fair_price` | [Deterministic fair-share calculator](ride-share-app/lib/ai/fair-price-tool.ts) reusing `calculateRideEstimate` and server fuel-price configuration | Actual available seats divide the cost; unknown/unsupported fuel defaults to petrol and missing consumption to 7 L/100 km, explicitly labelled; no configured fuel price means unavailable |
-| `find_similar_rides` | [Authenticated similar-ride query](ride-share-app/lib/ai/similar-rides-tool.ts) | Same directed canonical route, published/full status, inclusive ±3 hours, at most five matches |
-
-The [authenticated tool adapters](ride-share-app/lib/ai/ride-check-tools.ts) use the caller's Supabase
-client. The checker validates tool arguments, successful results, and their relevance to the draft;
-unknown tools and dependency errors become unavailable evidence. It allows four tool-capable model
-rounds and six executed calls, then requests a final response with tools disabled. Requests use
-`store: false`, a 15-second timeout, and zero retries, with ordered SDK continuation. Total latency
-can exceed the handoff's unmeasured 2–6-second estimate. The [capability spike](docs/verification/ai-import-capabilities.md)
-records actual observations and the verified fallback, separately from production accuracy.
-
-Code fills only a missing distance from successful routing and preserves all existing values,
-confidence, and warnings. Findings require successful relevant evidence; arbitrary model prose
-cannot supply a distance or unsupported departure, capacity, or source-text claims. Whole-check
-failure preserves the draft and adds “Automatic plausibility check was unavailable.” An empty or
-failed trace never implies an all-clear. The [review summary](ride-share-app/app/rides/import/ride-check-summary.tsx)
-shows readable evidence and errors before explicit continuation to the editable form. Human review
-and the existing publication validation remain required; native ride-description AI fill is unchanged.
-
-Fair-price arithmetic is deterministic code, not AI. The model chooses when to request the tool;
-code validates its calculation basis and warns only when the driver's price divided by the positive
-estimate is strictly below **0.3** or above **2.5**. Exact boundaries are accepted, missing/zero
-estimates cannot justify division, and the driver's price is never replaced. The summary shows
-distance, offered seats, pump price, consumption, default assumptions, and excluded tolls. A known
-hybrid/electric/LPG/other fuel is treated as an explicitly labelled petrol approximation by this
-limited calculator; the driver must review its suitability.
-
-Similar rides are **possible duplicates**, not a broad semantic duplicate detector. Review shows
-their departure in Skopje time, per-seat price, available seats, and links. A successful empty search
-is distinguished from an unavailable one. No match prevents publication or changes the draft.
-
-Current delivery includes the reader, human selection, existing parser/guards, all three checker
-tools, and review/form continuation. [Local verification](docs/verification/ai-import-pipeline.md)
-records deterministic and mobile checks separately from opt-in live evidence. The remaining
-opportunities are batch import, applying the checker to native ride-description AI fill, and
-evidence-backed spam/safety checks; none are part of this delivery.
-
-The application does not save screenshots to database, object storage, files, or logs, and does not
-persist unselected transcripts. Image bytes are processed transiently on the server and sent to the
-model with `store: false`; only the text explicitly submitted for a review draft enters the existing
-import record. This describes application retention, not an independently verified guarantee about
-provider retention. No image URLs are accepted. Live fixture samples cannot establish production
-accuracy, and screenshot reading adds another model request before the checker's bounded loop.
-
-
-`parseRidePost` uses the OpenAI Responses API with a Zod-backed structured-output schema. It is
-designed for informal posts containing Macedonian Cyrillic, Latin transliteration, mixed scripts,
-Albanian, landmarks, relative dates, offer/request wording, and several price modes.
-
-The parser receives:
-
-- An explicit current timestamp and the `Europe/Skopje` timezone
-- Only the canonical city and pickup candidates loaded from Supabase
-- Instructions to preserve uncertainty as warnings and leave unknown fields null
-- The same partial ride-draft contract the review form consumes
-
-After the model responds, ordinary code resolves the preserved raw origin/destination wording
-through the canonical location resolver instead of trusting model-supplied IDs. Canonical names and
-aliases match deterministically; only genuine misses may use the separate structured model fallback.
-Pickup matches derive their city from the database vocabulary, fabricated IDs are rejected, and an
-unresolved place clears model IDs and forces manual review. Additional guards clear invented
-departure times and flag low-confidence output. The raw post and structured result are stored
-together for the review step.
-
-Search dates and clock times are independent. Time-only searches apply to all upcoming rides;
-date ranges apply the clock window on each selected day in `Europe/Skopje`, including DST changes.
-The manual filters expose optional from/through dates and at-or-after/before times. A from date
-alone means that single day; through dates are inclusive. Clock starts are inclusive and ends
-exclusive; a start later than its end selects an overnight window on the selected calendar dates.
-“Next few days” / “slednive nekolku dena” defaults to today plus the following two days, with a
-review warning. “Nakaj 5” defaults to around 17:00 (16:00–18:00), with an afternoon-assumption warning.
-The interpretation and editable controls show these choices. `dateFrom`/`dateTo` and
-`timeAfter`/`timeBefore` are independent result fields; legacy `after`/`before` URL bounds remain
-supported. The feed scans ordered pages until it finds 100 matches or exhausts the range, so
-filtering out early rides does not hide later matches. This avoids a database migration, though
-very broad time-only searches may need to read many pages.
-
-`parseSearchQuery` separately turns a short search such as “Bitola Friday after 4” into nullable,
-schema-validated origin, destination, time-bound, and seat fields. Canonical locations are resolved
-against the same database vocabulary, unsupported criteria remain warnings, and only validated URL
-filters reach the feed query. `explainMatch` receives a bounded batch of server-reloaded matching
-ride facts and the parsed search context. Invalid, timed-out, missing-key, or unsupported responses
-fall back to deterministic explanations; AI failure never removes the underlying ride results.
-
-The fair-price and CO2 calculator is intentionally **not AI**. It uses transparent arithmetic:
-
-```text
-distance_km × consumption_l_100km / 100 × fuel_price_mkd_l / seats
-```
-
-Tailpipe factors are 2.31 kg CO2/L for petrol and 2.68 kg CO2/L for diesel. Other fuel types are
-reported as unsupported rather than receiving an invented conversion factor, and the driver may
-always override the suggested price.
-
-## Safety and privacy
-
-Implemented protections:
-
-- Magic-link requests and sessions are restricted to exact configured student domains.
-- Protected routes are checked in the Next.js proxy before rendering.
-- Onboarding requires a real name, university, and JPEG/PNG/WebP profile photo up to 5 MiB.
-- Storage policies restrict profile-photo writes to the authenticated user's UUID folder.
-- Public profile queries select only name, photo, university, bio, and gender—not contact fields.
-- Ride creation and post parsing check the Supabase session on the server.
-- Every booking mutation rechecks authentication, ownership, current state, departure time, and
-  capacity; the database trigger is the final concurrency guard against overbooking.
-- Applicants and public feed users never receive contact fields. Contacts are queried and shown
-  only for accepted bookings to the participating driver and passenger.
-- Same-gender discovery and booking restrictions require both people to have a declared usable
-  gender; undisclosed or missing values are never guessed or treated as a match.
-- Ride Q&A requires an authenticated complete student profile, accepts posts only before departure
-  on published/full rides, and lets authors delete only their own comments.
-- Share links use random bearer tokens, are available only for accepted bookings, can be revoked,
-  and stop resolving after cancellation, booking-status changes, or 24 hours after departure. The
-  public projection contains itinerary, driver name/photo, and car details—not contacts, booking
-  messages, passenger identities, or live location.
-- Imported records and saved cars are checked against the authenticated user's ID.
-- Form input is validated in the UI contract and again in the Server Action.
-- Duplicate submissions are detected through a submission UUID.
-- Imported model output always goes through human review.
-- Public Supabase keys are separated from server-only secrets.
-
-### CO2 impact assumptions
-
-The homepage shows database-derived estimated CO2/fuel savings, distinct participants, and completed
-shared trips. It excludes rides marked `details.demo_seed`, counts only departed completed rides
-with accepted bookings, and labels estimates and unavailable data explicitly. Participants count
-each driver/passenger once across qualifying trips; missing/unsupported vehicle data excludes a
-trip from savings estimates but not participation counts. No tree-equivalent estimate is shown.
-
-- Each accepted passenger seat is assumed to replace a separate car making the same trip with the
-  shared car's recorded consumption. These are estimates, not measured emissions.
-- Personal savings belong to accepted passengers; drivers receive no extra credit. Each eligible
-  ride contributes once to the platform total.
-- Only departed rides explicitly marked completed and containing accepted seats qualify. Petrol
-  and diesel use the factors above; missing/invalid distance, car, or consumption data and other
-  fuels are counted as excluded rather than estimated.
-- Totals use the currently stored ride, booking, and car data rather than an immutable historical
-  snapshot, so later booking changes can alter the totals.
-
-### Post-ride feedback
-
-Once a driver marks a ride completed, accepted passengers can rate that driver in My trips,
-and the driver can rate each accepted passenger in the driver dashboard. Requested, declined,
-cancelled, unrelated, and passenger-to-passenger pairs are ineligible. Unclaimed rides have no
-driver to rate. Each ride/rater/ratee pair contributes once, even for a multi-seat booking;
-the database unique constraint resolves concurrent submissions.
-
-Scores are integers from 1 to 5. Optional feedback is trimmed and limited to 1000 characters.
-Submitted ratings become read-only. Public profiles show only the average to one decimal and
-the count, or an honest empty state. The aggregate function excludes ineligible legacy rows.
-Raw scores and notes are readable only by the rater and ratee; the dashboard shows the signed-in
-user's submitted feedback as escaped text. Received-feedback UI, edits, deletion, appeals,
-moderation UI, and AI spam/safety screening are deferred.
-
-### Ride rooms and Realtime
-
-Each ride has one room shared by its driver and currently accepted passengers. Passengers can
-read messages created at or after their accepted booking's `decided_at`; the driver sees the
-whole room history. Cancelling a booking immediately removes database read/send access.
-Previously delivered text cannot be recalled. The client rechecks membership on reads, sends,
-events, reconnect, focus, and periodically while open.
-
-Sending is allowed until 48 hours after departure, inclusive, and stops when a ride is cancelled.
-Completed rides inside the window can still receive messages. Authorized members keep read-only
-history after cancellation or expiry. Direct messages, edits, deletes, read receipts, and AI
-processing are deferred. Realtime events trigger an authorized history refresh.
-
-Apply the migrations in order, including `20260921140000_communication_reputation_policies.sql`
-and `20260921190000_rating_input_grants.sql`. The first publishes `public.messages` through
-`supabase_realtime`; Realtime must also be enabled in the Supabase project. Use normal authenticated
-student sessions and the existing public project key. The second narrows rating insert columns
-and enforces private-note input without changing room permissions. No admin key is used by
-the application for chat or ratings. See the linked verification guides for repeatable checks.
-
-## Known issues and limitations
-
-- Messages and ratings have table-specific RLS, but the other public tables remain unrestricted.
-  Direct mutation of rides/bookings could forge the membership facts used by those policies.
-  Complete project-wide RLS before production deployment.
-- Unclaimed imported-ride ownership, reports, recurring rides, payments, and live location tracking
-  are not implemented. Rating moderation, appeals, and AI spam/safety screening are also deferred.
-- The local auth bypass requires a server admin key; it is guarded from production but should remain
-  disabled during normal testing.
-- Parser accuracy has only been measured on five curated post fixtures, and search on twelve curated
-  fixtures; model output can vary and both paths require user-visible review/fallback behavior.
-- Date-only posts deliberately leave departure empty for manual review; “after 6” uses 18:00 as an
-  earliest boundary and adds a warning.
-- Distance is entered manually; no routing/distance provider is integrated.
-- Fuel-price environment values are manual assumptions and must be verified before presenting them.
-- Automatic CO2 estimates currently cover petrol and diesel only.
-- Migration execution and generated-type refresh are not wrapped in project scripts.
+Sign-in uses a magic link, sent only to domains in `STUDENT_EMAIL_DOMAINS`. For local testing
+without email, set `DEV_AUTH_BYPASS=true` and `SUPABASE_SECRET_KEY`. The bypass is ignored in production.
+
+## What is finished and what is not
+
+**Finished and working end to end:** student sign-in and onboarding; manual, described and
+imported ride offers; car catalog with fuel-cost and CO₂ suggestion; automatic road distance;
+feed with filters and AI search; seat requests with accept, decline and cancel; contact reveal
+after acceptance; ride Q&A; share-my-trip links; private ride chat with AI summaries and questions; ride completion; ratings;
+personal and platform CO₂ counters.
+
+**Not finished:**
+
+- **Screenshot → checked-ride AI pipeline:** PLACEHOLDER / TODO, in progress on a separate branch.
+- Unclaimed imported rides, reporting users, AI spam screening, recurring rides, payments, live location.
+
+### Known issues
+
+- **Security is not production-ready.** Row-level security is enforced only on chat messages and
+  ratings. The other tables rely on server-side checks in our code, so a user calling Supabase
+  directly with the public key could bypass them.
+- Our AI accuracy numbers come from small test sets: 5 posts, 12 searches, 4 descriptions. The
+  model can still be wrong, which is why every draft goes through human review.
+- A booking approved at the exact moment a ride departs isn't guarded by a transaction
+  ([ticket](docs/tickets/21-09-pero/06-atomic-booking-decisions.md)).
+- Distance is city-centre to city-centre, not pickup to pickup ([why](docs/adr/0001-city-to-city-road-distance.md)).
+  The free OSRM server is shared, so we rate-limit it and fall back to manual km.
+- CO₂ is estimated only for petrol and diesel cars. Fuel prices must be updated by hand.
+- Migrations are applied with a `psql` loop, not a migration tool.
+
+### What we tried to break
+
+Empty input, huge input, four scripts and languages, unknown places, OpenAI down, OSRM down, double
+submits, two people booking the last seat, and a browser in another timezone. Each case and its
+result is in [docs/TESTING.md](docs/TESTING.md), along with the test suite and live AI evaluations.
+
+## How we built it
+
+**Team:** Filip Gavrilovski (Gavro), Dimitar Arsov (Dimi), Petar Srbinoski (Pero).
+
+**Stack and why:**
+
+- **Next.js (App Router):** UI and server API in one TypeScript project, and the OpenAI key never
+  reaches the browser.
+- **Supabase:** Postgres, auth, photo storage and Realtime chat from one service, with row-level
+  security available in SQL. That saved a day of backend setup.
+- **OpenAI structured outputs + Zod:** the model must return our exact draft shape. The same Zod
+  schema validates the form and the server.
+- **OSRM:** free road distances with no API key ([research](docs/research/free-road-distance-api.md)).
+- **Vitest:** fast tests with mocked AI.
+
+**How we used AI.** Most of the code was written by AI coding agents. Our
+master plan estimates about 95% of feature code, and that let us spend our time on the parts AI
+can't decide for us. We decided the scope and the data model, and who sees whose contact details.
+We chose which numbers must *not* come from AI, and where a human has to review. We tuned the parser
+on real posts, wrote the guards, and checked the security rules. Each day we wrote a plan, split it
+into two parallel tracks so we didn't edit the same files, generated the code, and read and fixed the
+diffs. After that came tests and a verification write-up. The plans are in
+[archived-plans/](archived-plans/README.md), and review findings are in [docs/verification/](docs/verification/).
+
+**Commits:** about 170 Conventional Commits over 20–22 September, on feature branches merged into
+`main` ([CONTRIBUTING.md](CONTRIBUTING.md)). Bugs appear as `fix(...)` commits after the feature
+that introduced them.
+
+## What we'd build next with another week
+
+1. Finish the screenshot pipeline: a vision reader, the parser, then a checker that calls tools
+   (road distance, fair price, similar rides) to cross-check the draft.
+2. Row-level security on every table, then a public launch to FINKI students.
+3. Recurring rides ("every Friday 15:00 Skopje → Bitola") and notifications when a matching ride appears.
+4. Unclaimed imported rides, so passengers can find drivers who only post in Viber, plus reporting and AI spam screening.
+5. **Groups beyond students:** let companies and organisations set up their own private group
+   (verified by work email domain, the same way universities work today). Colleagues could share
+   daily commutes and trips between offices, and the organisation would see its CO₂ savings.
+   Employers are a big second market: bigger than students, and they pay for sustainability numbers.
+6. A mobile app or PWA with push notifications, and pickup-level distances.
 
 ## Repository map
 
 ```text
 .
-├── PLAN.md                         product scope, schedule, and rubric mapping
-├── archived-plans/                completed implementation plans and handoff notes
-└── ride-share-app/
-    ├── app/                        Next.js routes, Server Actions, and Route Handlers
-    ├── fixtures/posts/             anonymized parser fixtures and evaluation notes
-    ├── fixtures/search/            multilingual search fixtures and recorded live results
-    ├── lib/ai/                     structured parsing, location resolution, search, explanations
-    ├── lib/auth/                   domain policy and session/profile-completion guards
-    ├── lib/bookings/               booking input and eligibility validation
-    ├── lib/comments/               public ride Q&A access, queries, and mutations
-    ├── lib/impact/                 personal and platform CO2 impact queries
-    ├── lib/profiles/               deliberately limited public-profile query
-    ├── lib/rides/                  ride contracts, form validation, car and estimate logic
-    ├── lib/sharing/                expiring public itinerary links and safe projections
-    ├── lib/supabase/               browser/server clients and generated database types
-    ├── scripts/                    live parser and search evaluators
-    └── supabase/                   migrations, seeds, model documentation, and smoke test
+├── ride-share-app/            the Next.js app
+│   ├── app/                   pages, API routes, server actions
+│   ├── components/            UI components (landing, discovery, chat, ratings)
+│   ├── lib/ai/                every AI step and its guards  ← start here
+│   ├── lib/                   rides, bookings, auth, sharing, impact, Supabase clients
+│   ├── fixtures/              real-post, search, chat and rating test fixtures
+│   ├── scripts/               live AI evaluations and browser verification
+│   └── supabase/              migrations, seed data, schema smoke test, DATABASE_MODELS.md
+├── docs/                      setup, AI, safety, testing, ADRs, verification records, glossary
+└── archived-plans/            master plan and the daily plans we built from
 ```
-
-## Build discipline
-
-Work is developed on feature branches with Conventional Commit messages. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for the repository's exact commit and merge rules.
-
-The deadline plan intentionally prioritizes a truthful, working demo over hiding unfinished scope.
-If a feature is not in the status table as implemented, assume it is not ready for the demo.

@@ -8,6 +8,7 @@ import { rideCheckMetadataSchema, type RideCheckMetadata } from "@/lib/ai/ride-c
 import { formatDeparture } from "@/lib/rides/ride-presentation";
 import { RideCheckSummary } from "./ride-check-summary";
 import { ScreenshotImport } from "./screenshot-import";
+import { formatSeatPrice } from "@/lib/rides/ride-price";
 
 type ParseResponse = {
   importId: string;
@@ -114,16 +115,20 @@ export function ImportRideForm({ cities, pipelineEnabled = false }: { cities: { 
             required
             value={text}
           />
-          <span className="mt-1 block text-right text-xs font-normal text-slate-500">{text.length.toLocaleString()} / 5,000</span>
+          <span className="mt-1 block text-right text-xs text-slate-500">{text.length}/5000</span>
         </label> : null}
-        <button
-          className="btn-primary w-full disabled:opacity-50"
-          disabled={pending || readingScreenshot || postText.trim().length < 10}
-          type="submit"
-        >
-          {pending ? "Parsing…" : "Create review draft"}
-        </button>
-        <p className="text-center text-xs text-slate-500">Review and edit before publishing.</p>
+        <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[.8125rem] text-slate-500">
+            No post to import? <Link href="/rides/new" className="font-semibold text-brand-700 hover:underline">Create a ride manually</Link>
+          </p>
+          <button
+            className="btn-primary disabled:opacity-50"
+            disabled={pending || readingScreenshot || postText.trim().length < 10}
+            type="submit"
+          >
+            {pending ? "Parsing…" : "Create review draft"}
+          </button>
+        </div>
       </form>
 
       {error ? (
@@ -146,7 +151,7 @@ function ParsedReview({ result, cities, pipelineEnabled }: { result: ParseRespon
     ["Destination city", cities.find(city => city.id === parsed.draft.destination.cityId)?.name_en ?? parsed.draft.destination.rawText ?? "Needs review"],
     ["Departure (Skopje time)", parsed.draft.departureAt ? formatDeparture(parsed.draft.departureAt) : "Needs review"],
     ["Seats", parsed.draft.seatsTotal ?? "Needs review"],
-    ["Price per seat", parsed.draft.pricePerSeatMkd !== null ? `${parsed.draft.pricePerSeatMkd} MKD` : "Needs review"],
+    ["Price per seat", parsed.draft.pricePerSeatMkd !== null ? formatSeatPrice(parsed.draft.pricePerSeatMkd) : "Not stated (free unless you add one)"],
   ];
 
   return (

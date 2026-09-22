@@ -12,6 +12,7 @@ import { cancelBooking } from "../actions";
 import { passengerTripStatus } from "./passenger-trip-status";
 import { TripStatusFilterNav } from "./trip-status-filter-nav";
 import { tripStatusFilters, type TripStatusFilter } from "./trip-tabs";
+import { formatSeatPrice, isFreeRide, seatPriceCaption } from "@/lib/rides/ride-price";
 
 const emptyStates: Record<TripStatusFilter, { title: string; body: string }> = {
   active: { title: "No active trips", body: "Your pending requests and confirmed bookings will appear here." },
@@ -84,9 +85,9 @@ export async function PassengerTrips({ userId, filter }: { userId: string; filte
                 <span className="block text-[.75rem] leading-5 text-slate-500">Skopje time</span>
               </time>
               <div className="ml-auto shrink-0 text-right">
-                <p className="text-2xl font-bold leading-7 tracking-tight">{ride.price_per_seat_mkd === null ? "Flexible" : `${ride.price_per_seat_mkd} MKD`}</p>
-                <p className="text-[.75rem] leading-5 text-slate-500">per seat</p>
-                {booking.seats > 1 && ride.price_per_seat_mkd !== null ? <p className="mt-1 text-[.8125rem] font-medium text-slate-600">{ride.price_per_seat_mkd * booking.seats} MKD total</p> : null}
+                <p className="text-2xl font-bold leading-7 tracking-tight">{formatSeatPrice(ride.price_per_seat_mkd)}</p>
+                <p className="text-[.75rem] leading-5 text-slate-500">{seatPriceCaption(ride.price_per_seat_mkd)}</p>
+                {booking.seats > 1 && !isFreeRide(ride.price_per_seat_mkd) && ride.price_per_seat_mkd !== null ? <p className="mt-1 text-[.8125rem] font-medium text-slate-600">{ride.price_per_seat_mkd * booking.seats} MKD total</p> : null}
               </div>
             </div>
             {rideIsCancelled ? <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">The driver cancelled this ride. Please make other travel plans.</p> : null}

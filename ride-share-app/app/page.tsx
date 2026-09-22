@@ -61,8 +61,8 @@ export default function Home() {
 
       <main id="main-content" className="relative mt-auto grid items-end gap-10 px-5 pb-10 pt-[calc(var(--header-h)+15rem)] sm:px-10 sm:pt-[calc(var(--header-h)+9rem)] lg:grid-cols-[1fr_auto] lg:pb-12 lg:pt-[calc(var(--header-h)+1.5rem)]">
         <div>
-          <h1 className="font-display text-[clamp(3.1rem,min(7vw,10.5vh),6.4rem)] font-extrabold leading-[0.95] tracking-[-0.055em]">
-            Share the ride.<br /><span className="underline decoration-[0.07em] underline-offset-[0.12em]">Spare the air.</span>
+          <h1 className="font-display text-[clamp(2.75rem,min(5.75vw,9vh),5.25rem)] font-extrabold leading-[0.95] tracking-[-0.055em]">
+            Quicker. Cheaper. <span className="text-[var(--accent)]">Greener.</span><br /><span className="underline decoration-[0.07em] underline-offset-[0.12em]">Your ride home.</span>
           </h1>
           <p className="mt-6 max-w-lg text-lg leading-relaxed text-[#3c4a41]">Fill the empty seats on your way home. Split the fuel, meet other students, and leave a smaller footprint on every trip.</p>
         </div>
