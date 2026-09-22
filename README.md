@@ -399,8 +399,8 @@ the application for chat or ratings. See the linked verification guides for repe
 
 ```text
 .
-├── PLAN.md                         product scope, schedule, and rubric mapping
-├── archived-plans/                completed implementation plans and handoff notes
+├── docs/                           ADRs, research, verification notes, glossary, hackathon rubric
+├── archived-plans/                 master plan and per-day implementation plans (see its README)
 └── ride-share-app/
     ├── app/                        Next.js routes, Server Actions, and Route Handlers
     ├── fixtures/posts/             anonymized parser fixtures and evaluation notes

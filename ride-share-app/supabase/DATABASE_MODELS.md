@@ -88,7 +88,7 @@ not provide a reliable value; callers must not interpret null as zero.
 
 The starter catalog is seeded and normalized by `20260920124000_seed_common_car_models.sql` and
 `20260920125000_split_car_model_engine_size.sql`. It contains 50 common
-low-to-mid-budget models, including every model family requested in `PLAN.md`. Values are rounded,
+low-to-mid-budget models, including every model family requested in `archived-plans/PLAN.md`. Values are rounded,
 representative combined figures intended for ride-cost and emissions estimates, not regulatory or
 vehicle-specific certification. The supplied `co2.csv` informed close matches; older European-market
 generations use representative manufacturer-cycle figures. Engine displacement is stored in
