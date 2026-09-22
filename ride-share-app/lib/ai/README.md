@@ -1,5 +1,28 @@
 # Location resolver handoff
 
+## Screenshot reading
+
+[`readScreenshot`](read-screenshot.ts) accepts validated image bytes and an optional model runner,
+returning at most ten verbatim posts with kind/confidence. [`screenshot-contract.ts`](screenshot-contract.ts)
+is browser-safe. The authenticated screenshot route is gated before reading a request body and
+never parses, persists, or publishes a ride. Facebook screenshot mode lets the driver select one
+transcript before explicitly entering the parser/checker flow and editable ride form. Viber text
+mode instead provides an editable text box. Images and unselected transcripts are not
+saved by the application. See root README for privacy limits and input/error contracts.
+
+## Import plausibility checking
+
+[`checkRideDraft`](check-ride-draft.ts) checks structured imported ride offers through injectable
+model and tool boundaries. [`ride-check-contract.ts`](ride-check-contract.ts) is the browser-safe
+metadata contract; [`ride-check-tools.ts`](ride-check-tools.ts) binds authenticated services.
+The server-only [`import-pipeline-config.ts`](import-pipeline-config.ts) disables the pipeline unless
+`AI_IMPORT_PIPELINE_ENABLED=true`. Model-selected tools cover road distance, deterministic
+[`fair-price arithmetic`](fair-price-tool.ts), and [`possible duplicate rides`](similar-rides-tool.ts).
+The checker never receives source text or notes, never publishes, and fails open with a review
+warning. See the root README for loop limits, evidence guards, configuration, and capability evidence.
+
+## Location normalization
+
 Use `resolveCanonicalLocation(raw)` from `location-candidates.ts` in server-side parse/import code.
 It loads the canonical city and pickup-point vocabulary from Supabase, tries deterministic names and
 aliases first, and calls the server-only OpenAI fallback only for a genuine miss when

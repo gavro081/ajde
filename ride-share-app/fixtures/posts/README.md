@@ -1,5 +1,26 @@
 # Ride-post parser evaluation
 
+## Optional screenshot and checker observations
+
+Run only the import-pipeline live checks with configured server credentials:
+
+```sh
+npm run test:live -- tests/live/pipeline.live.test.ts
+```
+
+These checks reuse `public/landing/post-bitola.png` directly, without copying it or logging its
+transcription. They assert at least one offer mentioning Bitola in Latin or Cyrillic. A separate
+real-model checker observation uses a synthetic Skopje–Veles draft and fake routing, fuel-cost,
+and duplicate executors, so no database or routing network requests occur. The 52 km distance and
+100 MKD/L petrol price are explicit test fixtures, not claims about current roads or pump prices.
+The calculated estimate is 121 MKD per available seat (364 MKD total / three seats, rounded).
+
+Ordinary `npm test` excludes these provider calls. See
+[the live evidence record](../../../docs/verification/ai-import-live.md) for actual outcomes,
+including a failed first price-check run, observed model identifiers, timings, and limitations.
+
+## Text-parser fixture evaluation
+
 Run the live fixture evaluation from `ride-share-app`:
 
 ```sh

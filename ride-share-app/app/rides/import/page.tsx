@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { aiImportPipelineEnabled } from "@/lib/ai/import-pipeline-config";
 
 import { ImportRideForm } from "./import-ride-form";
 
@@ -12,6 +13,7 @@ export default async function ImportRidePage() {
 
   if (!user) redirect("/login?next=/rides/import");
   const { data: cities } = await supabase.from("cities").select("id, name_en");
+  const pipelineEnabled = aiImportPipelineEnabled();
 
   return (
     <><main id="main-content" className="px-4 py-10 text-slate-950 sm:px-6">
@@ -24,7 +26,7 @@ export default async function ImportRidePage() {
         </p>
 
         <div className="mt-8 surface-card p-5 sm:p-8">
-          <ImportRideForm cities={cities ?? []} />
+          <ImportRideForm cities={cities ?? []} pipelineEnabled={pipelineEnabled} />
         </div>
       </div>
     </main></>
