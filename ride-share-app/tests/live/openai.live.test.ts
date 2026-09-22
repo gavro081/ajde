@@ -138,6 +138,10 @@ describe("ride search: a passenger's query becomes feed filters", () => {
     locationFallback: createOpenAILocationFallback(),
   });
 
+  // Dates bound the calendar range (whole Skopje days); clock times are a separate window
+  // that repeats on each day. Tuesday 2026-09-22 runs 2026-09-21T22:00Z to 2026-09-22T22:00Z.
+  const TUESDAY = { dateFrom: "2026-09-22", departureAfter: "2026-09-21T22:00:00.000Z", departureBefore: "2026-09-22T22:00:00.000Z" };
+
   it("baram prevoz bitola ohrid utre od 11", async () => {
     const result = await parse("baram prevoz bitola ohrid utre od 11");
     show("search / route, date and time", result);
@@ -145,33 +149,36 @@ describe("ride search: a passenger's query becomes feed filters", () => {
     expect(result).toMatchObject({
       originId: CITY.bitola,
       destinationId: CITY.ohrid,
-      departureAfter: "2026-09-22T09:00:00.000Z",
-      departureBefore: "2026-09-22T22:00:00.000Z",
+      ...TUESDAY,
+      timeAfter: "11:00",
+      timeBefore: null,
       requestedSeats: null,
     });
   });
 
-  // Working hours (rabotno vreme) are 09:00–17:00 Skopje time, i.e. 07:00–15:00 UTC in September.
+  // Working hours (rabotno vreme) are 09:00–17:00 Skopje time.
   it.each([
-    ["baram prevoz skopje bitola utre nadvor od rabotno vreme", "2026-09-22T15:00:00.000Z", "2026-09-22T22:00:00.000Z"],
-    ["Скопје Битола утре по работно време", "2026-09-22T15:00:00.000Z", "2026-09-22T22:00:00.000Z"],
-    ["skopje bitola utre vo rabotno vreme", "2026-09-22T07:00:00.000Z", "2026-09-22T15:00:00.000Z"],
-  ])("%s", async (query, departureAfter, departureBefore) => {
+    ["baram prevoz skopje bitola utre nadvor od rabotno vreme", "17:00", "09:00"],
+    ["Скопје Битола утре по работно време", "17:00", null],
+    ["skopje bitola utre vo rabotno vreme", "09:00", "17:00"],
+  ])("%s", async (query, timeAfter, timeBefore) => {
     const result = await parse(query);
     show(`search / working hours: ${query}`, result);
 
-    expect(result).toMatchObject({ originId: CITY.skopje, destinationId: CITY.bitola, departureAfter, departureBefore });
+    expect(result).toMatchObject({ originId: CITY.skopje, destinationId: CITY.bitola, ...TUESDAY, timeAfter, timeBefore });
   });
 
-  it("applies working hours without a date to today", async () => {
+  it("keeps working hours without a date as a daily window on every upcoming day", async () => {
     const result = await parse("skopje bitola nadvor od rabotno vreme");
     show("search / working hours, no date", result);
 
     expect(result).toMatchObject({
       originId: CITY.skopje,
       destinationId: CITY.bitola,
-      departureAfter: "2026-09-21T15:00:00.000Z",
-      departureBefore: "2026-09-21T22:00:00.000Z",
+      departureAfter: null,
+      departureBefore: null,
+      timeAfter: "17:00",
+      timeBefore: "09:00",
     });
   });
 
@@ -184,6 +191,8 @@ describe("ride search: a passenger's query becomes feed filters", () => {
       destinationId: CITY.ohrid,
       departureAfter: "2026-09-24T22:00:00.000Z",
       departureBefore: "2026-09-25T22:00:00.000Z",
+      timeAfter: null,
+      timeBefore: null,
     });
   });
 });

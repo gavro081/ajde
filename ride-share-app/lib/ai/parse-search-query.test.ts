@@ -17,6 +17,7 @@ const baseOutput: SearchModelOutput = {
   originText: null,
   destinationText: "Bitola",
   dateLocal: "2026-09-25",
+  dateEndLocal: null,
   timeMode: "after",
   startTime: "16:00",
   endTime: null,
@@ -36,7 +37,8 @@ describe("natural-language search parsing", () => {
     expect(result).toMatchObject({
       originId: null,
       destinationId: 3,
-      departureAfter: "2026-09-25T14:00:00.000Z",
+      departureAfter: "2026-09-24T22:00:00.000Z",
+      timeAfter: "16:00",
       departureBefore: "2026-09-25T22:00:00.000Z",
     });
   });
@@ -112,29 +114,6 @@ describe("natural-language search parsing", () => {
     expect(result.warnings[0]?.code).toBe("unsupported");
   });
 
-  it.each([
-    ["after", "17:00", null, "2026-09-21T15:00:00.000Z", "2026-09-21T22:00:00.000Z"],
-    ["before", null, "09:00", "2026-09-20T22:00:00.000Z", "2026-09-21T07:00:00.000Z"],
-    ["between", "09:00", "17:00", "2026-09-21T07:00:00.000Z", "2026-09-21T15:00:00.000Z"],
-  ] as const)("applies a %s time without a date to today", async (timeMode, startTime, endTime, departureAfter, departureBefore) => {
-    const result = await parseSearchQuery("Bitola nadvor od rabotno vreme", {
-      candidates,
-      now: new Date("2026-09-21T10:00:00Z"),
-      modelRunner: async () => ({ ...baseOutput, dateLocal: null, timeMode, startTime, endTime }),
-    });
-    expect(result).toMatchObject({ destinationId: 3, departureAfter, departureBefore, warnings: [] });
-  });
-
-  it("uses the Skopje date for today, not the UTC date", async () => {
-    // 23:30 UTC on the 21st is already 01:30 on the 22nd in Skopje.
-    const result = await parseSearchQuery("Bitola after work", {
-      candidates,
-      now: new Date("2026-09-21T23:30:00Z"),
-      modelRunner: async () => ({ ...baseOutput, dateLocal: null, timeMode: "after", startTime: "17:00" }),
-    });
-    expect(result.departureAfter).toBe("2026-09-22T15:00:00.000Z");
-  });
-
   it("classifies provider failures without weakening manual search", async () => {
     await expect(
       parseSearchQuery("Bitola Friday", {
@@ -144,5 +123,56 @@ describe("natural-language search parsing", () => {
         },
       }),
     ).rejects.toMatchObject({ code: "provider_error" } satisfies Partial<SearchParserError>);
+  });
+});
+
+describe("independent search dates and times", () => {
+  const parse = (fields: Partial<SearchModelOutput>) => parseSearchQuery("search", {
+    candidates, modelRunner: async () => ({ ...baseOutput, ...fields }),
+  });
+
+  it("keeps a time without inventing or requiring a date", async () => {
+    expect(await parse({ dateLocal: null })).toMatchObject({
+      departureAfter: null, departureBefore: null, timeAfter: "16:00", timeBefore: null, warnings: [],
+    });
+  });
+
+  it("keeps a recurring around-time separate from a relative range", async () => {
+    const result = await parse({ dateLocal: "2026-09-22", dateEndLocal: "2026-09-24", timeMode: "around", startTime: "17:00" });
+    expect(result).toMatchObject({ dateFrom: "2026-09-22", dateTo: "2026-09-24",
+      departureAfter: "2026-09-21T22:00:00.000Z", departureBefore: "2026-09-24T22:00:00.000Z",
+      timeAfter: "16:00", timeBefore: "18:00", warnings: [] });
+  });
+
+  it("handles an around-midnight window without attaching it to one date", async () => {
+    expect(await parse({ dateLocal: null, timeMode: "around", startTime: "00:30" }))
+      .toMatchObject({ timeAfter: "23:30", timeBefore: "01:30", departureAfter: null });
+  });
+
+  it("uses calendar boundaries across daylight-saving changes", async () => {
+    expect(await parse({ dateLocal: "2026-10-24", dateEndLocal: "2026-10-26" })).toMatchObject({
+      departureAfter: "2026-10-23T22:00:00.000Z", departureBefore: "2026-10-26T23:00:00.000Z", timeAfter: "16:00",
+    });
+  });
+
+  it("supports before-only and overnight times", async () => {
+    expect(await parse({ dateLocal: null, timeMode: "before", startTime: null, endTime: "09:00" }))
+      .toMatchObject({ timeAfter: null, timeBefore: "09:00" });
+    expect(await parse({ timeMode: "between", startTime: "22:00", endTime: "02:00" }))
+      .toMatchObject({ timeAfter: "22:00", timeBefore: "02:00" });
+  });
+
+  it("rejects reversed dates, invalid dates, and empty time windows", async () => {
+    for (const fields of [
+      { dateEndLocal: "2026-09-24" }, { dateLocal: "2026-02-30" },
+      { timeMode: "between" as const, startTime: "16:00", endTime: "16:00" },
+    ]) await expect(parse(fields)).rejects.toMatchObject({ code: "invalid_output" });
+  });
+
+  it("warns about incomplete times while keeping the date range", async () => {
+    expect(await parse({ startTime: null })).toMatchObject({
+      dateFrom: "2026-09-25", timeAfter: null, timeBefore: null,
+      warnings: [expect.objectContaining({ code: "needs_review" })],
+    });
   });
 });

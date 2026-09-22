@@ -15,6 +15,11 @@ export const searchQueryResultSchema = z
     destinationId: nullableCanonicalId,
     departureAfter: nullableInstant,
     departureBefore: nullableInstant,
+    // Optional only for compatibility with previously saved search interpretations.
+    dateFrom: z.iso.date().nullable().optional(),
+    dateTo: z.iso.date().nullable().optional(),
+    timeAfter: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).nullable().optional(),
+    timeBefore: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).nullable().optional(),
     requestedSeats: z.number().int().min(1).max(8).nullable(),
     confidence: z.number().min(0).max(1),
     warnings: z.array(searchWarningSchema).max(8),

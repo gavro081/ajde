@@ -162,26 +162,26 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
     return `${origin ?? "Ride " + (index + 1)} to ${destination ?? "choose destination"} ${item.values.departureLocal.replace("T", " ")}`;
   }
   if (!tab) return <p role="status">All rides saved. Opening My trips…</p>;
-  return <div className="space-y-6">
-    {storageMessage && <p role="status" className="text-sm text-slate-600">{storageMessage}</p>}
+  return <div className="space-y-5">
     {drafts.map(item => <OfferDistance key={item.id} tab={item}
       origin={props.cities.find(city => String(city.id) === item.values.originCityId)?.name_en}
       destination={props.cities.find(city => String(city.id) === item.values.destinationCityId)?.name_en} update={update} />)}
-    <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4 sm:p-5">
-    <p className="eyebrow mb-2">Start with a description</p>
-    <label className="block font-semibold text-slate-900">Describe your rides<textarea ref={descriptionRef} className="field mt-3 min-h-28 resize-y bg-white font-normal" maxLength={6000} placeholder="Going skp to bt 4pm Saturday with a Clio" value={text} onChange={event => { setText(event.target.value); interpretationEpoch.current += 1; }} /></label>
-    <p className="field-help mb-4">{filled ? "Not quite right? Start over to clear these drafts, then edit your description and fill again." : "Describe one trip or a return journey. Review and edit each draft below before publishing."}</p>
+    <div className="rounded-xl bg-slate-50 p-4">
+    <label className="block text-sm font-semibold text-slate-900">Describe your rides<textarea ref={descriptionRef} rows={2} className="field mt-2 resize-y bg-white font-normal" maxLength={6000} placeholder="Going skp to bt 4pm Saturday with a Clio" value={text} onChange={event => { setText(event.target.value); interpretationEpoch.current += 1; }} /></label>
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+    <p className="text-[.8125rem] text-slate-500">{filled ? "Review the details below before publishing." : "Fill the details from a description, or enter them below."}</p>
     {filled
-      ? <button className="btn-secondary disabled:opacity-50" type="button" disabled={savingCar || interpreting || publishing.length > 0} onClick={startOver}>Start over</button>
-      : <button className="btn-primary disabled:opacity-50" type="button" disabled={savingCar || interpreting || !text.trim() || publishing.length > 0}
+      ? <button className="btn-secondary min-h-11 px-3 py-2 text-[.8125rem] disabled:opacity-50" type="button" disabled={savingCar || interpreting || publishing.length > 0} onClick={startOver}>Start over</button>
+      : <button className="btn-secondary min-h-11 px-3 py-2 text-[.8125rem] disabled:opacity-50" type="button" disabled={savingCar || interpreting || !text.trim() || publishing.length > 0}
         onClick={() => { void fill(); }}>{interpreting ? "Filling…" : "Fill form"}</button>}
+    </div>
     </div>
     {message && <p role="status">{message}{snapshot && <> <button type="button" className="font-semibold underline" onClick={restoreSnapshot}>Undo</button></>}</p>}
     {retry && <button type="button" className="btn-secondary" disabled={savingCar || interpreting || publishing.length > 0 || Boolean(tab.publishedId)} onClick={() => { void fill(); }}>Retry</button>}
-    <div role="tablist" aria-label="Ride drafts" className="flex flex-wrap gap-2">
+    <div role="tablist" aria-label="Ride drafts" className={drafts.length === 1 ? "sr-only" : "flex flex-wrap gap-2"}>
       {drafts.map((item, index) => <div key={item.id} role="presentation" className={`inline-flex min-w-0 max-w-full items-center rounded-full border ${item.id === tab.id ? "bg-brand-600 border-brand-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
         <button type="button" role="tab" id={`tab-${item.id}`} aria-controls={`panel-${item.id}`}
-          aria-selected={item.id === tab.id} tabIndex={item.id === tab.id ? 0 : -1}
+          aria-selected={item.id === tab.id} tabIndex={drafts.length > 1 && item.id === tab.id ? 0 : -1}
           disabled={savingCar}
           className={`min-w-0 rounded-full py-2 text-left text-sm font-semibold break-words ${drafts.length > 1 ? "pl-4 pr-1" : "px-4"}`}
           onClick={() => setActiveId(item.id)} onKeyDown={event => {
@@ -209,6 +209,7 @@ function WorkspaceSession(props: OfferWorkspaceProps) {
             isImportedDraft={tab.source === "imported"} values={tab.values} onChange={change} onSubmit={submit} pending={publishing.includes(tab.id)} state={states[tab.id] ?? idle} />
         </fieldset>
     </section>
+    {storageMessage && <p role="status" className="text-[.75rem] text-slate-500">{storageMessage}</p>}
     <p className="text-xs text-slate-500">City-to-city routing by <a href="https://project-osrm.org/" className="underline">OSRM</a>, data © <a href="https://www.openstreetmap.org/copyright" className="underline">OpenStreetMap contributors</a>. <a href="https://www.openstreetmap.org/fixthemap" className="underline">Fix the map</a>. Estimates may differ from your journey.</p>
   </div>;
 }

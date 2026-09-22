@@ -1,3 +1,4 @@
+import { Brand } from "@/components/brand";
 import facebookGroups from "@/public/landing/facebook-groups.png";
 import postBitolaSchedule from "@/public/landing/post-bitola-schedule.png";
 import postBitola from "@/public/landing/post-bitola.png";
@@ -200,18 +201,18 @@ export function AboutSections() {
 
     <footer className="border-t border-white/10">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-8 text-sm text-[#a3b8aa] sm:px-10 md:flex-row md:items-center md:justify-between">
-        <Link href="/" className="inline-flex items-center gap-2.5 font-display text-base font-extrabold tracking-tight text-white" aria-label="Student Ride Share home">
-          <span className="grid size-8 place-items-center rounded-full bg-white/10 text-[#4ade80]" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4c-9 0-15 4-15 11 0 1.6.5 3 1.3 4.2C8 15 11 12 15 10c-3.4 2.6-6 5.9-7.3 9.6.9.3 1.8.4 2.8.4C17 20 20 14 20 4Z" /></svg>
-          </span>
-          Student Ride Share
-        </Link>
+        <Brand inverse />
         <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2">
           <Link href="/rides" className="hover:text-white">Find a ride</Link>
           <Link href="/rides/new" className="hover:text-white">Offer a ride</Link>
           <a href="#about" className="hover:text-white">About</a>
         </nav>
-        <p>© {new Date().getFullYear()} Student Ride Share. Made in Skopje.</p>
+        <p>© {new Date().getFullYear()} ajde. Made in Skopje.</p>
+      </div>
+      <div className="mx-auto max-w-6xl px-5 pb-8 sm:px-10">
+        <p className="border-t border-white/10 pt-6 text-xs leading-relaxed text-[#a3b8aa]">
+          Completed trips with accepted passengers; demo rides excluded. Participants count each driver or passenger once. Savings assume each passenger seat replaces a separate car; petrol and diesel trips with valid distance and consumption only.
+        </p>
       </div>
     </footer>
   </div>;

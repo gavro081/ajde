@@ -4,6 +4,7 @@ import type { Tables } from "@/lib/supabase/database.types";
 import { BOOKING_SEATS } from "@/lib/bookings/validation";
 import {
   departureBoundsForFilters,
+  matchesDepartureTime,
   type RideFilters,
 } from "@/lib/rides/ride-filters";
 import {
@@ -37,38 +38,36 @@ export async function getRideFeed(
     filters.sameGenderOnly,
     passengerGender,
   );
-  let query = supabase
-    .from("rides")
-    .select("*")
-    .in("status", ["published", "full"])
-    .gte("departure_at", bounds.after)
-    .gte("seats_available", BOOKING_SEATS)
-    .order("departure_at");
+  const eligibleRides: Tables<"rides">[] = [];
+  // Apply recurring local times before the result limit. Scan further pages when
+  // early departures fail the time or gender filter, so later matches are not lost.
+  const pageSize = 100;
+  for (let offset = 0; eligibleRides.length < 100; offset += pageSize) {
+    let query = supabase.from("rides").select("*")
+      .in("status", ["published", "full"])
+      .gte("departure_at", bounds.after)
+      .gte("seats_available", BOOKING_SEATS)
+      .order("departure_at").order("id");
+    if (filters.origin) query = query.eq("origin_city_id", filters.origin);
+    if (filters.destination) query = query.eq("dest_city_id", filters.destination);
+    if (bounds.before) query = query.lt("departure_at", bounds.before);
+    const { data, error } = await query.range(offset, offset + pageSize - 1);
+    if (error) throw new Error("Unable to load rides.");
 
-  if (filters.origin) query = query.eq("origin_city_id", filters.origin);
-  if (filters.destination) query = query.eq("dest_city_id", filters.destination);
-  if (bounds.before) query = query.lt("departure_at", bounds.before);
-  if (!applyGenderFilter) query = query.limit(100);
-
-  const { data, error } = await query;
-  if (error) throw new Error("Unable to load rides.");
-
-  let eligibleRides = data;
-  if (applyGenderFilter && data.length > 0) {
-    const driverIds = [
-      ...new Set(data.map((ride) => ride.driver_id).filter((id): id is string => id !== null)),
-    ];
-    const { data: driverProfiles, error: driverError } = driverIds.length
-      ? await supabase.from("profiles").select("id, gender").in("id", driverIds)
-      : { data: [], error: null };
-    if (driverError) throw new Error("Unable to apply the discovery preference.");
-
-    eligibleRides = filterRidesByDriverGender(
-      data,
-      new Map((driverProfiles ?? []).map((profile) => [profile.id, profile.gender])),
-      passengerGender,
-      true,
-    );
+    let matching = data.filter((ride) => matchesDepartureTime(ride.departure_at, filters));
+    if (applyGenderFilter && matching.length > 0) {
+      const driverIds = [...new Set(matching.map((ride) => ride.driver_id)
+        .filter((id): id is string => id !== null))];
+      const { data: driverProfiles, error: driverError } = driverIds.length
+        ? await supabase.from("profiles").select("id, gender").in("id", driverIds)
+        : { data: [], error: null };
+      if (driverError) throw new Error("Unable to apply the discovery preference.");
+      matching = filterRidesByDriverGender(matching,
+        new Map((driverProfiles ?? []).map((profile) => [profile.id, profile.gender])),
+        passengerGender, true);
+    }
+    eligibleRides.push(...matching);
+    if (data.length < pageSize) break;
   }
 
   return hydrateRides(eligibleRides.slice(0, 100));

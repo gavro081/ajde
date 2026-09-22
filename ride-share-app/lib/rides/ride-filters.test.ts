@@ -6,6 +6,7 @@ import {
   decodeSearchInterpretation,
   departureBoundsForFilters,
   manualFilterParams,
+  matchesDepartureTime,
   parseRideFilters,
   searchResultParams,
   type RideFilters,
@@ -15,6 +16,9 @@ const noFilters: RideFilters = {
   origin: null,
   destination: null,
   date: null,
+  dateTo: null,
+  timeAfter: null,
+  timeBefore: null,
   departureAfter: null,
   departureBefore: null,
   sameGenderOnly: false,
@@ -39,10 +43,16 @@ describe("parseRideFilters", () => {
       after: "2026-09-22T09:00:00+02:00",
       before: "2026-09-22T20:00:00Z",
       sameGender: "true",
+      dateTo: "2026-09-24",
+      timeAfter: "17:00",
+      timeBefore: "9:00",
     })).toEqual({
       origin: 1,
       destination: 3,
       date: "2026-09-22",
+      dateTo: "2026-09-24",
+      timeAfter: "17:00",
+      timeBefore: null,
       departureAfter: "2026-09-22T07:00:00.000Z",
       departureBefore: "2026-09-22T20:00:00.000Z",
       sameGenderOnly: true,
@@ -124,6 +134,21 @@ describe("departureBoundsForFilters", () => {
   });
 });
 
+describe("outside working hours (17:00–09:00 overnight)", () => {
+  const filters = parseRideFilters({ timeAfter: "17:00", timeBefore: "09:00" });
+
+  it.each([
+    ["2026-09-22T15:00:00Z", "17:00", true],
+    ["2026-09-22T21:30:00Z", "23:30", true],
+    ["2026-09-23T06:59:00Z", "08:59", true],
+    ["2026-09-23T07:00:00Z", "09:00", false],
+    ["2026-09-22T10:00:00Z", "12:00", false],
+    ["2026-09-22T14:59:00Z", "16:59", false],
+  ])("departure at %s (%s in Skopje) matches: %s", (departure, _, expected) => {
+    expect(matchesDepartureTime(departure, filters)).toBe(expected);
+  });
+});
+
 describe("search URL state", () => {
   it("replaces stale filters with the interpreted search", () => {
     const current = new URLSearchParams("origin=1&date=2026-09-30&seats=2&manual=1&sameGender=1&page=2");
@@ -178,7 +203,7 @@ describe("search URL state", () => {
   });
 
   it("clears every search and filter key but keeps unrelated params", () => {
-    const current = new URLSearchParams("q=a&search=1&interpretation=x&manual=1&origin=1&destination=2&date=d&after=a&before=b&seats=1&sameGender=1");
+    const current = new URLSearchParams("q=a&search=1&interpretation=x&manual=1&origin=1&destination=2&date=d&dateTo=d&timeAfter=17:00&timeBefore=09:00&after=a&before=b&seats=1&sameGender=1");
     expect(Object.fromEntries(clearSearchParams(current))).toEqual({ sameGender: "1" });
   });
 });
