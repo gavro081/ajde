@@ -4,10 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message, RoomPage } from "@/lib/chat/contract";
 
-const mocks = vi.hoisted(() => ({ load: vi.fn(), send: vi.fn(), remove: vi.fn(), session: vi.fn(), setAuth: vi.fn(), channels: [] as { event: (payload: { new: Record<string, unknown> }) => void; status: (state: string) => void }[] }));
+const mocks = vi.hoisted(() => ({ authChange: vi.fn<(event: string, session: { user: { id: string } } | null) => void>(), load: vi.fn(), send: vi.fn(), remove: vi.fn(), session: vi.fn(), setAuth: vi.fn(), channels: [] as { event: (payload: { new: Record<string, unknown> }) => void; status: (state: string) => void }[] }));
 vi.mock("@/lib/chat/actions", () => ({ loadRoom: mocks.load, sendRoomMessage: mocks.send }));
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({ removeChannel: mocks.remove,
-  auth: { getSession: mocks.session },
+  auth: { getSession: mocks.session, onAuthStateChange: (callback: (event: string, session: { user: { id: string } } | null) => void) => { mocks.authChange.mockImplementation(callback); return { data: { subscription: { unsubscribe: vi.fn() } } }; } },
   realtime: { setAuth: mocks.setAuth },
   channel: () => {
     const callbacks: (typeof mocks.channels)[number] = { event: () => {}, status: () => {} };
@@ -21,7 +21,7 @@ const rideId = "92000000-0000-4000-8000-000000000001";
 const message: Message = { id: "92000000-0000-4000-8000-000000000002", ride_id: rideId, recipient_id: null, sender_id: "driver", body: "Hello room", created_at: "2026-09-21T12:00:00Z", sender: { full_name: "Driver", photo_url: "/photo.png" } };
 const initial: RoomPage = { viewerId: "driver", members: ["driver", "one", "two"].map(id => ({ id, full_name: id, photo_url: "/photo.png", isDriver: id === "driver", phone: "+38970123456", social_url: "https://x.com/" + id, instagram: null, facebook: null })), messages: [], nextCursor: null, membership: { role: "driver", canSend: true, closesAt: "2099-09-21T12:00:00Z" } };
 beforeEach(() => { mocks.channels = []; mocks.load.mockReset().mockResolvedValue({ ok: true, value: initial }); mocks.send.mockReset(); mocks.remove.mockClear(); mocks.session.mockReset().mockResolvedValue({ data: { session: { access_token: "test-token" } } }); mocks.setAuth.mockReset().mockResolvedValue(undefined); });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe("ride room client", () => {
   it("shows one roster and escapes markup instead of interpreting it", async () => {
     mocks.load.mockResolvedValue({ ok: true, value: { ...initial, messages: [{ ...message, body: "<script>alert(1)</script>" }] } });
@@ -156,4 +156,40 @@ it("shows callable contact details in the current participant roster", async () 
   expect(within(roster).getAllByRole("link",{name:"+38970123456"})).toHaveLength(3);
   expect(within(roster).getAllByRole("link",{name:/Social profile/})).toHaveLength(3);
   await waitFor(()=>expect(mocks.load).toHaveBeenCalled());
+});
+it("keeps room sending and history available during an AI request", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+  mocks.send.mockResolvedValue({ ok: true, value: message });
+  render(<RideRoom rideId={rideId} initial={initial} />);
+  fireEvent.click(screen.getByRole("button", { name: "Summarize chat" }));
+  const composer = screen.getByLabelText("Message to the ride group");
+  fireEvent.change(composer, { target: { value: "Hello room" } });
+  fireEvent.submit(composer.closest("form")!);
+  await waitFor(() => expect(mocks.send).toHaveBeenCalledWith({ rideId, body: "Hello room" }));
+  expect(screen.getByText("Reading the chat…")).toBeDefined();
+  expect(screen.getByText("Hello room")).toBeDefined();
+});
+it.each(["SIGNED_OUT", "SIGNED_IN"])("clears pending AI and room history on auth event %s", async event => {
+  let finish!: (response: Response) => void;
+  const fetcher = vi.fn(() => new Promise<Response>(resolve => { finish = resolve; }));
+  vi.stubGlobal("fetch", fetcher);
+  render(<RideRoom rideId={rideId} initial={{ ...initial, messages: [message] }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Summarize chat" }));
+  act(() => mocks.authChange(event, event === "SIGNED_OUT" ? null : { user: { id: "another-member" } }));
+  expect(screen.getByRole("heading", { name: "Ride room unavailable" })).toBeDefined();
+  expect(fetcher.mock.calls.length).toBe(1);
+  await act(async () => finish(Response.json({ ok: false, code: "provider", error: "Late response" })));
+  expect(screen.queryByText("Late response")).toBeNull();
+  expect(screen.queryByText("Hello room")).toBeNull();
+});
+it("resets AI question state on ride or viewer change and permits read-only room assistance", async () => {
+  const view = render(<RideRoom rideId={rideId} initial={{ ...initial, membership: { ...initial.membership, canSend: false } }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Ask AI" }));
+  fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Private question" } });
+  view.rerender(<RideRoom rideId={rideId.replace(/1$/, "3")} initial={initial} />);
+  expect(screen.queryByDisplayValue("Private question")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Ask AI" }));
+  fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Another private question" } });
+  view.rerender(<RideRoom rideId={rideId} initial={{ ...initial, viewerId: "one" }} />);
+  expect(screen.queryByDisplayValue("Another private question")).toBeNull();
 });
