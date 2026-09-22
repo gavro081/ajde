@@ -1,14 +1,14 @@
-# Ajde — student ride sharing between Macedonian cities
+# Ajde - student ride sharing between Macedonian cities
 
 Ajde helps students in Skopje find a shared ride home to their city, split the real fuel cost, and
 keep extra cars off the road. Drivers describe a trip the way they'd write it in a Viber group, in
-Macedonian, Albanian or English, and AI turns it into a ride listing they check before publishing.
+Macedonian or English, and AI turns it into a ride listing they check before publishing.
 
 **Live demo:** _TODO: deployed URL_ · **Backup video:** _TODO: video link_
 
 ## Who it is for
 
-**A student studying in Skopje who goes home to Bitola, Ohrid, Kočani or Struga most weekends.**
+**A student studying in Skopje who goes to his home town most weekends.**
 Today they scroll six or more Facebook and Viber groups, one per route. Each gets 10–20 posts a day,
 all in free text, and a post is buried within minutes. The driver on the other side guesses a price
 and often leaves with empty seats.
@@ -19,7 +19,7 @@ and often leaves with empty seats.
 - **The problem is real, not assumed.** The landing page shows real ride posts from these groups
   this week ([`public/landing/`](ride-share-app/public/landing),
   [`about-sections.tsx`](ride-share-app/components/landing/about-sections.tsx)). Those posts are
-  also why the AI has to read Cyrillic shorthand timetables, Latin transliteration and Albanian.
+  also why the AI has to read Cyrillic shorthand timetables.
 - **Why they'd still use it next month:** the trip home repeats every week, and the price split,
   saved car and ratings carry over from one trip to the next.
 - **Green, honestly:** three passengers in one car means three fewer car trips. The CO₂ counter
@@ -30,7 +30,7 @@ and often leaves with empty seats.
 
 1. Sign in with a university email (for example `@students.finki.ukim.mk`) and complete a profile with a photo.
 2. **Find a ride:** filter by route, date and seats, or just type "Bitola Friday after 4".
-3. **Offer a ride:** type "Skopje → Ohrid Saturday 4pm, back Sunday evening, 3 seats", or paste an
+3. **Offer a ride:** type "Skopje to Ohrid Saturday 4pm, back Sunday evening, 3 seats", or paste an
    existing group post. Review the draft, pick your car, see the suggested fair price per seat, publish.
 4. Request a seat. The driver accepts or declines. Contacts are revealed only after acceptance.
 5. Ask questions under the ride, chat in a private ride room, and share your trip with family
@@ -54,11 +54,11 @@ flowchart TD
 
 | AI job | File | What would break without AI |
 | --- | --- | --- |
-| Read a messy group post into a ride draft | [`lib/ai/parse-ride-post.ts`](ride-share-app/lib/ai/parse-ride-post.ts) | Posts mix Cyrillic, Latin, Albanian, landmarks ("од Рамстор") and relative dates; regex can't keep up |
+| Read a messy group post into a ride draft | [`lib/ai/parse-ride-post.ts`](ride-share-app/lib/ai/parse-ride-post.ts) | Posts mix Cyrillic, Latin, landmarks ("од Рамстор") and relative dates; regex can't keep up |
 | Turn a free-text trip description into one draft per trip | [`lib/ai/parse-offer-description.ts`](ride-share-app/lib/ai/parse-offer-description.ts) | Return trips, shared details and "Saturday 4pm" in Skopje time |
 | Map a place name the aliases missed onto our city list | [`lib/ai/openai-location-fallback.ts`](ride-share-app/lib/ai/openai-location-fallback.ts) | Spelling variants and transliterations |
 | Turn a search phrase into filters | [`lib/ai/parse-search-query.ts`](ride-share-app/lib/ai/parse-search-query.ts) | "Ohrid slednive nekolku dena okolu 5" |
-| Explain why a ride matches your search | [`lib/ai/explain-match.ts`](ride-share-app/lib/ai/explain-match.ts) | — (falls back to plain facts) |
+| Explain why a ride matches your search | [`lib/ai/explain-match.ts`](ride-share-app/lib/ai/explain-match.ts) | (falls back to plain facts) |
 | **PLACEHOLDER / TODO:** screenshot → reader → parser → checker that calls tools | _in progress, not merged_ ([plan](archived-plans/2026-09-22/22-09-ai-pipeline.md)) | Photos of group chats |
 
 **When the AI is confidently wrong:** the model never publishes anything. It only fills a draft
@@ -148,7 +148,7 @@ result is in [docs/TESTING.md](docs/TESTING.md), along with the test suite and l
 - **OSRM:** free road distances with no API key ([research](docs/research/free-road-distance-api.md)).
 - **Vitest:** fast tests with mocked AI.
 
-**How we used AI.** Most of the code was written by AI coding agents (Codex and Claude Code). Our
+**How we used AI.** Most of the code was written by AI coding agents. Our
 master plan estimates about 95% of feature code, and that let us spend our time on the parts AI
 can't decide for us. We decided the scope and the data model, and who sees whose contact details.
 We chose which numbers must *not* come from AI, and where a human has to review. We tuned the parser
@@ -168,7 +168,11 @@ that introduced them.
 2. Row-level security on every table, then a public launch to FINKI students.
 3. Recurring rides ("every Friday 15:00 Skopje → Bitola") and notifications when a matching ride appears.
 4. Unclaimed imported rides, so passengers can find drivers who only post in Viber, plus reporting and AI spam screening.
-5. A mobile app or PWA with push notifications, and pickup-level distances.
+5. **Groups beyond students:** let companies and organisations set up their own private group
+   (verified by work email domain, the same way universities work today). Colleagues could share
+   daily commutes and trips between offices, and the organisation would see its CO₂ savings.
+   Employers are a big second market: bigger than students, and they pay for sustainability numbers.
+6. A mobile app or PWA with push notifications, and pickup-level distances.
 
 ## Repository map
 
