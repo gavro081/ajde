@@ -6,7 +6,6 @@ import { SeatAvailability } from "@/components/seat-availability";
 import { RideRoute } from "@/components/ride-route";
 import { SubmitButton } from "@/components/submit-button";
 import { ChatIcon } from "@/components/chat-icon";
-import { RideComments } from "@/components/ride-comments/ride-comments";
 import { requireCompleteProfile } from "@/lib/auth/session";
 import { canViewRideDetail } from "@/lib/rides/ride-detail-access";
 import { formatDeparture, getRide } from "@/lib/rides/ride-view";
@@ -103,7 +102,6 @@ export default async function RideDetailPage({ params, searchParams }: RideDetai
             </section>
           </aside>
         </div>
-        <RideComments rideId={id} />
       </main>
     </div>
   );
