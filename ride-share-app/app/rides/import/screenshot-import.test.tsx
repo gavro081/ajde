@@ -14,6 +14,35 @@ const review = { importId: "10000000-0000-4000-8000-000000000001", parsed: {
   classification: "offer", sourceLanguage: "mk", draft: { ...emptyOfferDraft(), source: "imported" },
 }, check: { status: "unavailable", trace: [] } };
 
+it("supports dropping a screenshot, retrying a failed read, and removing it without losing selected text", async () => {
+  const transport = vi.fn<typeof fetch>()
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce(Response.json({ posts: [post()] }));
+  vi.stubGlobal("fetch", transport);
+  render(<ImportRideForm cities={cities} pipelineEnabled />);
+  fireEvent.drop(screen.getByRole("region", { name: "Upload screenshot" }), { dataTransfer: { files: [file()] } });
+  await userEvent.click(await screen.findByRole("button", { name: "Retry reading" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Use this post" }));
+  expect(screen.getByRole("button", { name: "Selected post" }).getAttribute("aria-pressed")).toBe("true");
+  expect(document.activeElement).toBe(screen.getByLabelText(/Post text/));
+  await userEvent.click(screen.getByRole("button", { name: "Remove screenshot" }));
+  expect(screen.queryByRole("heading", { name: "Choose a detected post" })).toBeNull();
+  expect(screen.getByLabelText(/Post text/)).toHaveProperty("value", transcript);
+  expect(transport).toHaveBeenCalledTimes(2);
+});
+
+it("rejects multiple dropped files without discarding the previous results", async () => {
+  const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ posts: [post()] }));
+  vi.stubGlobal("fetch", transport);
+  render(<ImportRideForm cities={cities} pipelineEnabled />);
+  await userEvent.upload(screen.getByLabelText(/Or upload a screenshot/), file());
+  await screen.findByRole("button", { name: "Use this post" });
+  fireEvent.drop(screen.getByRole("region", { name: "Upload screenshot" }), { dataTransfer: { files: [file(), file()] } });
+  expect(screen.getByRole("alert").textContent).toContain("one screenshot at a time");
+  expect(screen.getByRole("button", { name: "Use this post" })).toBeTruthy();
+  expect(transport).toHaveBeenCalledTimes(1);
+});
+
 it("reads one screenshot, keeps every kind selectable, and only parses the selected edited text on explicit submit", async () => {
   const transport = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({ posts: [post(), post("Барам превоз утре", "request"), post("Здраво 👋", "other")] })).mockResolvedValueOnce(Response.json(review));
   vi.stubGlobal("fetch", transport);

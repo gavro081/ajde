@@ -50,6 +50,16 @@ it("does not present an empty trace as a successful check", async () => {
   expect(screen.getByText(/No tool evidence was returned/)).toBeTruthy();
 });
 
+it("clears the previous review when text or source changes", async () => {
+  await submit({ status: "checked", trace: [road] }, true);
+  fireEvent.change(screen.getByLabelText(/Post text/), { target: { value: "Updated Skopje to Veles post for tomorrow" } });
+  expect(screen.queryByRole("link", { name: "Continue to editable ride form" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Create review draft" }));
+  await screen.findByRole("link", { name: "Continue to editable ride form" });
+  fireEvent.change(screen.getByLabelText("Source"), { target: { value: "facebook" } });
+  expect(screen.queryByRole("link", { name: "Continue to editable ride form" })).toBeNull();
+});
+
 it("retains all three tool summaries through the import response boundary", async () => {
   await submit({ status: "checked", trace: [road, {
     callId: "fair-1", tool: "fair_price", args: { distanceKm: 60, availableSeats: 3, fuelType: null, consumptionL100Km: null },

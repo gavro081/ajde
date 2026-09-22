@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { parsedRidePostSchema, type ParsedRidePost } from "@/lib/ai/parsed-ride-post";
 import { rideCheckMetadataSchema, type RideCheckMetadata } from "@/lib/ai/ride-check-contract";
@@ -25,6 +25,7 @@ export function ImportRideForm({ cities, pipelineEnabled = false }: { cities: { 
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [readingScreenshot, setReadingScreenshot] = useState(false);
+  const textInput = useRef<HTMLTextAreaElement>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,48 +85,52 @@ export function ImportRideForm({ cities, pipelineEnabled = false }: { cities: { 
 
   return (
     <div className="space-y-7">
-      <form className="space-y-5" onSubmit={submit} aria-busy={pending}>
-        <p className="eyebrow">{pipelineEnabled ? "1. Paste or select post · 2. Review · 3. Publish" : "1. Paste post · 2. Review · 3. Publish"}</p>
-        <label className="block font-medium text-slate-800">
-          Source
-          <select
-            className={inputClass}
-            onChange={(event) =>
-              setSourceHint(event.target.value as "viber" | "facebook" | "other")
-            }
-            value={sourceHint}
-          >
-            <option value="viber">Viber</option>
-            <option value="facebook">Facebook</option>
-            <option value="other">Other</option>
-          </select>
-        </label>
+      <form onSubmit={submit} aria-busy={pending || readingScreenshot}>
+        <div className={`grid gap-7 ${pipelineEnabled ? "md:grid-cols-2 md:gap-8" : ""}`}>
         {pipelineEnabled ? <ScreenshotImport disabled={pending} onBusyChange={setReadingScreenshot} onSelect={post => {
           setText(post.text);
           setSourceHint("other");
           setResult(null);
           setError("");
+          textInput.current?.focus();
         }} /> : null}
-        <label className="block font-medium text-slate-800">
+        <div className={`min-w-0 space-y-4 ${pipelineEnabled ? "border-t border-slate-100 pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0" : ""}`}>
+        <div>
+          <h2 className="text-base font-semibold text-slate-950">{pipelineEnabled ? "Or paste your post" : "Paste your post"}</h2>
+          <p className="mt-1 text-sm text-slate-500">Check the text, then create an editable draft.</p>
+        </div>
+        <label className="block text-sm font-medium text-slate-700">
           Post text
           <textarea
-            className={`${inputClass} min-h-48 resize-y`}
+            ref={textInput}
+            className={`${inputClass} min-h-56 resize-y text-sm leading-relaxed disabled:opacity-60`}
             maxLength={5_000}
             minLength={10}
-            onChange={(event) => setText(event.target.value)}
+            disabled={pending}
+            onChange={(event) => { setText(event.target.value); setResult(null); setError(""); }}
             placeholder="Имам 3 слободни места од Скопје за Битола…"
             required
             value={text}
           />
-          <span className="mt-1 block text-right text-xs text-slate-500">{text.length}/5000</span>
+          <span className="mt-1 block text-right text-xs font-normal text-slate-400">{text.length.toLocaleString()} / 5,000</span>
+        </label>
+        <label className="flex items-center justify-between gap-4 text-sm font-medium text-slate-600">
+          Source
+          <select className="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 disabled:opacity-60"
+            disabled={pending} value={sourceHint} onChange={event => { setSourceHint(event.target.value as "viber" | "facebook" | "other"); setResult(null); setError(""); }}>
+            <option value="viber">Viber</option><option value="facebook">Facebook</option><option value="other">Other</option>
+          </select>
         </label>
         <button
-          className="btn-primary disabled:opacity-50"
+          className="btn-primary w-full disabled:opacity-50"
           disabled={pending || readingScreenshot}
           type="submit"
         >
           {pending ? "Parsing…" : "Create review draft"}
         </button>
+        <p className="text-center text-xs text-slate-400">Review and edit before publishing.</p>
+        </div>
+        </div>
       </form>
 
       {error ? (
