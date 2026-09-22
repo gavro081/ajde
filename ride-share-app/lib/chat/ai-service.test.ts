@@ -11,6 +11,7 @@ const rideId = "94000000-0000-4000-8000-000000000001";
 const msg = { id: "94000000-0000-4000-8000-000000000010", created_at: "2026-09-21T12:00:00Z", author: "Ana", body: "Meet at 17:30" };
 const access = { ok: true, user: { id: "member" }, supabase: { rpc: mocks.permit } };
 beforeEach(() => {
+  vi.stubEnv("CHAT_AI_ENABLED", "true");
   vi.stubEnv("OPENAI_API_KEY", "test-only");
   mocks.access.mockReset().mockResolvedValue(access);
   mocks.transcript.mockReset().mockResolvedValue({ messages: [msg], cutoff: { id: msg.id, created_at: msg.created_at } });
@@ -57,9 +58,11 @@ describe("private AI service", () => {
     expect(mocks.permit).not.toHaveBeenCalled(); expect(mocks.model).not.toHaveBeenCalled();
   });
   it("checks configuration and the database budget before the provider", async () => {
-    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("CHAT_AI_ENABLED", "true");
+  vi.stubEnv("OPENAI_API_KEY", "");
     expect(await assistRoom({ rideId, mode: "summary" })).toMatchObject({ code: "missing_key" });
-    vi.stubEnv("OPENAI_API_KEY", "test-only"); mocks.permit.mockResolvedValueOnce({ data: false, error: null });
+    vi.stubEnv("CHAT_AI_ENABLED", "true");
+  vi.stubEnv("OPENAI_API_KEY", "test-only"); mocks.permit.mockResolvedValueOnce({ data: false, error: null });
     expect(await assistRoom({ rideId, mode: "summary" })).toMatchObject({ code: "rate_limit" });
     mocks.permit.mockResolvedValueOnce({ data: null, error: {} });
     expect(await assistRoom({ rideId, mode: "summary" })).toMatchObject({ code: "database" });
@@ -79,4 +82,10 @@ describe("private AI service", () => {
     mocks.model.mockRejectedValue(new ChatAiError(code));
     expect(await assistRoom({ rideId, mode: "summary" })).toMatchObject({ ok: false, code });
   });
+});
+
+it("does not read history, consume budget or call AI when disabled", async () => {
+  vi.stubEnv("CHAT_AI_ENABLED", "false");
+  expect(await assistRoom({ rideId, mode: "summary" })).toMatchObject({ ok: false, code: "disabled" });
+  for (const mock of Object.values(mocks)) expect(mock).not.toHaveBeenCalled();
 });

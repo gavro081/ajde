@@ -1,12 +1,14 @@
+import { isChatAiEnabled } from "@/lib/chat/ai-feature";
 import { assistRoom, aiFailure } from "@/lib/chat/ai-service";
 import type { AiErrorCode } from "@/lib/chat/ai-contract";
 
 export const maxDuration = 60;
-const status: Record<AiErrorCode, number> = { invalid: 400, unavailable: 403, database: 503, empty: 422,
+const status: Record<AiErrorCode, number> = { disabled: 503, invalid: 400, unavailable: 403, database: 503, empty: 422,
   too_large: 422, rate_limit: 429, missing_key: 503, timeout: 504, provider: 502, refusal: 422, invalid_output: 502 };
 const headers = { "Cache-Control": "private, no-store" };
 
 export async function POST(request: Request) {
+  if (!isChatAiEnabled()) return Response.json(aiFailure("disabled"), { status: 503, headers });
   // Cookie-authenticated, same-origin requests only; never expose a paid cross-site endpoint.
   if (request.headers.get("origin") !== new URL(request.url).origin) {
     return Response.json(aiFailure("unavailable"), { status: 403, headers });

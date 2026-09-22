@@ -20,18 +20,21 @@ import { RideRoom } from "./room";
 const rideId = "92000000-0000-4000-8000-000000000001";
 const message: Message = { id: "92000000-0000-4000-8000-000000000002", ride_id: rideId, recipient_id: null, sender_id: "driver", body: "Hello room", created_at: "2026-09-21T12:00:00Z", sender: { full_name: "Driver", photo_url: "/photo.png" } };
 const initial: RoomPage = { viewerId: "driver", members: ["driver", "one", "two"].map(id => ({ id, full_name: id, photo_url: "/photo.png", isDriver: id === "driver", phone: "+38970123456", social_url: "https://x.com/" + id, instagram: null, facebook: null })), messages: [], nextCursor: null, membership: { role: "driver", canSend: true, closesAt: "2099-09-21T12:00:00Z" } };
+// jsdom lacks native dialog methods; browser fixtures cover top-layer behavior.
+HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
 beforeEach(() => { mocks.channels = []; mocks.load.mockReset().mockResolvedValue({ ok: true, value: initial }); mocks.send.mockReset(); mocks.remove.mockClear(); mocks.session.mockReset().mockResolvedValue({ data: { session: { access_token: "test-token" } } }); mocks.setAuth.mockReset().mockResolvedValue(undefined); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe("ride room client", () => {
   it("shows one roster and escapes markup instead of interpreting it", async () => {
     mocks.load.mockResolvedValue({ ok: true, value: { ...initial, messages: [{ ...message, body: "<script>alert(1)</script>" }] } });
-    const { container } = render(<RideRoom rideId={rideId} initial={initial} />);
+    const { container } = render(<RideRoom aiEnabled={true} rideId={rideId} initial={initial} />);
     expect(await screen.findByText("<script>alert(1)</script>")).toBeTruthy();
     expect(container.querySelector("script")).toBeNull();
     expect(within(screen.getByLabelText("Room participants")).getAllByRole("listitem")).toHaveLength(3);
   });
   it("delivers once to driver and two passenger clients and reconciles the send response", async () => {
-    const clients = ["driver", "one", "two"].map(viewerId => render(<RideRoom rideId={rideId} initial={{ ...initial, viewerId }} />));
+    const clients = ["driver", "one", "two"].map(viewerId => render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, viewerId }} />));
     await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(3));
     mocks.load.mockResolvedValue({ ok: true, value: { ...initial, messages: [message] } });
     mocks.send.mockResolvedValue({ ok: true, value: message });
@@ -42,13 +45,13 @@ describe("ride room client", () => {
     for (const client of clients) await waitFor(() => expect(within(client.container).getAllByText("Hello room")).toHaveLength(1));
   });
   it("rejects wrong-ride and DM events without querying", async () => {
-    render(<RideRoom rideId={rideId} initial={initial} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={initial} />);
     await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(1));
     await act(async () => { mocks.channels[0].event({ new: { ...message, ride_id: "wrong" } }); mocks.channels[0].event({ new: { ...message, recipient_id: "one" } }); });
     expect(mocks.load).toHaveBeenCalledTimes(1);
   });
   it("keeps loaded history offline and resubscribes on manual retry", async () => {
-    render(<RideRoom rideId={rideId} initial={{ ...initial, messages: [message] }} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, messages: [message] }} />);
     await waitFor(() => expect(mocks.channels).toHaveLength(1));
     await act(async () => { mocks.channels[0].status("CHANNEL_ERROR"); window.dispatchEvent(new Event("offline")); });
     expect(screen.getByText("Hello room")).toBeTruthy();
@@ -61,7 +64,7 @@ describe("ride room client", () => {
   });
   it("clears history and unsubscribes when membership is lost", async () => {
     mocks.load.mockResolvedValue({ ok: false, code: "unavailable", error: "Unavailable" });
-    render(<RideRoom rideId={rideId} initial={{ ...initial, messages: [message] }} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, messages: [message] }} />);
     expect(await screen.findByText("Ride room unavailable")).toBeTruthy();
     expect(screen.queryByText("Hello room")).toBeNull();
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledTimes(1));
@@ -69,7 +72,7 @@ describe("ride room client", () => {
   it("preserves failed drafts, supports keyboard newlines, and restores focus", async () => {
     mocks.send.mockResolvedValue({ ok: false, code: "database", error: "Send failed" });
     const user = userEvent.setup();
-    render(<RideRoom rideId={rideId} initial={initial} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={initial} />);
     const field = screen.getByLabelText("Message to the ride group") as HTMLTextAreaElement;
     await user.type(field, "Hello{Shift>}{Enter}{/Shift}room");
     expect(field.value).toBe("Hello\nroom");
@@ -81,13 +84,13 @@ describe("ride room client", () => {
   });
   it("loads older pages without duplicate rows", async () => {
     mocks.load.mockImplementation(async (input: { direction: string }) => ({ ok: true, value: { ...initial, messages: input.direction === "older" ? [message] : [], nextCursor: null } }));
-    render(<RideRoom rideId={rideId} initial={{ ...initial, nextCursor: message, messages: [message] }} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, nextCursor: message, messages: [message] }} />);
     fireEvent.click(screen.getByText("Load older messages"));
     await waitFor(() => expect(screen.queryByText("Load older messages")).toBeNull());
     expect(screen.getAllByText("Hello room")).toHaveLength(1);
   });
   it("cleans up on unmount and ignores late events", async () => {
-    const { unmount } = render(<RideRoom rideId={rideId} initial={initial} />);
+    const { unmount } = render(<RideRoom aiEnabled={true} rideId={rideId} initial={initial} />);
     await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(1));
     unmount();
     mocks.channels[0].event({ new: message });
@@ -95,7 +98,7 @@ describe("ride room client", () => {
     expect(mocks.load).toHaveBeenCalledTimes(1);
   });
   it("does not steal scroll position while someone reads older messages", async () => {
-    render(<RideRoom rideId={rideId} initial={{ ...initial, messages: [message] }} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, messages: [message] }} />);
     await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(1));
     const history = screen.getByLabelText("Message history");
     Object.defineProperties(history, { scrollHeight: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 200 } });
@@ -109,7 +112,7 @@ describe("ride room client", () => {
   it("disables the composer during a pending send and reconciles success", async () => {
     let finish!: (value: unknown) => void;
     mocks.send.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
-    render(<RideRoom rideId={rideId} initial={initial} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={initial} />);
     const field = screen.getByLabelText("Message to the ride group") as HTMLTextAreaElement;
     fireEvent.change(field, { target: { value: "Hello room" } });
     fireEvent.submit(field.closest("form")!);
@@ -121,19 +124,19 @@ describe("ride room client", () => {
   it("does not render a sendable composer in a closed room", async () => {
     const closed = { ...initial, membership: { ...initial.membership, canSend: false } };
     mocks.load.mockResolvedValue({ ok: true, value: closed });
-    render(<RideRoom rideId={rideId} initial={closed} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={closed} />);
     expect((screen.getByLabelText("Message to the ride group") as HTMLTextAreaElement).disabled).toBe(true);
     expect(screen.getByText(/This room is read-only/)).toBeTruthy();
     expect(mocks.send).not.toHaveBeenCalled();
   });
   it("sends only validated cursor fields when catching up an existing timeline", async () => {
-    render(<RideRoom rideId={rideId} initial={{ ...initial, messages: [message] }} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, messages: [message] }} />);
     await waitFor(() => expect(mocks.load).toHaveBeenCalledWith({ rideId, direction: "newer", cursor: { id: message.id, created_at: message.created_at } }));
   });
   it("waits for authentication before joining and ignores late session resolution on unmount", async () => {
     let resolveSession!: (value: unknown) => void;
     mocks.session.mockImplementation(() => new Promise(resolve => { resolveSession = resolve; }));
-    const { unmount } = render(<RideRoom rideId={rideId} initial={initial} />);
+    const { unmount } = render(<RideRoom aiEnabled={true} rideId={rideId} initial={initial} />);
     await waitFor(() => expect(mocks.load).toHaveBeenCalled());
     expect(mocks.channels).toHaveLength(0);
     unmount();
@@ -143,7 +146,7 @@ describe("ride room client", () => {
   });
   it("never joins anonymously if the browser session has disappeared", async () => {
     mocks.session.mockResolvedValue({ data: { session: null } });
-    render(<RideRoom rideId={rideId} initial={{ ...initial, messages: [message] }} />);
+    render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, messages: [message] }} />);
     expect(await screen.findByText("Ride room unavailable")).toBeTruthy();
     expect(screen.queryByText("Hello room")).toBeNull();
     expect(mocks.channels).toHaveLength(0);
@@ -151,29 +154,34 @@ describe("ride room client", () => {
 });
 
 it("shows callable contact details in the current participant roster", async () => {
-  render(<RideRoom rideId={rideId} initial={initial} />);
+  render(<RideRoom aiEnabled={true} rideId={rideId} initial={initial} />);
   const roster=screen.getByLabelText("Room participants");
   expect(within(roster).getAllByRole("link",{name:"+38970123456"})).toHaveLength(3);
   expect(within(roster).getAllByRole("link",{name:/Social profile/})).toHaveLength(3);
   await waitFor(()=>expect(mocks.load).toHaveBeenCalled());
 });
-it("keeps room sending and history available during an AI request", async () => {
+it("keeps realtime history updating during an AI request and restores sending after close", async () => {
   vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
   mocks.send.mockResolvedValue({ ok: true, value: message });
-  render(<RideRoom rideId={rideId} initial={initial} />);
+  render(<RideRoom aiEnabled={true} rideId={rideId} initial={initial} />);
   fireEvent.click(screen.getByRole("button", { name: "Summarize chat" }));
+  await waitFor(() => expect(mocks.channels).toHaveLength(1));
+  mocks.load.mockResolvedValue({ ok: true, value: { ...initial, messages: [message] } });
+  await act(async () => mocks.channels[0].event({ new: message }));
+  expect(screen.getByText("Reading the chat…")).toBeDefined();
+  expect(screen.getByText("Hello room")).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: "Close AI panel" }));
   const composer = screen.getByLabelText("Message to the ride group");
   fireEvent.change(composer, { target: { value: "Hello room" } });
   fireEvent.submit(composer.closest("form")!);
   await waitFor(() => expect(mocks.send).toHaveBeenCalledWith({ rideId, body: "Hello room" }));
-  expect(screen.getByText("Reading the chat…")).toBeDefined();
-  expect(screen.getByText("Hello room")).toBeDefined();
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 it.each(["SIGNED_OUT", "SIGNED_IN"])("clears pending AI and room history on auth event %s", async event => {
   let finish!: (response: Response) => void;
   const fetcher = vi.fn(() => new Promise<Response>(resolve => { finish = resolve; }));
   vi.stubGlobal("fetch", fetcher);
-  render(<RideRoom rideId={rideId} initial={{ ...initial, messages: [message] }} />);
+  render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, messages: [message] }} />);
   fireEvent.click(screen.getByRole("button", { name: "Summarize chat" }));
   act(() => mocks.authChange(event, event === "SIGNED_OUT" ? null : { user: { id: "another-member" } }));
   expect(screen.getByRole("heading", { name: "Ride room unavailable" })).toBeDefined();
@@ -183,13 +191,21 @@ it.each(["SIGNED_OUT", "SIGNED_IN"])("clears pending AI and room history on auth
   expect(screen.queryByText("Hello room")).toBeNull();
 });
 it("resets AI question state on ride or viewer change and permits read-only room assistance", async () => {
-  const view = render(<RideRoom rideId={rideId} initial={{ ...initial, membership: { ...initial.membership, canSend: false } }} />);
+  const view = render(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, membership: { ...initial.membership, canSend: false } }} />);
   fireEvent.click(screen.getByRole("button", { name: "Ask AI" }));
   fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Private question" } });
-  view.rerender(<RideRoom rideId={rideId.replace(/1$/, "3")} initial={initial} />);
+  view.rerender(<RideRoom aiEnabled={true} rideId={rideId.replace(/1$/, "3")} initial={initial} />);
   expect(screen.queryByDisplayValue("Private question")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Ask AI" }));
   fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Another private question" } });
-  view.rerender(<RideRoom rideId={rideId} initial={{ ...initial, viewerId: "one" }} />);
+  view.rerender(<RideRoom aiEnabled={true} rideId={rideId} initial={{ ...initial, viewerId: "one" }} />);
   expect(screen.queryByDisplayValue("Another private question")).toBeNull();
+});
+
+it("hides AI controls while keeping the room available when disabled", async () => {
+  render(<RideRoom rideId={rideId} initial={initial} aiEnabled={false} />);
+  await waitFor(() => expect(mocks.load).toHaveBeenCalled());
+  expect(screen.queryByRole("button", { name: "Ask AI" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Summarize chat" })).toBeNull();
+  expect(screen.getByLabelText("Message to the ride group")).toBeDefined();
 });

@@ -445,3 +445,7 @@ Work is developed on feature branches with Conventional Commit messages. See
 
 The deadline plan intentionally prioritizes a truthful, working demo over hiding unfinished scope.
 If a feature is not in the status table as implemented, assume it is not ready for the demo.
+
+### Chat assistant switch
+
+Set `CHAT_AI_ENABLED=false` in the server environment and restart/redeploy to hide the summary/question buttons and reject AI requests before loading history or spending AI budget. It defaults to enabled when unset; only `true` enables it when explicitly set. Ordinary chat and full message history remain available. The assistant opens in a private modal with separate question and answer cards and keyboard focus containment.

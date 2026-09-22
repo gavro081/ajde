@@ -9,6 +9,9 @@ const answer: AiAnswer = { mode: "summary", insufficientEvidence: false,
   items: [{ category: "decision", text: "Pickup at the station", sources: [source] }], messageCount: 151, cutoff: { id: source.id, created_at: source.created_at } };
 const fetcher = vi.fn();
 const denied = vi.fn();
+// jsdom lacks native dialog methods; browser fixtures cover top-layer behavior.
+HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
 beforeEach(() => { denied.mockReset(); fetcher.mockReset().mockResolvedValue(Response.json({ ok: true, value: answer })); vi.stubGlobal("fetch", fetcher); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const mount = () => render(<ChatAiPanel rideId={rideId} latest={source} onUnavailable={denied} />);
@@ -67,12 +70,14 @@ it("discards private output and notifies the room when access is revoked", async
   await waitFor(() => expect(denied).toHaveBeenCalledOnce());
   expect(screen.queryByText("Pickup at the station")).toBeNull();
 });
-it("does not steal focus from the room composer when a pending request finishes", async () => {
-  let finish!: (r: Response) => void;
-  fetcher.mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));
-  render(<><ChatAiPanel rideId={rideId} latest={source} onUnavailable={denied} /><textarea aria-label="Room composer" /></>);
-  fireEvent.click(screen.getByRole("button", { name: "Summarize chat" }));
-  const composer = screen.getByLabelText("Room composer"); composer.focus();
-  await act(async () => finish(Response.json({ ok: true, value: answer })));
-  expect(document.activeElement).toBe(composer);
+it("opens a modal, closes on Escape, restores focus and unlocks scrolling", () => {
+  mount();
+  const trigger = screen.getByRole("button", { name: "Ask AI" });
+  trigger.focus(); fireEvent.click(trigger);
+  const dialog = screen.getByRole("dialog", { name: "Private chat assistant" });
+  expect(document.body.style.overflow).toBe("hidden");
+  fireEvent(dialog, new Event("cancel", { bubbles: false, cancelable: true }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(trigger);
+  expect(document.body.style.overflow).toBe("");
 });

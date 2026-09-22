@@ -38,11 +38,11 @@ export function MessageList({ messages, viewerId }: { messages: Message[]; viewe
   </ol>;
 }
 
-export function RideRoom({ rideId, initial }: { rideId: string; initial: RoomPage }) {
-  return <RideRoomSession key={`${rideId}:${initial.viewerId}`} rideId={rideId} initial={initial} />;
+export function RideRoom({ rideId, initial, aiEnabled }: { rideId: string; initial: RoomPage; aiEnabled: boolean }) {
+  return <RideRoomSession key={`${rideId}:${initial.viewerId}`} rideId={rideId} initial={initial} aiEnabled={aiEnabled} />;
 }
 
-function RideRoomSession({ rideId, initial }: { rideId: string; initial: RoomPage }) {
+function RideRoomSession({ rideId, initial, aiEnabled }: { rideId: string; initial: RoomPage; aiEnabled: boolean }) {
   const [messages, setMessages] = useState(initial.messages);
   const messagesRef = useRef(initial.messages);
   const [members, setMembers] = useState(initial.members);
@@ -252,7 +252,7 @@ function RideRoomSession({ rideId, initial }: { rideId: string; initial: RoomPag
           <h1 className="font-display text-xl font-extrabold tracking-[-.03em]">Ride room</h1>
           <span className="text-xs text-slate-500">{messages.length} message{messages.length === 1 ? "" : "s"}</span>
         </div>
-        <ChatAiPanel rideId={rideId} latest={messages.at(-1) ?? null} onUnavailable={loseAccess} />
+        {aiEnabled ? <ChatAiPanel rideId={rideId} latest={messages.at(-1) ?? null} onUnavailable={loseAccess} /> : null}
       </header>
       <div ref={timeline} tabIndex={0} aria-label="Message history" className="h-64 flex-none overflow-y-auto overscroll-contain lg:h-auto lg:min-h-20 lg:flex-1" onScroll={() => {
         const node = timeline.current;

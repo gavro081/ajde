@@ -1,10 +1,12 @@
 import "server-only";
+import { isChatAiEnabled } from "./ai-feature";
 import { aiModelSchema, aiRequestSchema, type AiErrorCode, type AiResult } from "./ai-contract";
 import { loadTranscript, TranscriptTooLarge } from "./transcript";
 import { roomAccess } from "./server";
 import { ChatAiError, runChatAssistant } from "@/lib/ai/chat-assistant";
 
 const errors: Record<AiErrorCode, string> = {
+  disabled: "AI chat assistance is disabled. You can still read and send messages.",
   invalid: "Ask a question between 1 and 1,000 characters about this chat.",
   unavailable: "This ride room is unavailable.", database: "Chat history could not be loaded. Please retry.",
   empty: "No messages to summarize or ask about yet.", too_large: "Chat is too long for AI assistance. You can still browse its full history.",
@@ -17,6 +19,7 @@ const errors: Record<AiErrorCode, string> = {
 export function aiFailure(code: AiErrorCode): AiResult { return { ok: false, code, error: errors[code] }; }
 
 export async function assistRoom(input: unknown, signal?: AbortSignal): Promise<AiResult> {
+  if (!isChatAiEnabled()) return aiFailure("disabled");
   const parsed = aiRequestSchema.safeParse(input);
   if (!parsed.success) return aiFailure("invalid");
   const request = parsed.data;

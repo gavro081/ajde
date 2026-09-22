@@ -25,7 +25,7 @@ export const aiAnswerSchema = z.object({
   messageCount: z.number().int().positive(), cutoff: cursorSchema,
 });
 export type AiAnswer = z.infer<typeof aiAnswerSchema>;
-export const aiErrorCodeSchema = z.enum(["invalid", "unavailable", "database", "empty", "too_large",
+export const aiErrorCodeSchema = z.enum(["disabled", "invalid", "unavailable", "database", "empty", "too_large",
   "rate_limit", "missing_key", "timeout", "provider", "refusal", "invalid_output"]);
 export type AiErrorCode = z.infer<typeof aiErrorCodeSchema>;
 export const aiResultSchema = z.discriminatedUnion("ok", [
