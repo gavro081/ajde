@@ -6,13 +6,25 @@ export const roadDistanceArgsSchema = z.object({
 }).strict();
 export type RoadDistanceArgs = z.infer<typeof roadDistanceArgsSchema>;
 
+export const findSimilarRidesArgsSchema = roadDistanceArgsSchema.extend({
+  departureAt: z.iso.datetime({ offset: true }),
+}).strict();
+export type FindSimilarRidesArgs = z.infer<typeof findSimilarRidesArgsSchema>;
+export const findSimilarRidesResultSchema = z.object({ rides: z.array(z.object({
+  id: z.uuid(),
+  departureAt: z.iso.datetime({ offset: true }),
+  pricePerSeatMkd: z.number().finite().nonnegative().nullable(),
+  seatsAvailable: z.number().int().min(0).max(8),
+})).max(5) });
+export type FindSimilarRidesResult = z.infer<typeof findSimilarRidesResultSchema>;
+
 export const roadDistanceResultSchema = z.object({ distanceKm: z.number().finite().positive() });
 export const checkToolErrorSchema = z.object({ error: z.string().min(1).max(300) });
 export const checkTraceEntrySchema = z.object({
   callId: z.string().min(1),
   tool: z.string(),
-  args: roadDistanceArgsSchema.nullable(),
-  result: z.union([roadDistanceResultSchema, checkToolErrorSchema]),
+  args: z.union([roadDistanceArgsSchema, findSimilarRidesArgsSchema]).nullable(),
+  result: z.union([checkToolErrorSchema, roadDistanceResultSchema, findSimilarRidesResultSchema]),
 });
 export type CheckTraceEntry = z.infer<typeof checkTraceEntrySchema>;
 export const rideCheckMetadataSchema = z.object({
