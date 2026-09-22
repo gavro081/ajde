@@ -7,6 +7,7 @@ import { parsedRidePostSchema, type ParsedRidePost } from "@/lib/ai/parsed-ride-
 import { rideCheckMetadataSchema, type RideCheckMetadata } from "@/lib/ai/ride-check-contract";
 import { formatDeparture } from "@/lib/rides/ride-presentation";
 import { RideCheckSummary } from "./ride-check-summary";
+import { ScreenshotImport } from "./screenshot-import";
 
 type ParseResponse = {
   importId: string;
@@ -23,9 +24,11 @@ export function ImportRideForm({ cities, pipelineEnabled = false }: { cities: { 
   const [result, setResult] = useState<ParseResponse | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [readingScreenshot, setReadingScreenshot] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending || readingScreenshot) return;
     setPending(true);
     setError("");
     setResult(null);
@@ -82,7 +85,7 @@ export function ImportRideForm({ cities, pipelineEnabled = false }: { cities: { 
   return (
     <div className="space-y-7">
       <form className="space-y-5" onSubmit={submit} aria-busy={pending}>
-        <p className="eyebrow">1. Paste post · 2. Review · 3. Publish</p>
+        <p className="eyebrow">{pipelineEnabled ? "1. Paste or select post · 2. Review · 3. Publish" : "1. Paste post · 2. Review · 3. Publish"}</p>
         <label className="block font-medium text-slate-800">
           Source
           <select
@@ -97,6 +100,12 @@ export function ImportRideForm({ cities, pipelineEnabled = false }: { cities: { 
             <option value="other">Other</option>
           </select>
         </label>
+        {pipelineEnabled ? <ScreenshotImport disabled={pending} onBusyChange={setReadingScreenshot} onSelect={post => {
+          setText(post.text);
+          setSourceHint("other");
+          setResult(null);
+          setError("");
+        }} /> : null}
         <label className="block font-medium text-slate-800">
           Post text
           <textarea
@@ -112,7 +121,7 @@ export function ImportRideForm({ cities, pipelineEnabled = false }: { cities: { 
         </label>
         <button
           className="btn-primary disabled:opacity-50"
-          disabled={pending}
+          disabled={pending || readingScreenshot}
           type="submit"
         >
           {pending ? "Parsing…" : "Create review draft"}

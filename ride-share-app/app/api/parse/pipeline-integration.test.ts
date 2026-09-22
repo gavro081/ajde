@@ -15,6 +15,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({
 import { emptyOfferDraft } from "@/lib/rides/offer-interpretation";
 import { parsedRidePostSchema } from "@/lib/ai/parsed-ride-post";
 import { POST } from "./route";
+import { POST as readScreenshotPost } from "./screenshot/route";
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -92,4 +93,37 @@ it("combines road, fair-price, and possible-duplicate evidence in one persisted 
   ]));
   expect(service.insert.mock.calls[0][0].parsed_json).toEqual({ ...body.parsed, check: body.check });
   expect(parsedRidePostSchema.parse(service.insert.mock.calls[0][0].parsed_json)).toEqual(body.parsed);
+});
+
+it("keeps screenshot extraction separate from the explicitly selected checked import", async () => {
+  const selected = "Возам Skopje Veles tomorrow at 17:00, 3 seats 🚗";
+  const unselected = "Барам превоз до Битола, unrelated passenger request";
+  service.model.mockResolvedValueOnce({ output: [], output_parsed: { legible: true, posts: [
+    { text: selected, kind: "offer", confidence: 0.9 }, { text: unselected, kind: "request", confidence: 0.8 },
+  ] } });
+  const upload = new FormData();
+  upload.append("image", new File([new Uint8Array([137, 80, 78, 71])], "fixture.png", { type: "image/png" }));
+  const extracted = await readScreenshotPost(new Request("http://localhost/api/parse/screenshot", { method: "POST", body: upload }));
+  expect(extracted.status).toBe(200);
+  expect((await extracted.json()).posts).toHaveLength(2);
+  expect(service.model).toHaveBeenCalledTimes(1);
+  expect(service.insert).not.toHaveBeenCalled();
+  expect(service.rpc).not.toHaveBeenCalled();
+
+  service.model.mockResolvedValueOnce({ output_parsed: { classification: "offer", sourceLanguage: "mixed", draft: {
+    ...emptyOfferDraft(), source: "imported", confidence: 0.9,
+    origin: { cityId: 1, pickupPointId: null, rawText: "Skopje" }, destination: { cityId: 2, pickupPointId: null, rawText: "Veles" },
+    departureAt: "2026-09-23T15:00:00Z", seatsTotal: 3,
+  } } }).mockResolvedValueOnce({ output: [{ type: "function_call", call_id: "route-1", name: "road_distance", arguments: '{"originCityId":1,"destinationCityId":2}' }] })
+    .mockResolvedValueOnce({ output: [], output_parsed: { findings: [] } });
+  vi.stubGlobal("fetch", vi.fn<typeof fetch>(async () => Response.json({ code: "Ok", routes: [{ distance: 60000 }] })));
+  const response = await POST(new Request("http://localhost/api/parse", { method: "POST", body: JSON.stringify({ text: `${selected} edited`, sourceHint: "other" }) }));
+  expect(response.status).toBe(200);
+  expect((await response.json()).check.status).toBe("checked");
+  expect(service.insert).toHaveBeenCalledTimes(1);
+  const saved = service.insert.mock.calls[0][0];
+  expect(saved.raw_text).toBe(`${selected} edited`);
+  expect(JSON.stringify(saved)).not.toContain(unselected);
+  expect(JSON.stringify(saved)).not.toContain("data:image");
+  expect(JSON.stringify(service.model.mock.calls[1][0].input)).not.toContain(unselected);
 });

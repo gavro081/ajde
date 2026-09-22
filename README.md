@@ -22,7 +22,7 @@ be saved or published.
 | Fuel-price and CO2 estimate | Implemented | Petrol/diesel arithmetic using server-configured fuel prices; suggestion remains editable |
 | Group-post import and review | Implemented | Structured OpenAI parsing, warnings/confidence, saved import, and editable ride prefill |
 | Tool-using import checker | Implemented locally, disabled by default | Model-selected road distance, deterministic fair share, and possible duplicate evidence; bounded execution and fail-open review |
-| Screenshot import | Pending | Text-only importing remains available |
+| Screenshot import | Implemented locally, disabled by default | One PNG/JPEG/WebP up to 4 MB, separate detected posts, editable selection, then explicit parsing; text-only importing remains available |
 | Authentication and onboarding | Implemented | Student-domain magic links, guarded local bypass, callback, profile completion, photo upload, and server-side route protection |
 | Public profiles | Implemented | Deliberately limited projection excludes phone and social contact fields |
 | Location normalization | Implemented | Deterministic name/alias matching first, structured model fallback on misses, and canonical-ID validation |
@@ -66,6 +66,9 @@ key. OpenAI credentials, database credentials, and fuel-price assumptions remain
 
 ```mermaid
 flowchart LR
+  Screenshot[Screenshot upload] --> Reader[Separate screenshot reader]
+  Reader --> Selection[Driver selects and edits one post]
+  Selection --> Parse
   Post[Group post] --> Parse[Structured parser]
   Parse --> Validate[Schema + canonical-ID guards]
   Validate --> Flag{Pipeline enabled and offer?}
@@ -262,8 +265,23 @@ The implemented product flow is:
 
 ### Tool-backed import checking
 
+The [screenshot reader](ride-share-app/lib/ai/read-screenshot.ts) performs a separate job before
+parsing: transcribe the original language, scripts, emoji, and typos; split separate messages;
+omit surrounding interface text; and mark unreadable fragments `[?]`. The authenticated
+[screenshot endpoint](ride-share-app/app/api/parse/screenshot/route.ts) accepts one PNG, JPEG, or
+WebP with at most 4 MB of decoded bytes. MIME and size are checked before model invocation.
+It returns up to ten nonempty posts with visible offer/request/other kinds, using high-detail image
+input and the verified `OPENAI_MODEL` fallback. No separate vision-model setting was needed.
+
+The [screenshot selection UI](ride-share-app/app/rides/import/screenshot-import.tsx) lets the driver
+choose **one** post into the existing editable textarea. Request and other posts remain selectable.
+The driver can correct transcription before explicitly choosing **Create review draft**, which
+reuses the parser → canonical guards → checker/tools → review → editable form path. Upload and
+selection alone neither parse a ride nor persist an import. Reader failures leave text importing
+available. The reader and parser remain separate model jobs with a human checkpoint between them.
+
 The server-only [pipeline setting](ride-share-app/lib/ai/import-pipeline-config.ts) controls the new
-import checker as a unit. Missing, false, or invalid settings preserve the existing text-only
+reader and import checker as a unit. Missing, false, or invalid settings preserve the existing text-only
 parse, persist, review, and editable-form flow without check metadata. The server sends only the
 resolved boolean to the browser; client requests cannot enable the feature. Older checked imports
 remain compatible with the existing draft schema while the setting is disabled.
@@ -273,6 +291,11 @@ After the existing [parser and canonical guards](ride-share-app/lib/ai/parse-rid
 canonical city IDs/names, structured ride fields, and a Europe/Skopje clock. It never receives the
 original post, location raw text, or notes. Only ride offers enter this step; requests and unknown
 posts retain their existing review path.
+
+When disabled, direct screenshot requests return 404 **before body/image processing**, including
+requests from a stale enabled client. Enabled screenshot requests require authentication. Missing
+provider configuration returns 503, model refusal 422, and provider failure 502; unreadable images
+suggest pasting text instead.
 
 | Model-selected tool | Evidence | Limits |
 | --- | --- | --- |
@@ -308,9 +331,18 @@ Similar rides are **possible duplicates**, not a broad semantic duplicate detect
 their departure in Skopje time, per-seat price, available seats, and links. A successful empty search
 is distinguished from an unavailable one. No match prevents publication or changes the draft.
 
-Current delivery includes all three checker tools. Screenshot reading is pending a subsequent local
-slice; no image is accepted by this increment. [Local verification](docs/verification/ai-import-pipeline.md)
-records deterministic tests and distinguishes them from live evidence.
+Current delivery includes the reader, human selection, existing parser/guards, all three checker
+tools, and review/form continuation. [Local verification](docs/verification/ai-import-pipeline.md)
+records deterministic and mobile checks separately from opt-in live evidence. The remaining
+opportunities are batch import, applying the checker to native ride-description AI fill, and
+evidence-backed spam/safety checks; none are part of this delivery.
+
+The application does not save screenshots to database, object storage, files, or logs, and does not
+persist unselected transcripts. Image bytes are processed transiently on the server and sent to the
+model with `store: false`; only the text explicitly submitted for a review draft enters the existing
+import record. This describes application retention, not an independently verified guarantee about
+provider retention. No image URLs are accepted. Live fixture samples cannot establish production
+accuracy, and screenshot reading adds another model request before the checker's bounded loop.
 
 
 `parseRidePost` uses the OpenAI Responses API with a Zod-backed structured-output schema. It is

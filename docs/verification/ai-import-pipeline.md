@@ -67,3 +67,24 @@ Before screenshot implementation started, **732 tests across 56 files**, ESLint,
 passed on the integrated checker. No pump-price accuracy, live routing, database, or model quality
 claim follows from these fixture values. This committed checker remains an independently usable
 increment with the pipeline flag enabled.
+
+## Screenshot increment (#9)
+
+The [reader/endpoint checks](ai-import-screenshot-reader.md) were integrated with the selection UI.
+**788 tests across 59 files**, ESLint, and TypeScript passed. The added integration test traverses
+screenshot extraction → explicit selected text → existing parser/guards → checker → persisted
+editable draft. Extraction performs no import insertion; unselected text and image data are absent
+from the eventual saved record. Visible tests cover offer/request/other selection, transcript edits,
+explicit parsing, unreadable fallback, disabled UI, oversized uploads, and pending-read behavior.
+
+At **375 × 812**, headless Chromium rendered the actual screenshot/import components and app CSS.
+Upload → choose offer → edit transcription → Create review draft → check summary → editable-form
+link passed, with no horizontal overflow. Upload and selection caused no parse request; the complete
+interaction issued one extraction request, one explicit parse request, and zero publication requests.
+Disabled mode hid screenshot controls and checker summaries. The screenshot was visually inspected.
+This used local fixture responses and a navigation anchor adapter, not live authentication or database
+writes. A remote/demo publication walkthrough was intentionally not run under the local-only instruction.
+
+Screenshot delivery was completed locally before the supplied 14:00 Europe/Skopje cutoff. The
+default-off flag controls the completed reader and checker together; the earlier checker commit
+`0568285` remains available independently.
