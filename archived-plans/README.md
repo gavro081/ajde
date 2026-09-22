@@ -29,7 +29,7 @@ Two tracks ran in parallel each day so that people could work without touching t
 | Mon 21 → Tue 22 Sep | [21-09-dimi-2.md](2026-09-21/21-09-dimi-2.md) | Dimi | Tier 3: private Realtime room per ride | Done |
 | Mon 21 → Tue 22 Sep | [21-09-pero-2.md](2026-09-21/21-09-pero-2.md) | Pero | Tier 3: post-ride ratings and the shared RLS/Realtime policy checkpoint | Done |
 | Tue 22 Sep | [22-09-dimi.md](2026-09-22/22-09-dimi.md) | Dimi | Full ride-room history and AI chat summaries and questions | Done |
-| Tue 22 Sep | [22-09-ai-pipeline.md](2026-09-22/22-09-ai-pipeline.md) | — | Screenshot → reader → parser → tool-using checker pipeline | In progress |
+| Tue 22 Sep | [22-09-ai-pipeline.md](2026-09-22/22-09-ai-pipeline.md) | — | Screenshot → reader → parser → tool-using checker pipeline | Done |
 
 ## Related records
 

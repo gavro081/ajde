@@ -30,7 +30,10 @@ Implemented protections:
 ## CO2 impact assumptions
 
 The homepage shows database-derived estimated CO2/fuel savings, distinct participants, and completed
-shared trips. It excludes rides marked `details.demo_seed`, counts only departed completed rides
+shared trips. It excludes the upcoming demo feed rides marked `details.demo_seed`, but it **does
+include** the 72 seeded past trips marked `details.seeded_history` (migration
+`20260922120000_seed_completed_trip_history.sql`), so the public totals are mostly demo data. It
+counts only departed completed rides
 with accepted bookings, and labels estimates and unavailable data explicitly. Participants count
 each driver/passenger once across qualifying trips; missing/unsupported vehicle data excludes a
 trip from savings estimates but not participation counts. No tree-equivalent estimate is shown.

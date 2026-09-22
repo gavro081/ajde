@@ -1,10 +1,11 @@
-# Ajde - student ride sharing between Macedonian cities
+# Ajde - Student ride sharing between Macedonian cities
 
 Ajde helps students in Skopje find a shared ride home to their city, split the real fuel cost, and
-keep extra cars off the road. Drivers describe a trip the way they'd write it in a Viber group, in
-Macedonian or English, and AI turns it into a ride listing they check before publishing.
+keep extra cars off the road. Drivers describe a trip the way they'd write it in a Viber group, or
+upload a screenshot of their Facebook post, and AI turns it into a checked ride listing they review
+before publishing.
 
-**Live demo:** _TODO: deployed URL_ · **Backup video:** _TODO: video link_
+**Live demo:** [ride-share-app-delta.vercel.app](https://ride-share-app-delta.vercel.app) · **Backup video:** _TODO: video link_
 
 ## Who it is for
 
@@ -30,8 +31,10 @@ and often leaves with empty seats.
 - **Why they'd still use it next month:** the trip home repeats every week, and the price split,
   saved car and ratings carry over from one trip to the next.
 - **Green, honestly:** three passengers in one car means three fewer car trips. The CO₂ counter
-  only counts completed rides with a real distance and a petrol or diesel car, and excludes demo
-  data ([assumptions](docs/SAFETY.md#co2-impact-assumptions)).
+  only counts completed rides with a real distance and a petrol or diesel car
+  ([assumptions](docs/SAFETY.md#co2-impact-assumptions)). **The homepage totals are mostly seeded
+  demo history**, not real usage: about 75 completed trips, 62 participants, ~1,425 L of fuel and
+  ~3,725 kg of CO₂, of which 72 trips come from seeded data.
 
 ## What you can do in it
 
@@ -48,15 +51,21 @@ and often leaves with empty seats.
 
 ```mermaid
 flowchart TD
-  A["Driver pastes a group post<br/>or types a trip description"] --> B["API route<br/>sign-in + length checks"]
-  B --> C["AI parser (OpenAI, structured output)<br/>gets: current Skopje time + our city list"]
-  C --> D{"Schema valid?"}
-  D -- no --> X["Readable error<br/>'Retry or enter details manually'"]
-  D -- yes --> E["Location resolver<br/>1. exact name / alias match<br/>2. AI fallback only on a miss<br/>3. unknown IDs thrown away"]
-  E --> F["Guards<br/>clear invented times · never guess seats or price<br/>low confidence → warnings"]
-  F --> G["Draft form: driver reviews and edits every field"]
-  G --> H["Road distance (OSRM) + fuel-price math<br/>→ suggested price and CO₂"]
-  H --> I["Server re-validates → ride published"]
+  S["Facebook screenshot"] --> R["1 · Reader (vision model)<br/>transcribes each post, keeps original script,<br/>marks unreadable bits [?]"]
+  R --> P0["Driver picks one post"]
+  T["Viber text / typed description"] --> P
+  P0 --> P["2 · Parser (structured output)<br/>gets current Skopje time + our city list"]
+  P --> G["Code guards<br/>locations must match our DB · invented times cleared<br/>seats & price never guessed"]
+  G --> C["3 · Checker (model with tools, ≤4 rounds / 6 calls)"]
+  C <-->|calls| T1["road_distance → OSRM"]
+  C <-->|calls| T2["fair_price → our fuel-cost formula"]
+  C <-->|calls| T3["find_similar_rides → rides DB"]
+  C --> E["Evidence guard (code)<br/>keeps only findings that cite a real tool result"]
+  E --> V["Review page: warnings, fair-price check, possible duplicates"]
+  V --> F["Driver edits every field in the form"]
+  F --> I["Server re-validates → ride published"]
+  R -. "unreadable / provider error" .-> X["Readable error: 'paste the text instead'"]
+  C -. "tool or model fails" .-> V
 ```
 
 | AI job | File | What would break without AI |
@@ -67,10 +76,21 @@ flowchart TD
 | Turn a search phrase into filters | [`lib/ai/parse-search-query.ts`](ride-share-app/lib/ai/parse-search-query.ts) | "Ohrid slednive nekolku dena okolu 5" |
 | Summarise a ride chat and answer questions about it, citing the messages | [`lib/ai/chat-assistant.ts`](ride-share-app/lib/ai/chat-assistant.ts) | Catching up on a long chat: "where are we meeting, and who's bringing a big bag?" |
 | Explain why a ride matches your search | [`lib/ai/explain-match.ts`](ride-share-app/lib/ai/explain-match.ts) | (falls back to plain facts) |
-| **PLACEHOLDER / TODO:** screenshot → reader → parser → checker that calls tools | _in progress, not merged_ ([plan](archived-plans/2026-09-22/22-09-ai-pipeline.md)) | Photos of group chats |
+| **Reader:** read a Facebook screenshot into separate posts | [`lib/ai/read-screenshot.ts`](ride-share-app/lib/ai/read-screenshot.ts) | Drivers already have the post as an image; retyping Cyrillic from a screenshot is the step people skip |
+| **Checker:** cross-check the draft by calling tools the model chooses | [`lib/ai/check-ride-draft.ts`](ride-share-app/lib/ai/check-ride-draft.ts), [`ride-check-tools.ts`](ride-share-app/lib/ai/ride-check-tools.ts) | Spotting that 1,200 MKD for Skopje → Veles is 10× the fuel cost, or that the same ride is already posted |
+
+The import flow is three separate AI jobs passing work along: **reader → parser → checker**, with
+the driver choosing a post between the first two. The checker decides for itself which tools to
+call. A live run is recorded in [docs/verification/ai-import-live.md](docs/verification/ai-import-live.md),
+including a run where the model skipped the price tool. Screenshot import and the checker are
+behind a server switch, `AI_IMPORT_PIPELINE_ENABLED=true`, which is on in the live deployment and in
+`.env.example`. When it's off, text import works as before, without the checker.
 
 **When the AI is confidently wrong:** the model never publishes anything. It only fills a draft
-that a person reviews, and the server validates the draft again on submit. The model can't
+that a person reviews, and the server validates the draft again on submit. The checker can't
+make things up either: code keeps a finding only if it cites a successful tool result, and code
+writes the final warning text. It never changes the driver's fields. A price is flagged only if
+it's more than 2.5× or less than 0.3× the calculated fuel cost. The model can't
 invent a city: every place ID must exist in our database or it's discarded. Invented departure
 times are cleared, and missing seats or prices stay empty. Uncertain output shows warnings in the
 form. If OpenAI is down, search falls back to the manual filters and the ride list still loads.
@@ -81,7 +101,8 @@ hand. More detail in [docs/AI.md](docs/AI.md).
 
 | Real | Demo / assumption |
 | --- | --- |
-| Live OpenAI calls for parsing, search and explanations | 25 demo profiles and 50 demo rides, seeded so the feed isn't empty (flagged `demo_seed`, excluded from CO₂ totals) |
+| Live OpenAI calls for parsing, search and explanations | 25 demo profiles and 50 upcoming demo rides, seeded so the feed isn't empty (flagged `demo_seed`, excluded from CO₂ totals) |
+| CO₂ and fuel arithmetic behind the homepage totals | 35 more demo profiles and 72 completed past trips with accepted bookings (flagged `seeded_history`), **counted** in the homepage totals so the counters aren't near zero |
 | Supabase auth, database, photo storage and Realtime chat | Fuel prices are values we set in `.env`, not a live feed |
 | Road distance from the public OSRM router | Car fuel consumption is a representative, rounded value per catalog model |
 | Real group posts on the landing page and in the parser tests | No payments: the app suggests a price, and passengers settle with the driver themselves |
@@ -102,32 +123,42 @@ set -a; . ./.env.local; set +a
 for m in supabase/migrations/*.sql; do psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f "$m" || break; done
 
 npm run dev                       # http://localhost:3000
-npm test                          # 650 tests, no network needed
+npm test                          # 864 tests, no network needed
 ```
 
-Sign-in uses a magic link, sent only to domains in `STUDENT_EMAIL_DOMAINS`. For local testing
-without email, set `DEV_AUTH_BYPASS=true` and `SUPABASE_SECRET_KEY`. The bypass is ignored in production.
+Only addresses on domains in `STUDENT_EMAIL_DOMAINS` can join. **Sign up** emails a magic link.
+**Sign in** doesn't send email: the server uses `SUPABASE_SECRET_KEY` to sign the user in directly,
+so demos don't hit email rate limits (see known issues).
+
+**Tried by someone outside the team:** we gave another hackathon team a test account on the live
+app and collected their feedback.
 
 ## What is finished and what is not
 
 **Finished and working end to end:** student sign-in and onboarding; manual, described and
-imported ride offers; car catalog with fuel-cost and CO₂ suggestion; automatic road distance;
+imported ride offers (Viber text or Facebook screenshot, checked by the tool-using checker); car catalog with fuel-cost and CO₂ suggestion; automatic road distance;
 feed with filters and AI search; seat requests with accept, decline and cancel; contact reveal
 after acceptance; ride Q&A; share-my-trip links; private ride chat with AI summaries and questions; ride completion; ratings;
 personal and platform CO₂ counters.
 
 **Not finished:**
 
-- **Screenshot → checked-ride AI pipeline:** PLACEHOLDER / TODO, in progress on a separate branch.
+- The checker runs on imported posts only, not yet on typed ride descriptions. One screenshot per upload, no batch import.
 - Unclaimed imported rides, reporting users, AI spam screening, recurring rides, payments, live location.
 
 ### Known issues
 
+- **Sign in skips email confirmation, on purpose, for the demo.** Anyone who knows an allowed student
+  address can sign in as that user. Before a real launch, Sign in must go back to magic links
+  or passwords.
 - **Security is not production-ready.** Row-level security is enforced only on chat messages and
   ratings. The other tables rely on server-side checks in our code, so a user calling Supabase
   directly with the public key could bypass them.
-- Our AI accuracy numbers come from small test sets: 5 posts, 12 searches, 4 descriptions. The
-  model can still be wrong, which is why every draft goes through human review.
+- Our AI accuracy numbers come from small test sets: 5 posts, 12 searches, 4 descriptions, and
+  one screenshot for the full pipeline. The model can still be wrong, and doesn't always call
+  the tool it should, which is why every draft goes through human review.
+- Screenshot import adds a model call before the checker's tool loop, so it's slower than
+  pasting text: a few seconds in our runs.
 - A booking approved at the exact moment a ride departs isn't guarded by a transaction
   ([ticket](docs/tickets/21-09-pero/06-atomic-booking-decisions.md)).
 - Distance is city-centre to city-centre, not pickup to pickup ([why](docs/adr/0001-city-to-city-road-distance.md)).
@@ -171,8 +202,8 @@ that introduced them.
 
 ## What we'd build next with another week
 
-1. Finish the screenshot pipeline: a vision reader, the parser, then a checker that calls tools
-   (road distance, fair price, similar rides) to cross-check the draft.
+1. Batch screenshot import, and run the checker on typed ride descriptions too. Then add
+   evidence-backed spam and safety checks as another checker tool.
 2. Row-level security on every table, then a public launch to FINKI students.
 3. Recurring rides ("every Friday 15:00 Skopje → Bitola") and notifications when a matching ride appears.
 4. Unclaimed imported rides, so passengers can find drivers who only post in Viber, plus reporting and AI spam screening.

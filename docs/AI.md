@@ -97,10 +97,33 @@ reported as unsupported rather than receiving an invented conversion factor, and
 always override the suggested price.
 
 
-## Screenshot pipeline — PLACEHOLDER (in progress)
+## Screenshot reader and tool-using checker
 
-> **TODO:** being built on a separate branch and not merged yet. Planned: a group-chat screenshot
-> goes through a **reader** (vision model extracts the text), then the **parser** above, then a
-> **checker** model that calls tools (`road_distance`, `fair_price`, `find_similar_rides`) to
-> cross-check the draft before human review. Plan:
-> [archived-plans/2026-09-22/22-09-ai-pipeline.md](../archived-plans/2026-09-22/22-09-ai-pipeline.md).
+Enabled with `AI_IMPORT_PIPELINE_ENABLED=true` (server-side). It's on in the live deployment and in
+`.env.example`. Only exactly `true` enables it; with it off, the screenshot endpoint returns 404
+and text import skips the checker.
+
+1. **Reader** ([`read-screenshot.ts`](../ride-share-app/lib/ai/read-screenshot.ts),
+   [`/api/parse/screenshot`](../ride-share-app/app/api/parse/screenshot/route.ts)): one
+   PNG/JPEG/WebP up to 4 MB, type and size checked before any model call. The model transcribes up
+   to ten posts in their original script, labels each as offer, request or other, and marks
+   unreadable fragments `[?]`. An unreadable image returns "Couldn't read this screenshot, paste the
+   text instead". Images are never stored; they're sent with `store: false`.
+2. **Driver picks one post**, which goes to the existing parser and code guards above.
+3. **Checker** ([`check-ride-draft.ts`](../ride-share-app/lib/ai/check-ride-draft.ts)): the model
+   chooses among three tools, within 4 rounds and 6 tool calls:
+   - `road_distance`: the same OSRM city-to-city operation as the form, using canonical city IDs.
+     The model can't supply coordinates.
+   - `fair_price`: our deterministic fuel-cost formula ([`fair-price-tool.ts`](../ride-share-app/lib/ai/fair-price-tool.ts)).
+     Code, not the model, flags a price only when it's more than 2.5× or less than 0.3× the estimate.
+   - `find_similar_rides`: published rides on the same route within ±3 hours
+     ([`similar-rides-tool.ts`](../ride-share-app/lib/ai/similar-rides-tool.ts)), shown as
+     "possible duplicates".
+4. **Evidence guard:** a finding is kept only if it cites a successful tool call. Code writes the
+   warning wording and never changes the driver's fields. If the model or a tool fails, the draft
+   still continues to review.
+
+Verification records: [capabilities](verification/ai-import-capabilities.md),
+[pipeline](verification/ai-import-pipeline.md), [reader](verification/ai-import-screenshot-reader.md),
+[prices](verification/ai-import-prices.md), [duplicates](verification/ai-import-similar.md),
+[live run](verification/ai-import-live.md), [review](verification/ai-import-review.md).
