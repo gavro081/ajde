@@ -1,6 +1,6 @@
 # Local reference datasets
 co2.csv
-docs/
+
 .worktrees/
 .scratch/
 # Supabase CLI state
