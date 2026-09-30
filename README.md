@@ -4,7 +4,9 @@ Ajde helps students in Skopje find a shared ride home to their city, split the r
 keep extra cars off the road. Drivers describe a trip the way they'd write it in a Viber group, in
 Macedonian or English, and AI turns it into a ride listing they check before publishing.
 
-**Live demo:** _TODO: deployed URL_ · **Backup video:** _TODO: video link_
+**Live hosted demo:** [URL](https://ride-share-app-delta.vercel.app/) (note: might be down 😕)
+
+**Backup video:** [URL](https://www.youtube.com/watch?v=vKd6QisokzY) (note: this was filmed in a single take 10 minutes before the cutoff 🙂)
 
 ## Who it is for
 
