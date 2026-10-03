@@ -126,9 +126,8 @@ npm run dev                       # http://localhost:3000
 npm test                          # 864 tests, no network needed
 ```
 
-Only addresses on domains in `STUDENT_EMAIL_DOMAINS` can join. **Sign up** emails a magic link.
-**Sign in** doesn't send email: the server uses `SUPABASE_SECRET_KEY` to sign the user in directly,
-so demos don't hit email rate limits (see known issues).
+Only addresses on domains in `STUDENT_EMAIL_DOMAINS` can join. Both **Sign up** and **Sign in**
+email a magic link; the session is created only after the link is opened.
 
 **Tried by someone outside the team:** we gave another hackathon team a test account on the live
 app and collected their feedback.
@@ -148,9 +147,6 @@ personal and platform CO₂ counters.
 
 ### Known issues
 
-- **Sign in skips email confirmation, on purpose, for the demo.** Anyone who knows an allowed student
-  address can sign in as that user. Before a real launch, Sign in must go back to magic links
-  or passwords.
 - **Security is not production-ready.** Row-level security is enforced only on chat messages and
   ratings. The other tables rely on server-side checks in our code, so a user calling Supabase
   directly with the public key could bypass them.

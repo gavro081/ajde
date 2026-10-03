@@ -105,10 +105,9 @@ is a successful anonymous connectivity check.
 `/rides/new`, `/rides/import`, and `/api/parse` require a valid session. New users are sent through
 `/onboarding` until their name, university, and profile photo are complete.
 
-**Sign in** does not send email, locally or in production: the server uses `SUPABASE_SECRET_KEY`
-(or the legacy service-role key) to mint and immediately verify a magic-link token, creating an
-ordinary cookie-backed Supabase session. It still requires an allowed student-domain address, but
-anyone who knows such an address can sign in as that user. **Sign up** still emails a magic link.
+**Sign in** and **Sign up** both email a magic link. Opening it hits `/auth/callback`, which verifies
+the token and creates a cookie-backed Supabase session. Supabase's built-in mailer is heavily
+rate-limited, so configure custom SMTP in Supabase Auth before demoing to many users.
 
 ## Verification commands
 

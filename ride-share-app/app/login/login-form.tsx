@@ -34,12 +34,10 @@ export function LoginForm({ next, signingUp }: { next: string; signingUp: boolea
       </div>
       <button
         type="submit"
-        name="intent"
-        value={signingUp ? 'magic-link' : 'sign-in'}
         disabled={pending}
         className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {pending ? 'Continuing…' : !signingUp ? 'Sign in' : state.status === 'sent' ? 'Send another link' : 'Email me a sign-up link'}
+        {pending ? 'Sending…' : state.status === 'sent' ? 'Send another link' : signingUp ? 'Email me a sign-up link' : 'Email me a sign-in link'}
       </button>
       {state.message ? (
         <p
