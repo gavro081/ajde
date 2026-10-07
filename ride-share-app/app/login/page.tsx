@@ -44,7 +44,7 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
           <Link href={`/login?mode=signup&next=${encodeURIComponent(next)}`} aria-current={signingUp ? 'page' : undefined} className={`flex min-h-11 flex-1 items-center justify-center rounded-full ${signingUp ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500'}`}>Sign up</Link>
         </div>
         <h1 className="font-display text-3xl font-extrabold tracking-[-.035em]">{signingUp ? 'Your next ride starts here' : 'Welcome back'}</h1>
-        <p className="mb-8 mt-4 leading-7 text-slate-500">{signingUp ? 'Start with your student email. We’ll help you set up the rest.' : 'Enter your student email and we’ll send you a sign-in link. No password needed.'}</p>
+        <p className="mb-8 mt-4 leading-7 text-slate-500">{signingUp ? 'Start with your student email. We’ll help you set up the rest.' : 'Enter your student email to sign in. No password needed.'}</p>
         {messages[status] ? <p role="status" className={`mb-5 rounded-xl px-4 py-3 text-sm ${status === 'signed-out' ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>{messages[status]}</p> : null}
         <LoginForm next={next} signingUp={signingUp} />
         <p className="mt-6 border-t border-slate-100 pt-5 text-center text-xs leading-6 text-slate-500">One email, one account. Your first sign-in creates your account automatically.</p>
