@@ -1,5 +1,7 @@
 # Ajde - Student ride sharing between Macedonian cities
 
+**NOTE:** this project has now been moved and is being worked on in the [ajde org](https://github.com/ajde-org).
+
 Ajde helps students in Skopje find a shared ride home to their city, split the real fuel cost, and
 keep extra cars off the road. Drivers describe a trip the way they'd write it in a Viber group, or
 upload a screenshot of their Facebook post, and AI turns it into a checked ride listing they review
